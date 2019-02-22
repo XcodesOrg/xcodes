@@ -17,10 +17,9 @@ let list = Command(usage: "list") { _, _ in
         manager.client.validateSession()
     }
     .recover { error -> Promise<Void> in
-        print("Username: ")
+        print("Username: ", terminator: "")
         let username = readLine() ?? ""
-        print("Password: ")
-        let password = readLine() ?? ""
+        let password = readSecureLine(prompt: "Password: ") ?? ""
 
         return manager.client.login(accountName: username, password: password)
     }
