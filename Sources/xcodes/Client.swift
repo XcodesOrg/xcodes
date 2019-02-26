@@ -19,8 +19,6 @@ class Client {
 
     func login(accountName: String, password: String) -> Promise<Void> {
         var serviceKey: String!
-        var sessionID: String!
-        var scnt: String!
 
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             URLSession.shared.dataTask(.promise, with: URLRequest.itcServiceKey)
@@ -35,12 +33,26 @@ class Client {
 
             return URLSession.shared.dataTask(.promise, with: URLRequest.signIn(serviceKey: serviceKey, accountName: accountName, password: password))
         }
-        .then { (data, response) -> Promise<(data: Data, response: URLResponse)> in
+        .then { (data, response) -> Promise<Void> in
             let httpResponse = response as! HTTPURLResponse
-            sessionID = (httpResponse.allHeaderFields["X-Apple-ID-Session-Id"] as! String)
-            scnt = (httpResponse.allHeaderFields["scnt"] as! String)
+            switch httpResponse.statusCode {
+            case 200:
+                return URLSession.shared.dataTask(.promise, with: URLRequest.olympusSession).asVoid()
+            case 409:
+                return self.handleTwoFactor(data: data, response: response, serviceKey: serviceKey)
+            default:
+                fatalError("Unexpected response status code while signing in: \(httpResponse)")
+            }
+        }
+    }
 
-            return URLSession.shared.dataTask(.promise, with: URLRequest.authOptions(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt))
+    func handleTwoFactor(data: Data, response: URLResponse, serviceKey: String) -> Promise<Void> {
+        let httpResponse = response as! HTTPURLResponse
+        let sessionID = (httpResponse.allHeaderFields["X-Apple-ID-Session-Id"] as! String)
+        let scnt = (httpResponse.allHeaderFields["scnt"] as! String)
+
+        return firstly { () -> Promise<(data: Data, response: URLResponse)> in
+            URLSession.shared.dataTask(.promise, with: URLRequest.authOptions(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt))
         }
         .then { (data, response) -> Promise<(data: Data, response: URLResponse)> in
             print("Enter the code: ")
@@ -50,7 +62,7 @@ class Client {
         .then { (data, response) -> Promise<(data: Data, response: URLResponse)>  in
             URLSession.shared.dataTask(.promise, with: URLRequest.trust(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt))
         }
-        .then { _, _ in
+        .then { (data, response) -> Promise<Void> in
             URLSession.shared.dataTask(.promise, with: URLRequest.olympusSession).asVoid()
         }
     }
