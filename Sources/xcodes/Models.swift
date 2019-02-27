@@ -17,16 +17,23 @@ struct InstalledXcode {
 
 struct Xcode: Codable {
     let version: Version
+    let url: URL
 
-    init?(name: String) {
+    init?(name: String, url: URL) {
         let versionString = name.replacingOccurrences(of: "Xcode ", with: "").split(separator: " ").map(String.init).first ?? ""
         guard let version = Version(tolerant: versionString) else { return nil }
         self.version =  version
+        self.url = url
     }
 }
 
 struct Download: Decodable {
     let name: String
+    let files: [File]
+
+    struct File: Decodable {
+        let remotePath: String
+    }
 }
 
 struct InfoPlist: Decodable {

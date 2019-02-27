@@ -39,7 +39,15 @@ class XcodeManager {
             let xcodes = downloads
                 .downloads
                 .filter { $0.name.range(of: "^Xcode [0-9]", options: .regularExpression) != nil }
-                .compactMap { Xcode(name: $0.name) }
+                .compactMap { download -> Xcode? in
+                    let urlPrefix = "https://developer.apple.com/devcenter/download.action?path="
+                    guard 
+                        let xcodeFile = download.files.first(where: { $0.remotePath.hasSuffix("dmg") || $0.remotePath.hasSuffix("xip") }),
+                        let url = URL(string: urlPrefix + xcodeFile.remotePath)
+                    else { return nil }
+
+                    return Xcode(name: download.name, url: url)
+                }
 
             self.availableXcodes = xcodes
             try? self.cacheAvailableXcodes(xcodes)
