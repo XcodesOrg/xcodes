@@ -13,8 +13,8 @@ let installed = Command(usage: "installed") { _, _ in
 }
 
 let list = Command(usage: "list") { _, _ in
-    return firstly {
-        manager.client.validateSession()
+    firstly { () -> Promise<Void> in
+        return manager.client.validateSession()
     }
     .recover { error -> Promise<Void> in
         print("Username: ", terminator: "")
@@ -23,21 +23,11 @@ let list = Command(usage: "list") { _, _ in
 
         return manager.client.login(accountName: username, password: password)
     }
-    .then { () -> Promise<(data: Data, response: URLResponse)> in
-        return URLSession.shared.dataTask(.promise, with: URLRequest.downloads)
+    .then { () -> Promise<[Xcode]> in
+        return manager.update()
     }
-    .map { (data, response) -> [Download] in
-        struct Downloads: Decodable {
-            let downloads: [Download]
-        }
-
-        let downloads = try JSONDecoder().decode(Downloads.self, from: data)
-        return downloads.downloads
-    }
-    .done { downloads in
-        downloads
-            .filter { $0.name.range(of: "^Xcode [0-9]", options: .regularExpression) != nil }
-            .compactMap { Xcode(name: $0.name) }
+    .done { xcodes in
+        xcodes
             .sorted { $0.version < $1.version }
             .forEach { xcode in
                 if manager.installedXcodes.contains(where: { $0.bundleVersion == xcode.version }) {
