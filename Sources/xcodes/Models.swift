@@ -15,7 +15,7 @@ struct InstalledXcode {
     }
 }
 
-struct Xcode {
+struct Xcode: Codable {
     let version: Version
 
     init?(name: String) {
