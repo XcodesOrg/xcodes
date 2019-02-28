@@ -18,12 +18,14 @@ struct InstalledXcode {
 struct Xcode: Codable {
     let version: Version
     let url: URL
+    let filename: String
 
-    init?(name: String, url: URL) {
+    init?(name: String, url: URL, filename: String) {
         let versionString = name.replacingOccurrences(of: "Xcode ", with: "").split(separator: " ").map(String.init).first ?? ""
         guard let version = Version(tolerant: versionString) else { return nil }
         self.version =  version
         self.url = url
+        self.filename = filename
     }
 }
 

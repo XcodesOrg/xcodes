@@ -1,6 +1,8 @@
 import Foundation
 import Path
+import Version
 import PromiseKit
+import PMKFoundation
 
 class XcodeManager {
     let client = Client()
@@ -46,7 +48,7 @@ class XcodeManager {
                         let url = URL(string: urlPrefix + xcodeFile.remotePath)
                     else { return nil }
 
-                    return Xcode(name: download.name, url: url)
+                    return Xcode(name: download.name, url: url, filename: String(xcodeFile.remotePath.suffix(fromLast: "/")))
                 }
 
             self.availableXcodes = xcodes
@@ -54,10 +56,22 @@ class XcodeManager {
             return xcodes
         }
     }
+
+    func downloadVersion(_ version: Version) -> (Progress, Promise<Void>) {
+        guard let xcode = availableXcodes.first(where: { $0.version == version }) else { exit(1) }
+        return downloadXcode(xcode)
+    }
+
+    func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<Void>) {
+        let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: ".")))"
+        let (progress, promise) = URLSession.shared.downloadTask(.promise, with: xcode.url, to: destination.url)
+        return (progress, promise.asVoid())
+    }
 }
 
 extension XcodeManager {
-    private static let cacheFilePath = Path.applicationSupport/"ca.brandonevans.xcodes"/"available-xcodes.json"
+    private static let applicationSupportPath = Path.applicationSupport/"ca.brandonevans.xcodes"
+    private static let cacheFilePath = applicationSupportPath/"available-xcodes.json"
 
     private func loadCachedAvailableXcodes() throws {
         let data = try Data(contentsOf: XcodeManager.cacheFilePath.url)
@@ -70,5 +84,33 @@ extension XcodeManager {
         try FileManager.default.createDirectory(at: XcodeManager.cacheFilePath.url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try data.write(to: XcodeManager.cacheFilePath.url)
+    }
+}
+
+extension URLSession {
+    public func downloadTask(_: PMKNamespacer, with convertible: URLRequestConvertible, to saveLocation: URL) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
+        var progress: Progress!
+
+        let promise = Promise<(saveLocation: URL, response: URLResponse)> { seal in
+            let task = URLSession.shared.downloadTask(with: convertible.pmkRequest, completionHandler: { temporaryURL, response, error in
+                if let error = error {
+                    dump(error)
+                    seal.reject(error)
+                } else if let response = response, let temporaryURL = temporaryURL {
+                    do {
+                        try FileManager.default.moveItem(at: temporaryURL, to: saveLocation)
+                        seal.fulfill((saveLocation, response))
+                    } catch {
+                        seal.reject(error)
+                    }
+                } else {
+                    seal.reject(PMKError.invalidCallingConvention)
+                }
+            })
+            progress = task.progress
+            task.resume()
+        }
+
+        return (progress, promise)
     }
 }

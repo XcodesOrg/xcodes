@@ -7,6 +7,10 @@ import PMKFoundation
 
 let manager = XcodeManager()
 
+enum Error: Swift.Error {
+    case invalidVersion(String)
+}
+
 func loginIfNeeded() -> Promise<Void> {
     return firstly { () -> Promise<Void> in
         return manager.client.validateSession()
@@ -73,10 +77,38 @@ let update = Command(usage: "update") { _, _ in
     updateAndPrint()
 }
 
+let install = Command(usage: "install <version>") { _, args in
+    firstly { () -> Promise<Version> in
+        guard 
+            let versionString = args.first,
+            let version = Version(tolerant: versionString)
+        else { 
+            throw Error.invalidVersion(args.first ?? "")
+        }
+
+        return loginIfNeeded().map { version }
+    }
+    .map { version -> Promise<Void> in
+        let (progress, promise) = manager.downloadVersion(version)
+
+        let formatter = NumberFormatter(numberStyle: .percent)
+        let observation = progress.observe(\.fractionCompleted) { progress, _ in
+            print("Downloaded " + formatter.string(from: progress.fractionCompleted)!)
+        }
+
+        return promise.done { observation.invalidate() }
+    }
+    .catch { error in
+        print(String(describing: error))
+        exit(1)
+    }
+}
+
 let app = Command(usage: "xcodes")
 app.add(subCommand: installed)
 app.add(subCommand: list)
 app.add(subCommand: update)
+app.add(subCommand: install)
 app.execute()
 
 RunLoop.current.run()
