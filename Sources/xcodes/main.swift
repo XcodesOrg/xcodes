@@ -78,25 +78,34 @@ let update = Command(usage: "update") { _, _ in
 }
 
 let install = Command(usage: "install <version>") { _, args in
-    firstly { () -> Promise<Version> in
+    firstly { () -> Promise<Xcode> in
         guard 
             let versionString = args.first,
-            let version = Version(tolerant: versionString)
+            let version = Version(tolerant: versionString),
+            let xcode = manager.availableXcodes.first(where: { $0.version == version })
         else { 
             throw Error.invalidVersion(args.first ?? "")
         }
 
-        return loginIfNeeded().map { version }
+        return loginIfNeeded().map { xcode }
     }
-    .map { version -> Promise<Void> in
-        let (progress, promise) = manager.downloadVersion(version)
+    .then { xcode -> Promise<(Xcode, URL)> in
+        let (progress, promise) = manager.downloadXcode(xcode)
 
         let formatter = NumberFormatter(numberStyle: .percent)
         let observation = progress.observe(\.fractionCompleted) { progress, _ in
             print("Downloaded " + formatter.string(from: progress.fractionCompleted)!)
         }
 
-        return promise.done { observation.invalidate() }
+        return promise
+            .get { _ in observation.invalidate() }
+            .map { return (xcode, $0) }
+    }
+    .then { xcode, url -> Promise<Void> in
+        return manager.installer.installArchivedXcode(xcode, at: url)
+    }
+    .done {
+        exit(0)
     }
     .catch { error in
         print(String(describing: error))

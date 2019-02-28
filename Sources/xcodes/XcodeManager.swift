@@ -6,6 +6,7 @@ import PMKFoundation
 
 class XcodeManager {
     let client = Client()
+    let installer = XcodeInstaller()
 
     init() {
         try? loadCachedAvailableXcodes()
@@ -57,15 +58,10 @@ class XcodeManager {
         }
     }
 
-    func downloadVersion(_ version: Version) -> (Progress, Promise<Void>) {
-        guard let xcode = availableXcodes.first(where: { $0.version == version }) else { exit(1) }
-        return downloadXcode(xcode)
-    }
-
-    func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<Void>) {
+    func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<URL>) {
         let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: ".")))"
         let (progress, promise) = URLSession.shared.downloadTask(.promise, with: xcode.url, to: destination.url)
-        return (progress, promise.asVoid())
+        return (progress, promise.map { $0.saveLocation })
     }
 }
 
