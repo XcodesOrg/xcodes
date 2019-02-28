@@ -2,11 +2,13 @@ import Foundation
 import PromiseKit
 import Path
 
-final class XcodeInstaller {
+public final class XcodeInstaller {
     static let XcodeTeamIdentifier = "59GAB85EFG"
     static let XcodeCertificateAuthority = "Apple Mac OS Application Signing"
 
-    func installArchivedXcode(_ xcode: Xcode, at url: URL) -> Promise<Void> {
+    public init() {}
+
+    public func installArchivedXcode(_ xcode: Xcode, at url: URL) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = Path.root.join("Applications").join("Xcode.app").url
             switch url.pathExtension {
@@ -64,10 +66,10 @@ final class XcodeInstaller {
                           $0.authority.contains(XcodeInstaller.XcodeCertificateAuthority) }
     }
 
-    struct CertificateInfo {
-        var authority: [String]
-        var teamIdentifier: String
-        var bundleIdentifier: String
+    public struct CertificateInfo {
+        public var authority: [String]
+        public var teamIdentifier: String
+        public var bundleIdentifier: String
     }
 
     func gatherCertificateInfo(for url: URL) -> Promise<CertificateInfo> {
@@ -80,7 +82,7 @@ final class XcodeInstaller {
             }
     }
 
-    func parseCertificateInfo(_ rawInfo: String) -> CertificateInfo {
+    public func parseCertificateInfo(_ rawInfo: String) -> CertificateInfo {
         var info = CertificateInfo(authority: [], teamIdentifier: "", bundleIdentifier: "")
 
         for part in rawInfo.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines) {

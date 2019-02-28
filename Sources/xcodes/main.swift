@@ -1,9 +1,8 @@
 import Foundation
 import Guaka
-import Path
 import Version
 import PromiseKit
-import PMKFoundation
+import XcodesKit
 
 let manager = XcodeManager()
 

@@ -2,12 +2,12 @@ import Foundation
 import Path
 import Version
 
-struct InstalledXcode {
-    let path: Path
-    let bundleVersion: Version
+public struct InstalledXcode {
+    public let path: Path
+    public let bundleVersion: Version
 
 
-    init(path: Path) {
+    public init(path: Path) {
         self.path = path
         let infoPlistPath = path.join("Contents").join("Info.plist")
         let infoPlist = try! PropertyListDecoder().decode(InfoPlist.self, from: try! Data(contentsOf: infoPlistPath.url))
@@ -15,12 +15,12 @@ struct InstalledXcode {
     }
 }
 
-struct Xcode: Codable {
-    let version: Version
-    let url: URL
-    let filename: String
+public struct Xcode: Codable {
+    public let version: Version
+    public let url: URL
+    public let filename: String
 
-    init?(name: String, url: URL, filename: String) {
+    public init?(name: String, url: URL, filename: String) {
         let versionString = name.replacingOccurrences(of: "Xcode ", with: "").split(separator: " ").map(String.init).first ?? ""
         guard let version = Version(tolerant: versionString) else { return nil }
         self.version =  version
@@ -29,20 +29,20 @@ struct Xcode: Codable {
     }
 }
 
-struct Download: Decodable {
-    let name: String
-    let files: [File]
+public struct Download: Decodable {
+    public let name: String
+    public let files: [File]
 
-    struct File: Decodable {
-        let remotePath: String
+    public struct File: Decodable {
+        public let remotePath: String
     }
 }
 
-struct InfoPlist: Decodable {
-    let bundleID: String?
-    let bundleShortVersion: String?
+public struct InfoPlist: Decodable {
+    public let bundleID: String?
+    public let bundleShortVersion: String?
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case bundleID = "CFBundleIdentifier"
         case bundleShortVersion = "CFBundleShortVersionString"
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-extension BidirectionalCollection where Element: Equatable {
+public extension BidirectionalCollection where Element: Equatable {
     func suffix(fromLast delimiter: Element) -> Self.SubSequence {
         guard 
             let lastIndex = lastIndex(of: delimiter),
@@ -10,7 +10,7 @@ extension BidirectionalCollection where Element: Equatable {
     }
 }
 
-extension NumberFormatter {
+public extension NumberFormatter {
     convenience init(numberStyle: NumberFormatter.Style) {
         self.init()
         self.numberStyle = numberStyle

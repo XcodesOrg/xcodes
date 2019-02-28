@@ -4,15 +4,15 @@ import Version
 import PromiseKit
 import PMKFoundation
 
-class XcodeManager {
-    let client = Client()
-    let installer = XcodeInstaller()
+public final class XcodeManager {
+    public let client = Client()
+    public let installer = XcodeInstaller()
 
-    init() {
+    public init() {
         try? loadCachedAvailableXcodes()
     }
 
-    var installedXcodes: [InstalledXcode] {
+    public var installedXcodes: [InstalledXcode] {
         let results = try! Path.root.join("Applications").ls().filter { entry in
             guard entry.kind == .directory && entry.path.extension == "app" && !entry.path.isSymlink else { return false }
             let infoPlistPath = entry.path.join("Contents").join("Info.plist")
@@ -23,13 +23,13 @@ class XcodeManager {
         return installedXcodes
     }
 
-    private(set) var availableXcodes: [Xcode] = []
+    public private(set) var availableXcodes: [Xcode] = []
 
-    var shouldUpdate: Bool {
+    public var shouldUpdate: Bool {
         return availableXcodes.isEmpty
     }
 
-    func update() -> Promise<[Xcode]> {
+    public func update() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             URLSession.shared.dataTask(.promise, with: URLRequest.downloads)
         }
@@ -58,7 +58,7 @@ class XcodeManager {
         }
     }
 
-    func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<URL>) {
+    public func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<URL>) {
         let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: ".")))"
         let (progress, promise) = URLSession.shared.downloadTask(.promise, with: xcode.url, to: destination.url)
         return (progress, promise.map { $0.saveLocation })

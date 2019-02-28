@@ -3,6 +3,10 @@ import PackageDescription
 
 let package = Package(
     name: "xcodes",
+    products: [
+        .executable(name: "xcodes", targets: ["xcodes"]),
+        .library(name: "XcodesKit", targets: ["XcodesKit"]),
+    ],
     dependencies: [
         .package(url: "https://github.com/nsomar/Guaka.git", .upToNextMinor(from: "0.3.1")),
         .package(url: "https://github.com/mxcl/Path.swift.git", .upToNextMinor(from: "0.16.0")),
@@ -14,10 +18,18 @@ let package = Package(
         .target(
             name: "xcodes",
             dependencies: [
-                "Guaka", "Path", "Version", "PromiseKit", "PMKFoundation"
+                "Guaka", "XcodesKit"
             ]),
         .testTarget(
             name: "xcodesTests",
             dependencies: ["xcodes"]),
+        .target(
+            name: "XcodesKit",
+            dependencies: [
+                "Guaka", "Path", "Version", "PromiseKit", "PMKFoundation"
+            ]),
+        .testTarget(
+            name: "XcodesKitTests",
+            dependencies: ["XcodesKit"]),
     ]
 )

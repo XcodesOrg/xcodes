@@ -1,13 +1,13 @@
 import Foundation
 import PromiseKit
 
-class Client {
-    enum Error: Swift.Error {
+public class Client {
+    public enum Error: Swift.Error {
         case invalidSession
     }
 
     /// Use the olympus session endpoint to see if the existing session is still valid
-    func validateSession() -> Promise<Void> {
+    public func validateSession() -> Promise<Void> {
         return URLSession.shared.dataTask(.promise, with: URLRequest.olympusSession)
         .done { data, response in
             guard 
@@ -17,7 +17,7 @@ class Client {
         }
     }
 
-    func login(accountName: String, password: String) -> Promise<Void> {
+    public func login(accountName: String, password: String) -> Promise<Void> {
         var serviceKey: String!
 
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
@@ -46,7 +46,7 @@ class Client {
         }
     }
 
-    func handleTwoFactor(data: Data, response: URLResponse, serviceKey: String) -> Promise<Void> {
+    public func handleTwoFactor(data: Data, response: URLResponse, serviceKey: String) -> Promise<Void> {
         let httpResponse = response as! HTTPURLResponse
         let sessionID = (httpResponse.allHeaderFields["X-Apple-ID-Session-Id"] as! String)
         let scnt = (httpResponse.allHeaderFields["scnt"] as! String)
