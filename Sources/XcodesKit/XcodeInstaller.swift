@@ -6,6 +6,10 @@ public final class XcodeInstaller {
     static let XcodeTeamIdentifier = "59GAB85EFG"
     static let XcodeCertificateAuthority = "Apple Mac OS Application Signing"
 
+    enum Error: Swift.Error {
+        case failedSecurityAssessment
+    }
+
     public init() {}
 
     public func installArchivedXcode(_ xcode: Xcode, at url: URL) -> Promise<Void> {
@@ -23,8 +27,11 @@ public final class XcodeInstaller {
         }
         .then { xcode -> Promise<InstalledXcode> in
             return when(fulfilled: self.verifySecurityAssessment(of: xcode.path.url),
-                        self.verifySigningCertificate(of: xcode.path.url))
-                .map { _ in return xcode }
+                                   self.verifySigningCertificate(of: xcode.path.url))
+                .map { validAssessment, validCert -> InstalledXcode in
+                    guard validAssessment && validCert else { throw Error.failedSecurityAssessment }
+                    return xcode
+                }
         }
         .then { xcode -> Promise<InstalledXcode> in
             self.enableDeveloperMode().map { xcode }
