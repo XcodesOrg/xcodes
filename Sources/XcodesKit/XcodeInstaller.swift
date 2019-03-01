@@ -82,9 +82,7 @@ public final class XcodeInstaller {
         return Current.shell.codesignVerify(url)
             .map { output in
                 guard output.status == 0 else { exit(output.status) }
-
-                let rawInfo = String(data: output.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)!
-                return self.parseCertificateInfo(rawInfo)
+                return self.parseCertificateInfo(output.out)
             }
     }
 
@@ -123,12 +121,9 @@ public final class XcodeInstaller {
         }
         .then { () -> Promise<(String, String, String)> in
             return when(fulfilled:
-                Current.shell.getUserCacheDir()
-                    .map { String(data: $0.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)! },
-                Current.shell.buildVersion()
-                    .map { String(data: $0.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)! },
-                Current.shell.xcodeBuildVersion(xcode)
-                    .map { String(data: $0.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)! }
+                Current.shell.getUserCacheDir().map { $0.out },
+                Current.shell.buildVersion().map { $0.out },
+                Current.shell.xcodeBuildVersion(xcode).map { $0.out }
             )
         }
         .then { cacheDirectory, macOSBuildVersion, toolsVersion -> Promise<Void> in

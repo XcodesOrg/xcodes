@@ -3,7 +3,7 @@ import PromiseKit
 import PMKFoundation
 import Path
 
-typealias ProcessOutput = (status: Int32, out: Pipe, err: Pipe)
+typealias ProcessOutput = (status: Int32, out: String, err: String)
 
 extension Process {
     @discardableResult
@@ -17,6 +17,10 @@ extension Process {
         process.currentDirectoryURL = executable.deletingLastPathComponent()
         process.executableURL = executable
         process.arguments = arguments
-        return process.launch(.promise).map { std in (process.terminationStatus, std.out, std.err) }
+        return process.launch(.promise).map { std in 
+            let output = String(data: std.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let error = String(data: std.err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            return (process.terminationStatus, output, error)
+        }
     }
 }
