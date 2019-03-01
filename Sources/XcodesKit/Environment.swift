@@ -11,6 +11,7 @@ import Path
  */
 struct Environment {
     var shell = Shell()
+    var files = Files()
 }
 
 var Current = Environment()
@@ -27,4 +28,18 @@ struct Shell {
     var xcodeBuildVersion: (InstalledXcode) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.libexec.PlistBuddy, "-c", "\"Print :ProductBuildVersion\"", "\"\($0.path.string)/Contents/version.plist\"") }
     var getUserCacheDir: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.getconf, "DARWIN_USER_CACHE_DIR") }
     var touchInstallCheck: (String, String, String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin/"touch", "\($0)com.apple.dt.Xcode.InstallCheckCache_\($1)_\($2)") }
+}
+
+struct Files {
+    var fileExistsAtPath: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+
+    func fileExists(atPath path: String) -> Bool {
+        return fileExistsAtPath(path)
+    }
+
+    var moveItem: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }
+
+    func moveItem(at srcURL: URL, to dstURL: URL) throws {
+        try moveItem(srcURL, dstURL)
+    }
 }

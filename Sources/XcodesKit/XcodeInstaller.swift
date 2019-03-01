@@ -51,11 +51,11 @@ public final class XcodeInstaller {
         .map { output -> URL in
             let xcodeURL = source.deletingLastPathComponent().appendingPathComponent("Xcode.app")
             let xcodeBetaURL = source.deletingLastPathComponent().appendingPathComponent("Xcode-Beta.app")
-            if FileManager.default.fileExists(atPath: xcodeURL.path) {
-                try FileManager.default.moveItem(at: xcodeURL, to: destination)
+            if Current.files.fileExists(atPath: xcodeURL.path) {
+                try Current.files.moveItem(at: xcodeURL, to: destination)
             }
-            else if FileManager.default.fileExists(atPath: xcodeBetaURL.path) {
-                try FileManager.default.moveItem(at: xcodeBetaURL, to: destination)
+            else if Current.files.fileExists(atPath: xcodeBetaURL.path) {
+                try Current.files.moveItem(at: xcodeBetaURL, to: destination)
             }
 
             return destination
