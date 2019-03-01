@@ -25,8 +25,4 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(info.teamIdentifier, "59GAB85EFG")
         XCTAssertEqual(info.bundleIdentifier, "com.apple.dt.Xcode")
     }
-
-    static var allTests = [
-        ("testParseCertificateInfo", testParseCertificateInfo),
-    ]
 }
