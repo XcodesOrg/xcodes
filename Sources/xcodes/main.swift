@@ -7,6 +7,7 @@ import XcodesKit
 let manager = XcodeManager()
 
 enum Error: Swift.Error {
+    case missingUsernameOrPassword
     case invalidVersion(String)
 }
 
@@ -15,9 +16,10 @@ func loginIfNeeded() -> Promise<Void> {
         return manager.client.validateSession()
     }
     .recover { error -> Promise<Void> in
-        print("Username: ", terminator: "")
-        let username = readLine() ?? ""
-        let password = readSecureLine(prompt: "Password: ") ?? ""
+        guard
+            let username = env("XCODES_USERNAME") ?? readLine(prompt: "Username: "),
+            let password = readSecureLine(prompt: "Password: ")
+        else { throw Error.missingUsernameOrPassword }
 
         return manager.client.login(accountName: username, password: password)
     }

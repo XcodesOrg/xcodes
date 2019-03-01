@@ -28,3 +28,12 @@ func readSecureLine(prompt: String, maximumLength: Int = 8192) -> String? {
 
     return String(validatingUTF8: passwordData)
 }
+
+func readLine(prompt: String) -> String? {
+    print(prompt, terminator: "")
+    return readLine()
+}
+
+func env(_ key: String) -> String? {
+    return ProcessInfo.processInfo.environment[key]
+}
