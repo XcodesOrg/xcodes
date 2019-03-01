@@ -46,7 +46,7 @@ public final class XcodeInstaller {
 
     func unarchiveAndMoveXIP(at source: URL, to destination: URL) throws -> Promise<URL> {
         return firstly { () -> Promise<ProcessOutput> in
-            return run(Path.root.usr.bin.xip, "--expand", source.path)
+            return Current.shell.unxip(source)
         }
         .map { output -> URL in
             let xcodeURL = source.deletingLastPathComponent().appendingPathComponent("Xcode.app")
@@ -63,8 +63,7 @@ public final class XcodeInstaller {
     }
 
     func verifySecurityAssessment(of url: URL) -> Promise<Bool> {
-        return run(Path.root.usr.sbin.spctl, "--assess", "--verbose", "--type", "execute", url.path)
-            .map { $0.status == 0 }
+        return Current.shell.spctlAssess(url).map { $0.status == 0 }
     }
 
     func verifySigningCertificate(of url: URL) -> Promise<Bool> {
@@ -80,7 +79,7 @@ public final class XcodeInstaller {
     }
 
     func gatherCertificateInfo(for url: URL) -> Promise<CertificateInfo> {
-        return run(Path.root.usr.bin.codesign, "-vv", "-d", "\"\(url.path)\"")
+        return Current.shell.codesignVerify(url)
             .map { output in
                 guard output.status == 0 else { exit(output.status) }
 
@@ -108,32 +107,32 @@ public final class XcodeInstaller {
     }
 
     func enableDeveloperMode() -> Promise<Void> {
-        return run(Path.root.usr.bin.sudo, "/usr/sbin/DevToolsSecurity", "-enable")
+        return Current.shell.devToolsSecurityEnable()
             .then { _ in
-                return run(Path.root.usr.bin.sudo, "/usr/sbin/dseditgroup", "-o", "edit", "-t", "group", "-a", "staff", "_developer").asVoid()
+                return Current.shell.addStaffToDevelopersGroup().asVoid()
             }
     }
 
     func approveLicense(for xcode: InstalledXcode) -> Promise<Void> {
-        return run(Path.root.usr.bin.sudo, xcode.path.join("/Contents/Developer/usr/bin/xcodebuild").string, "-license", "accept").asVoid()
+        return Current.shell.acceptXcodeLicense(xcode).asVoid()
     }
 
     func installComponents(for xcode: InstalledXcode) -> Promise<Void> {
         return firstly { () -> Promise<Void> in
-            run(Path.root.usr.bin.sudo, xcode.path.join("/Contents/Developer/usr/bin/xcodebuild").string, "-runFirstLaunch").asVoid()
+            Current.shell.runFirstLaunch(xcode).asVoid()
         }
         .then { () -> Promise<(String, String, String)> in
             return when(fulfilled:
-                run(Path.root.usr.bin.sw_vers, "-buildVersion")
+                Current.shell.getUserCacheDir()
                     .map { String(data: $0.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)! },
-                run(Path.root.usr.libexec.PlistBuddy, "-c", "\"Print :ProductBuildVersion\"", "\"\(xcode.path.string)/Contents/version.plist\"")
+                Current.shell.buildVersion()
                     .map { String(data: $0.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)! },
-                run(Path.root.usr.bin.getconf, "DARWIN_USER_CACHE_DIR")
+                Current.shell.xcodeBuildVersion(xcode)
                     .map { String(data: $0.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)! }
             )
         }
-        .then { macOSBuildVersion, toolsVersion, cacheDirectory -> Promise<Void> in
-            return run(Path.root.usr.bin/"touch", "\(cacheDirectory)com.apple.dt.Xcode.InstallCheckCache_\(macOSBuildVersion)_\(toolsVersion)").asVoid()
+        .then { cacheDirectory, macOSBuildVersion, toolsVersion -> Promise<Void> in
+            return Current.shell.touchInstallCheck(cacheDirectory, macOSBuildVersion, toolsVersion).asVoid()
         }
     }
 }
