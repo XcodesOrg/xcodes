@@ -59,7 +59,7 @@ public final class XcodeManager {
     }
 
     public func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<URL>) {
-        let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: ".")))"
+        let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
         let (progress, promise) = URLSession.shared.downloadTask(.promise, with: xcode.url, to: destination.url)
         return (progress, promise.map { $0.saveLocation })
     }
