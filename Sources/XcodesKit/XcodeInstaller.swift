@@ -8,6 +8,7 @@ public final class XcodeInstaller {
 
     enum Error: Swift.Error {
         case failedSecurityAssessment
+        case codesignVerifyFailed
     }
 
     public init() {}
@@ -81,7 +82,7 @@ public final class XcodeInstaller {
     func gatherCertificateInfo(for url: URL) -> Promise<CertificateInfo> {
         return Current.shell.codesignVerify(url)
             .map { output in
-                guard output.status == 0 else { exit(output.status) }
+                guard output.status == 0 else { throw Error.codesignVerifyFailed }
                 return self.parseCertificateInfo(output.out)
             }
     }
