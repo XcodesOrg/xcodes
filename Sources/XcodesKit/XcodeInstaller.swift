@@ -15,7 +15,7 @@ public final class XcodeInstaller {
 
     public func installArchivedXcode(_ xcode: Xcode, at url: URL) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
-            let destinationURL = Path.root.join("Applications").join("Xcode.app").url
+            let destinationURL = Path.root.join("Applications").join("Xcode-\(xcode.version).app").url
             switch url.pathExtension {
             case "xip":
                 return try unarchiveAndMoveXIP(at: url, to: destinationURL)
