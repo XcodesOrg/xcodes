@@ -83,7 +83,8 @@ public final class XcodeInstaller {
         return Current.shell.codesignVerify(url)
             .map { output in
                 guard output.status == 0 else { throw Error.codesignVerifyFailed }
-                return self.parseCertificateInfo(output.out)
+                // codesign prints to stderr
+                return self.parseCertificateInfo(output.err)
             }
     }
 
