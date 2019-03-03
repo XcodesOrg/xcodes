@@ -4,7 +4,7 @@ import Path
 
 public final class XcodeInstaller {
     static let XcodeTeamIdentifier = "59GAB85EFG"
-    static let XcodeCertificateAuthority = "Apple Mac OS Application Signing"
+    static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
 
     enum Error: Swift.Error {
         case failedSecurityAssessment
@@ -70,7 +70,7 @@ public final class XcodeInstaller {
     func verifySigningCertificate(of url: URL) -> Promise<Bool> {
         return gatherCertificateInfo(for: url)
             .map { return $0.teamIdentifier == XcodeInstaller.XcodeTeamIdentifier &&
-                          $0.authority.contains(XcodeInstaller.XcodeCertificateAuthority) }
+                          $0.authority == XcodeInstaller.XcodeCertificateAuthority }
     }
 
     public struct CertificateInfo {
