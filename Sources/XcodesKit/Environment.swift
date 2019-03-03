@@ -17,9 +17,9 @@ struct Environment {
 var Current = Environment()
 
 struct Shell {
-    var unxip: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, "--expand", "\"\($0.path)\"") }
     var spctlAssess: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.spctl, "--assess", "--verbose", "--type", "execute", "\"\($0.path)\"") }
     var codesignVerify: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.codesign, "-vv", "-d", "\"\($0.path)\"") }
+    var unxip: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, workingDirectory: $0.deletingLastPathComponent(), "--expand", "\"\($0.path)\"") }
     var devToolsSecurityEnable: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, "/usr/sbin/DevToolsSecurity", "-enable") }
     var addStaffToDevelopersGroup: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, "/usr/sbin/dseditgroup", "-o", "edit", "-t", "group", "-a", "staff", "_developer") }
     var acceptXcodeLicense: (InstalledXcode) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, $0.path.join("/Contents/Developer/usr/bin/xcodebuild").string, "-license", "accept") }
