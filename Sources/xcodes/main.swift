@@ -78,17 +78,9 @@ let update = Command(usage: "update") { _, _ in
     updateAndPrint()
 }
 
-let install = Command(usage: "install <version>") { _, args in
-    firstly { () -> Promise<Xcode> in
-        guard 
-            let versionString = args.first,
-            let version = Version(tolerant: versionString),
-            let xcode = manager.availableXcodes.first(where: { $0.version == version })
-        else { 
-            throw Error.invalidVersion(args.first ?? "")
-        }
-
-        return loginIfNeeded().map { xcode }
+func downloadXcode(_ xcode: Xcode) -> Promise<(Xcode, URL)> {
+    return firstly { () -> Promise<Xcode> in
+        loginIfNeeded().map { xcode }
     }
     .then { xcode -> Promise<(Xcode, URL)> in
         let (progress, promise) = manager.downloadXcode(xcode)
@@ -101,6 +93,27 @@ let install = Command(usage: "install <version>") { _, args in
         return promise
             .get { _ in observation.invalidate() }
             .map { return (xcode, $0) }
+    }
+}
+
+let urlFlag = Flag(longName: "url", type: String.self, description: "Local path or HTTP(S) URL (currently unsupported) of Xcode .dmg or .xip.")
+let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, args in
+    firstly { () -> Promise<(Xcode, URL)> in
+        guard 
+            let versionString = args.first,
+            let version = Version(tolerant: versionString),
+            let xcode = manager.availableXcodes.first(where: { $0.version == version })
+        else { 
+            throw Error.invalidVersion(args.first ?? "")
+        }
+
+        if let urlString = flags.getString(name: "url") {
+            let url = URL(fileURLWithPath: urlString, relativeTo: nil)
+            return Promise.value((xcode, url))
+        }
+        else {
+            return downloadXcode(xcode)
+        }
     }
     .then { xcode, url -> Promise<Void> in
         return manager.installer.installArchivedXcode(xcode, at: url)
