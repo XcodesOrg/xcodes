@@ -8,6 +8,7 @@ let manager = XcodeManager()
 
 enum Error: Swift.Error {
     case missingUsernameOrPassword
+    case missingSudoerPassword
     case invalidVersion(String)
 }
 
@@ -116,7 +117,13 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         }
     }
     .then { xcode, url -> Promise<Void> in
-        return manager.installer.installArchivedXcode(xcode, at: url)
+        return manager.installer.installArchivedXcode(xcode, at: url, passwordInput: { () -> Promise<String> in
+            return Promise { seal in
+                print("xcodes requires superuser privileges in order to setup some parts of Xcode.")
+                guard let password = readSecureLine(prompt: "Password: ") else { seal.reject(Error.missingSudoerPassword); return }
+                seal.fulfill(password + "\n")
+            }
+        })
     }
     .done {
         exit(0)

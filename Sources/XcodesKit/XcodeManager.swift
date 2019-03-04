@@ -19,7 +19,7 @@ public final class XcodeManager {
             let infoPlist = try! PropertyListDecoder().decode(InfoPlist.self, from: try! Data(contentsOf: infoPlistPath.url))
             return infoPlist.bundleID == "com.apple.dt.Xcode"
         }
-        let installedXcodes = results.map { $0.path }.map(InstalledXcode.init)
+        let installedXcodes = results.map { $0.path }.compactMap(InstalledXcode.init)
         return installedXcodes
     }
 

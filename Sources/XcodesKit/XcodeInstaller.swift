@@ -7,19 +7,26 @@ public final class XcodeInstaller {
     static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
 
     enum Error: Swift.Error {
+        case failedToMoveXcodeToApplications
         case failedSecurityAssessment
         case codesignVerifyFailed
     }
 
     public init() {}
 
-    public func installArchivedXcode(_ xcode: Xcode, at url: URL) -> Promise<Void> {
+    public func installArchivedXcode(_ xcode: Xcode, at url: URL, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = Path.root.join("Applications").join("Xcode-\(xcode.version).app").url
             switch url.pathExtension {
             case "xip":
-                return try unarchiveAndMoveXIP(at: url, to: destinationURL)
-                    .map { InstalledXcode(path: Path(url: $0)!) }
+                return try unarchiveAndMoveXIP(at: url, to: destinationURL).map { xcodeURL in
+                    guard 
+                        let path = Path(url: xcodeURL),
+                        Current.files.fileExists(atPath: path.string),
+                        let installedXcode = InstalledXcode(path: path)
+                    else { throw Error.failedToMoveXcodeToApplications }
+                    return installedXcode
+                }
             case "dmg":
                 fatalError()
             default:
@@ -35,13 +42,13 @@ public final class XcodeInstaller {
                 }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            self.enableDeveloperMode().map { xcode }
+            self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            self.approveLicense(for: xcode).map { xcode }
+            self.approveLicense(for: xcode, passwordInput: passwordInput).map { xcode }
         }
         .then { xcode -> Promise<Void> in
-            self.installComponents(for: xcode)
+            self.installComponents(for: xcode, passwordInput: passwordInput)
         }
     }
 
@@ -106,20 +113,42 @@ public final class XcodeInstaller {
         return info
     }
 
-    func enableDeveloperMode() -> Promise<Void> {
-        return Current.shell.devToolsSecurityEnable()
-            .then { _ in
-                return Current.shell.addStaffToDevelopersGroup().asVoid()
-            }
+    func authenticateSudoerIfNecessary(passwordInput: @escaping () -> Promise<String>) -> Promise<String?> {
+        return firstly { () -> Promise<String?> in
+            Current.shell.validateSudoAuthentication().map { _ in return nil }
+        }
+        .recover { _ -> Promise<String?> in
+            return passwordInput().map(Optional.init)
+        }
     }
 
-    func approveLicense(for xcode: InstalledXcode) -> Promise<Void> {
-        return Current.shell.acceptXcodeLicense(xcode).asVoid()
+    func enableDeveloperMode(passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
+        return firstly { () -> Promise<String?> in
+            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+        }
+        .then { possiblePassword -> Promise<String?> in
+            return Current.shell.devToolsSecurityEnable(possiblePassword).map { _ in possiblePassword }
+        }
+        .then { possiblePassword in
+            return Current.shell.addStaffToDevelopersGroup(possiblePassword).asVoid()
+        }
     }
 
-    func installComponents(for xcode: InstalledXcode) -> Promise<Void> {
-        return firstly { () -> Promise<Void> in
-            Current.shell.runFirstLaunch(xcode).asVoid()
+    func approveLicense(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
+        return firstly { () -> Promise<String?> in
+            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+        }
+        .then { possiblePassword in
+            return Current.shell.acceptXcodeLicense(xcode, possiblePassword).asVoid()
+        }
+    }
+
+    func installComponents(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
+        return firstly { () -> Promise<String?> in
+            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+        }
+        .then { possiblePassword -> Promise<Void> in
+            Current.shell.runFirstLaunch(xcode, possiblePassword).asVoid()
         }
         .then { () -> Promise<(String, String, String)> in
             return when(fulfilled:

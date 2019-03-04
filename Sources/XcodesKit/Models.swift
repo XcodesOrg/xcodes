@@ -6,12 +6,18 @@ public struct InstalledXcode {
     public let path: Path
     public let bundleVersion: Version
 
-
-    public init(path: Path) {
+    public init?(path: Path) {
         self.path = path
+
         let infoPlistPath = path.join("Contents").join("Info.plist")
-        let infoPlist = try! PropertyListDecoder().decode(InfoPlist.self, from: try! Data(contentsOf: infoPlistPath.url))
-        self.bundleVersion = Version(tolerant: infoPlist.bundleShortVersion!)!
+        guard 
+            let infoPlistData = Current.files.contents(atPath: infoPlistPath.string),
+            let infoPlist = try? PropertyListDecoder().decode(InfoPlist.self, from: infoPlistData),
+            let bundleShortVersion = infoPlist.bundleShortVersion,
+            let bundleVersion = Version(tolerant: bundleShortVersion)
+        else { return nil }
+
+        self.bundleVersion = bundleVersion
     }
 }
 
