@@ -8,6 +8,14 @@ Xcodes is primarily a command-line tool. The command-line UI code should live in
 
 Using PromiseKit to model asynchronous work. This isn't necessary for a CLI app since it's assumed that the main thread is going to be blocked while work is performed. It provides a little more flexibility for a little more overhead though, and I think it's an okay tradeoff for now.
 
+## Dependency Injection
+
+This is a small project, but because its purpose involves long-running tasks it can be really valuable to have tests that automatically verify its behaviour. A lot of Swift test double designs involve protocols and constructor injection (or worse), which I want to avoid. Another option that I've seen and am curious about is Point Free's Environment type. It looks a lot simpler to implement and grow with a codebase, but still allows setting up test double for tests.
+
+- https://www.pointfree.co/episodes/ep16-dependency-injection-made-easy
+- https://www.pointfree.co/episodes/ep18-dependency-injection-made-comfortable
+- https://vimeo.com/291588126
+
 ## Privilege Escalation
 
 There's no good, supported options for privilege escalation on macOS for Swift CLI programs, and xcodes needs to perform a few things as root to fully set up Xcode.
