@@ -28,3 +28,5 @@ There's no good, supported options for privilege escalation on macOS for Swift C
 - `AuthorizationExecuteWithPrivileges`: deprecated, and unavailable to Swift
 - Reverse engineer functionality requiring sudo: only works for some tasks and is brittle. For example, `xcodebuild -license accept` could be replicated with `authopen` prompting for privilege to write to `/Library/Preferences/com.apple.dt.xcode.plist`.
 - Prompt with `readpassphrase` and pipe to sudo in Process: The downside is the sudoer's passphrase is now in our process for a period of time, but I think this is the least bad option from a mostly-practical perspective.
+
+"No clear best practice for privilege escalation in Swift CLI tool" https://openradar.appspot.com/radar?id=4972869587042304, rdar://48587226
