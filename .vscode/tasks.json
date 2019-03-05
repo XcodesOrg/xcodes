@@ -5,7 +5,7 @@
             "label": "swift-build",
             "type": "shell",
             "command": "swift",
-            "args": ["build"],
+            "args": ["build", "-Xswiftc", "\"-target\"", "-Xswiftc", "\"x86_64-apple-macosx10.13\""],
             "group": {
                 "kind": "build",
                 "isDefault": true
