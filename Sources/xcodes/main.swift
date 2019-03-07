@@ -86,9 +86,12 @@ func downloadXcode(_ xcode: Xcode) -> Promise<(Xcode, URL)> {
     .then { xcode -> Promise<(Xcode, URL)> in
         let (progress, promise) = manager.downloadXcode(xcode)
 
+        // Move to the next line
+        print("")
         let formatter = NumberFormatter(numberStyle: .percent)
         let observation = progress.observe(\.fractionCompleted) { progress, _ in
-            print("Downloaded " + formatter.string(from: progress.fractionCompleted)!)
+            // These escape codes move up a line and then clear to the end
+            print("\u{1B}[1A\u{1B}[K" + "Downloading Xcode \(xcode.version): " + formatter.string(from: progress.fractionCompleted)!)
         }
 
         return promise
