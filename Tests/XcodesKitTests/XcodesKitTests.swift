@@ -1,13 +1,17 @@
 import XCTest
 import PromiseKit
+import PMKFoundation
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
     override class func setUp() {
         super.setUp()
-        Current = .mock
         PromiseKit.conf.Q.map = nil
         PromiseKit.conf.Q.return = nil
+    }
+
+    override func setUp() {
+        Current = .mock
     }
 
     let installer = XcodeInstaller()
@@ -35,7 +39,7 @@ final class XcodesKitTests: XCTestCase {
     }
 
     func test_InstallArchivedXcode_SecurityAssessmentFails_Throws() {
-        Current.shell.spctlAssess = { _ in return Promise.value((1, "", "")) }
+        Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let xcode = Xcode(name: "Xcode 0.0.0", url: URL(fileURLWithPath: "/"), filename: "mock")!
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), passwordInput: { Promise.value("") })
@@ -43,7 +47,7 @@ final class XcodesKitTests: XCTestCase {
     }
 
     func test_InstallArchivedXcode_VerifySigningCertificateFails_Throws() {
-        Current.shell.codesignVerify = { _ in return Promise.value((1, "", "")) }
+        Current.shell.codesignVerify = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let xcode = Xcode(name: "Xcode 0.0.0", url: URL(fileURLWithPath: "/"), filename: "mock")!
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), passwordInput: { Promise.value("") })
@@ -55,20 +59,20 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(name: "Xcode 0.0.0", url: URL(fileURLWithPath: "/"), filename: "mock")!
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), passwordInput: { Promise.value("") })
-            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment) }
+            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed) }
     }
 
     func test_VerifySecurityAssessment_Fails() {
-        Current.shell.spctlAssess = { _ in return Promise.value((1, "", "")) }
+        Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         installer.verifySecurityAssessment(of: URL(fileURLWithPath: "/"))
-            .done { success in XCTAssertFalse(success) }
+            .tap { result in XCTAssertFalse(result.isFulfilled) }
     }
 
     func test_VerifySecurityAssessment_Succeeds() {
         Current.shell.spctlAssess = { _ in return Promise.value((0, "", "")) }
 
         installer.verifySecurityAssessment(of: URL(fileURLWithPath: "/"))
-            .done { success in XCTAssertTrue(success) }
+            .tap { result in XCTAssertTrue(result.isFulfilled) }
     }
 }

@@ -36,10 +36,7 @@ public final class XcodeInstaller {
         .then { xcode -> Promise<InstalledXcode> in
             return when(fulfilled: self.verifySecurityAssessment(of: xcode.path.url),
                                    self.verifySigningCertificate(of: xcode.path.url))
-                .map { validAssessment, validCert -> InstalledXcode in
-                    guard validAssessment && validCert else { throw Error.failedSecurityAssessment }
-                    return xcode
-                }
+                .map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
             self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
@@ -70,29 +67,30 @@ public final class XcodeInstaller {
         }
     }
 
-    func verifySecurityAssessment(of url: URL) -> Promise<Bool> {
-        return Current.shell.spctlAssess(url).map { $0.status == 0 }
+    func verifySecurityAssessment(of url: URL) -> Promise<Void> {
+        return Current.shell.spctlAssess(url).asVoid()
+            .recover { _ in throw Error.failedSecurityAssessment }
     }
 
-    func verifySigningCertificate(of url: URL) -> Promise<Bool> {
-        return gatherCertificateInfo(for: url)
-            .map { return $0.teamIdentifier == XcodeInstaller.XcodeTeamIdentifier &&
-                          $0.authority == XcodeInstaller.XcodeCertificateAuthority }
+    func verifySigningCertificate(of url: URL) -> Promise<Void> {
+        return Current.shell.codesignVerify(url)
+            .recover { _ -> Promise<ProcessOutput> in throw Error.codesignVerifyFailed }
+            .map { output -> CertificateInfo in
+                // codesign prints to stderr
+                return self.parseCertificateInfo(output.err)
+            }
+            .done { cert in
+                guard
+                    cert.teamIdentifier == XcodeInstaller.XcodeTeamIdentifier,
+                    cert.authority == XcodeInstaller.XcodeCertificateAuthority
+                else { throw Error.codesignVerifyFailed }
+            }
     }
 
     public struct CertificateInfo {
         public var authority: [String]
         public var teamIdentifier: String
         public var bundleIdentifier: String
-    }
-
-    func gatherCertificateInfo(for url: URL) -> Promise<CertificateInfo> {
-        return Current.shell.codesignVerify(url)
-            .map { output in
-                guard output.status == 0 else { throw Error.codesignVerifyFailed }
-                // codesign prints to stderr
-                return self.parseCertificateInfo(output.err)
-            }
     }
 
     public func parseCertificateInfo(_ rawInfo: String) -> CertificateInfo {
