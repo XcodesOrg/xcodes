@@ -34,7 +34,7 @@ func printAvailableXcodes(_ xcodes: [Xcode], installed: [InstalledXcode]) {
                 print("\(xcode.version) (Installed)")
             }
             else {
-                print(xcode.version)
+                print(xcode.version.xcodeDescription)
             }
         }
 }
@@ -103,12 +103,12 @@ func downloadXcode(_ xcode: Xcode) -> Promise<(Xcode, URL)> {
 let urlFlag = Flag(longName: "url", type: String.self, description: "Local path or HTTP(S) URL (currently unsupported) of Xcode .dmg or .xip.")
 let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, args in
     firstly { () -> Promise<(Xcode, URL)> in
+        let versionString = args.joined(separator: " ")
         guard 
-            let versionString = args.first,
-            let version = Version(tolerant: versionString),
+            let version = Version(xcodeVersion: versionString),
             let xcode = manager.availableXcodes.first(where: { $0.version == version })
         else { 
-            throw Error.invalidVersion(args.first ?? "")
+            throw Error.invalidVersion(versionString)
         }
 
         if let urlString = flags.getString(name: "url") {

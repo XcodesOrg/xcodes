@@ -26,9 +26,7 @@ public struct Xcode: Codable {
     public let url: URL
     public let filename: String
 
-    public init?(name: String, url: URL, filename: String) {
-        let versionString = name.replacingOccurrences(of: "Xcode ", with: "").split(separator: " ").map(String.init).first ?? ""
-        guard let version = Version(tolerant: versionString) else { return nil }
+    public init(version: Version, url: URL, filename: String) {
         self.version =  version
         self.url = url
         self.filename = filename

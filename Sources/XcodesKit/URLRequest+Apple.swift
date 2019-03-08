@@ -7,6 +7,7 @@ extension URL {
     static let submitSecurityCode = URL(string: "https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode")!
     static let trust = URL(string: "https://idmsa.apple.com/appleauth/auth/2sv/trust")!
     static let olympusSession = URL(string: "https://olympus.itunes.apple.com/v1/session")!
+    static let download = URL(string: "https://developer.apple.com/download")!
     static let downloads = URL(string: "https://developer.apple.com/services-account/QH65B2/downloadws/listDownloads.action")!
     static let downloadXcode = URL(string: "https://developer.apple.com/devcenter/download.action")!
 }
@@ -85,6 +86,10 @@ extension URLRequest {
 
     static var olympusSession: URLRequest {
         return URLRequest(url: .olympusSession)
+    }
+
+    static var download: URLRequest {
+        return URLRequest(url: .download)
     }
 
     static var downloads: URLRequest {
