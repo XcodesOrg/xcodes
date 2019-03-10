@@ -2,6 +2,10 @@
 
 This file exists to provide a historical record of the motivation for important technical decisions in the project. It's inspired by Architectural Decision Records, but the implementation is intentionally simpler than usual. When a new decision is made, append it to the end of the file with a header. Decisions can be changed later. This is a reflection of real life, not a contract that has to be followed.
 
+## Why Make xcodes?
+
+[xcode-install](https://github.com/xcpretty/xcode-install) is a great tool for quickly downloading Xcodes onto a development or build machine, and I use it all the time. Managing Ruby environments and debugging issues is annoying, though, and somehow after all these years I still don't know if I'm going to be able to successfully install Nokogiri. I do write a lot of Swift! And it feels like the ecosystem is at a point where we should be able to do almost everything we need with it instead of relying on a second language ecosystem for all of our tools. Others have probably already had this realization, but xcodes is my first crack at rewriting something that otherwise works fine in the hopes of accelerating the Swift ecosystem and ditching Ruby. For now, it aims to reimplement the core functionality with the same or similar CLI API.
+
 ## Code Organization
 
 Xcodes is primarily a command-line tool. The command-line UI code should live in the xcodes executable target. Code that performs downloading and installation should live in the XcodesKit library target so it can be tested without running xcodes in a shell. Hypothetically XcodesKit should be implemented in a way that allows it to be used in other contexts, like a GUI app. This isn't the primary goal right now so there might be oversights where a CLI context is assumed, but try to avoid things like `exit` system calls.
