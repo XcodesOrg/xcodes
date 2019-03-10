@@ -19,6 +19,17 @@
             "group": {
                 "kind": "test",
                 "isDefault": true
+            },
+            "problemMatcher": {
+                "owner": "sourcekit-lsp",
+                "fileLocation": "absolute",
+                "pattern": {
+                    "regexp": "^(?<file>.*):(?<line>\\d+):\\s+(?<severity>warning|error):\\s+(?<message>.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
             }
         }
     ]
