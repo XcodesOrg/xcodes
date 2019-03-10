@@ -63,6 +63,16 @@ final class XcodesKitTests: XCTestCase {
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed) }
     }
 
+    func test_InstallArchivedXcode_RemovesXIPWhenFinished() {
+        var removedItemAtURL: URL?
+        Current.files.removeItem = { removedItemAtURL = $0 } 
+
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
+        let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
+        installer.installArchivedXcode(xcode, at: xipURL, passwordInput: { Promise.value("") })
+            .ensure { XCTAssertEqual(removedItemAtURL, xipURL) }
+    }
+
     func test_VerifySecurityAssessment_Fails() {
         Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 

@@ -34,6 +34,8 @@ public final class XcodeInstaller {
             }
         }
         .then { xcode -> Promise<InstalledXcode> in
+            try Current.files.removeItem(at: url)
+
             return when(fulfilled: self.verifySecurityAssessment(of: xcode.path.url),
                                    self.verifySigningCertificate(of: xcode.path.url))
                 .map { xcode }

@@ -49,4 +49,10 @@ struct Files {
     func contents(atPath path: String) -> Data? {
         return contentsAtPath(path)
     }
+
+    var removeItem: (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }
+
+    func removeItem(at URL: URL) throws {
+        try removeItem(URL)
+    }
 }
