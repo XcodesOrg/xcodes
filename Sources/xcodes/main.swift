@@ -54,6 +54,8 @@ func updateAndPrint() {
         print(String(describing: error))
         exit(1)
     }
+
+    RunLoop.current.run()
 }
 
 let installed = Command(usage: "installed") { _, _ in
@@ -62,7 +64,6 @@ let installed = Command(usage: "installed") { _, _ in
         .map { $0.bundleVersion }
         .sorted()
         .forEach { print($0) }
-    exit(0)
 }
 
 let list = Command(usage: "list") { _, _ in
@@ -71,7 +72,6 @@ let list = Command(usage: "list") { _, _ in
     }
     else {
         printAvailableXcodes(manager.availableXcodes, installed: manager.installedXcodes)
-        exit(0)
     }
 }
 
@@ -135,6 +135,8 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         print(String(describing: error))
         exit(1)
     }
+
+    RunLoop.current.run()
 }
 
 let app = Command(usage: "xcodes")
@@ -143,5 +145,3 @@ app.add(subCommand: list)
 app.add(subCommand: update)
 app.add(subCommand: install)
 app.execute()
-
-RunLoop.current.run()
