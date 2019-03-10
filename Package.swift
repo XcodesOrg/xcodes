@@ -6,6 +6,7 @@ let package = Package(
     products: [
         .executable(name: "xcodes", targets: ["xcodes"]),
         .library(name: "XcodesKit", targets: ["XcodesKit"]),
+        .library(name: "AppleAPI", targets: ["AppleAPI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/nsomar/Guaka.git", .upToNextMinor(from: "0.3.1")),
@@ -27,12 +28,20 @@ let package = Package(
         .target(
             name: "XcodesKit",
             dependencies: [
-                "Guaka", "Path", "Version", "PromiseKit", "PMKFoundation", "SwiftSoup"
+                "AppleAPI", "Path", "Version", "PromiseKit", "PMKFoundation", "SwiftSoup"
             ]),
         .testTarget(
             name: "XcodesKitTests",
             dependencies: [
                 "XcodesKit", "Version"
             ]),
+        .target(
+            name: "AppleAPI",
+            dependencies: [
+                "PromiseKit", "PMKFoundation"
+            ]),
+        .testTarget(
+            name: "AppleAPITests",
+            dependencies: ["AppleAPI"]),
     ]
 )

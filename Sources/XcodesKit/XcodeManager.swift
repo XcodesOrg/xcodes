@@ -4,9 +4,10 @@ import Version
 import PromiseKit
 import PMKFoundation
 import SwiftSoup
+import AppleAPI
 
 public final class XcodeManager {
-    public let client = Client()
+    public let client = AppleAPI.Client()
     public let installer = XcodeInstaller()
 
     public init() {
@@ -42,7 +43,7 @@ public final class XcodeManager {
 
     public func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<URL>) {
         let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
-        let (progress, promise) = URLSession.shared.downloadTask(.promise, with: xcode.url, to: destination.url)
+        let (progress, promise) = client.session.downloadTask(.promise, with: xcode.url, to: destination.url)
         return (progress, promise.map { $0.saveLocation })
     }
 }
@@ -68,7 +69,7 @@ extension XcodeManager {
 extension XcodeManager {
     private func releasedXcodes() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
-            URLSession.shared.dataTask(.promise, with: URLRequest.downloads)
+            client.session.dataTask(.promise, with: URLRequest.downloads)
         }
         .map { (data, response) -> [Xcode] in
             struct Downloads: Decodable {
@@ -96,7 +97,7 @@ extension XcodeManager {
 
     private func prereleaseXcodes() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
-            URLSession.shared.dataTask(.promise, with: URLRequest.download)
+            client.session.dataTask(.promise, with: URLRequest.download)
         }
         .map { (data, response) -> [Xcode] in
             let body = String(data: data, encoding: .utf8)!
@@ -121,7 +122,7 @@ extension URLSession {
         var progress: Progress!
 
         let promise = Promise<(saveLocation: URL, response: URLResponse)> { seal in
-            let task = URLSession.shared.downloadTask(with: convertible.pmkRequest, completionHandler: { temporaryURL, response, error in
+            let task = downloadTask(with: convertible.pmkRequest, completionHandler: { temporaryURL, response, error in
                 if let error = error {
                     dump(error)
                     seal.reject(error)
