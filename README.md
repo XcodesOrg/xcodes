@@ -13,6 +13,22 @@ swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.13"
 cp $(swift build --show-bin-path)/xcodes /usr/local/bin/xcodes
 ```
 
+## Troubleshooting
+
+While installing, you may get the following output:
+
+```
+swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.13"
+error: terminated(72): xcrun --sdk macosx --find xctest output:
+
+
+
+```
+
+If that occurs, it means you need to `xcode-select` a version of Xcode.    
+
+
+
 ## Usage
 
 - `list`: Lists the versions of Xcode available to download
