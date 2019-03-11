@@ -27,8 +27,6 @@ error: terminated(72): xcrun --sdk macosx --find xctest output:
 
 If that occurs, it means you need to `xcode-select` a version of Xcode.    
 
-
-
 ## Usage
 
 - `list`: Lists the versions of Xcode available to download
