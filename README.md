@@ -13,7 +13,7 @@ swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.13"
 cp $(swift build --show-bin-path)/xcodes /usr/local/bin/xcodes
 ```
 
-## Troubleshooting
+#### Troubleshooting
 
 While installing, you may get the following output:
 
