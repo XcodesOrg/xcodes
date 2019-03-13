@@ -21,11 +21,9 @@ While installing, you may get the following output:
 swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.13"
 error: terminated(72): xcrun --sdk macosx --find xctest output:
 
-
-
 ```
 
-If that occurs, it means you need to `xcode-select` a version of Xcode.    
+If that occurs, it means you need to `xcode-select` a version of Xcode. You can easily do this via Xcode > Prefererences > Locations and setting the command line tools options. 
 
 ## Usage
 
