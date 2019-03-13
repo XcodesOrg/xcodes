@@ -4,16 +4,24 @@ Manage the Xcodes installed on your Mac
 
 ## Installation
 
-### From source
+### Download a release (Preferred)
+
+Download the latest release from the [Releases](https://github.com/interstateone/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+
+### Build from source
+
+<details>
+<summary>Details</summary>
+
+Building from source requires Xcode, so it's not an option for setting up a computer from scratch.
 
 ```sh
 git clone https://github.com/interstateone/xcodes
 cd xcodes
-swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.13"
-cp $(swift build --show-bin-path)/xcodes /usr/local/bin/xcodes
+make install
+# or, if /usr/local/ isn't in your PATH
+PREFIX=/your/install/directory make install
 ```
-
-#### Troubleshooting
 
 While installing, you may get the following output:
 
@@ -23,7 +31,8 @@ error: terminated(72): xcrun --sdk macosx --find xctest output:
 
 ```
 
-If that occurs, it means you need to `xcode-select` a version of Xcode. You can easily do this via Xcode > Prefererences > Locations and setting the command line tools options. 
+If that occurs, it means you need to select a version of Xcode. You can do this with `xcode-select` or by choosing a Command Line Tools option in Xcode's preferences Locations tab. 
+</details>
 
 ## Usage
 
