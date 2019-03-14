@@ -4,6 +4,7 @@ import Version
 import PromiseKit
 import XcodesKit
 import LegibleError
+import Path
 
 let manager = XcodeManager()
 
@@ -113,11 +114,19 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
     }
 }
 
+func versionFromXcodeVersionFile() -> Version? {
+    let xcodeVersionFilePath = Path.cwd.join(".xcode-version")
+    let version = (try? Data(contentsOf: xcodeVersionFilePath.url))
+        .flatMap { String(data: $0, encoding: .utf8) }
+        .flatMap(Version.init(gemVersion:))
+    return version
+}
+
 let urlFlag = Flag(longName: "url", type: String.self, description: "Local path or HTTP(S) URL (currently unsupported) of Xcode .dmg or .xip.")
 let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, args in
     firstly { () -> Promise<(Xcode, URL)> in
         let versionString = args.joined(separator: " ")
-        guard let version = Version(xcodeVersion: versionString) else { 
+        guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
             throw Error.invalidVersion(versionString)
         }
 
