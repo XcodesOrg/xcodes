@@ -9,6 +9,7 @@ public class Client {
 
     public enum Error: Swift.Error {
         case invalidSession
+        case unexpectedSignInResponse(statusCode: Int)
     }
 
     /// Use the olympus session endpoint to see if the existing session is still valid
@@ -46,7 +47,7 @@ public class Client {
             case 409:
                 return self.handleTwoFactor(data: data, response: response, serviceKey: serviceKey)
             default:
-                fatalError("Unexpected response status code while signing in: \(httpResponse)")
+                throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode)
             }
         }
     }

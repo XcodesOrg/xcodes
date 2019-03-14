@@ -6,10 +6,11 @@ public final class XcodeInstaller {
     static let XcodeTeamIdentifier = "59GAB85EFG"
     static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
 
-    enum Error: Swift.Error {
+    enum Error: Swift.Error, Equatable {
         case failedToMoveXcodeToApplications
         case failedSecurityAssessment
         case codesignVerifyFailed
+        case unsupportedFileFormat(extension: String)
     }
 
     public init() {}
@@ -28,9 +29,9 @@ public final class XcodeInstaller {
                     return installedXcode
                 }
             case "dmg":
-                fatalError()
+                throw Error.unsupportedFileFormat(extension: "dmg")
             default:
-                fatalError()
+                throw Error.unsupportedFileFormat(extension: url.pathExtension)
             }
         }
         .then { xcode -> Promise<InstalledXcode> in

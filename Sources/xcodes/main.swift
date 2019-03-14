@@ -3,6 +3,7 @@ import Guaka
 import Version
 import PromiseKit
 import XcodesKit
+import LegibleError
 
 let manager = XcodeManager()
 
@@ -52,7 +53,7 @@ func updateAndPrint() {
         exit(0)
     }
     .catch { error in
-        print(String(describing: error))
+        print(error.legibleLocalizedDescription)
         exit(1)
     }
 
@@ -142,7 +143,7 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         exit(0)
     }
     .catch { error in
-        print(String(describing: error))
+        print(error.legibleLocalizedDescription)
         exit(1)
     }
 

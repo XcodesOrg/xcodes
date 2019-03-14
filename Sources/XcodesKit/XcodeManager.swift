@@ -124,7 +124,6 @@ extension URLSession {
         let promise = Promise<(saveLocation: URL, response: URLResponse)> { seal in
             let task = downloadTask(with: convertible.pmkRequest, completionHandler: { temporaryURL, response, error in
                 if let error = error {
-                    dump(error)
                     seal.reject(error)
                 } else if let response = response, let temporaryURL = temporaryURL {
                     do {
