@@ -10,6 +10,7 @@ enum Error: Swift.Error {
     case missingUsernameOrPassword
     case missingSudoerPassword
     case invalidVersion(String)
+    case unavailableVersion(Version)
 }
 
 func loginIfNeeded() -> Promise<Void> {
@@ -79,11 +80,22 @@ let update = Command(usage: "update") { _, _ in
     updateAndPrint()
 }
 
-func downloadXcode(_ xcode: Xcode) -> Promise<(Xcode, URL)> {
-    return firstly { () -> Promise<Xcode> in
-        loginIfNeeded().map { xcode }
+func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
+    return firstly { () -> Promise<Version> in
+        loginIfNeeded().map { version }
     }
-    .then { xcode -> Promise<(Xcode, URL)> in
+    .then { version -> Promise<Version> in
+        if manager.shouldUpdate {
+            return manager.update().map { _ in version }
+        }
+        else {
+            return Promise.value(version)
+        }
+    }
+    .then { version -> Promise<(Xcode, URL)> in
+        guard let xcode = manager.availableXcodes.first(where: { $0.version == version }) else {
+            throw Error.unavailableVersion(version)
+        }
         let (progress, promise) = manager.downloadXcode(xcode)
 
         // Move to the next line
@@ -104,19 +116,17 @@ let urlFlag = Flag(longName: "url", type: String.self, description: "Local path 
 let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, args in
     firstly { () -> Promise<(Xcode, URL)> in
         let versionString = args.joined(separator: " ")
-        guard 
-            let version = Version(xcodeVersion: versionString),
-            let xcode = manager.availableXcodes.first(where: { $0.version == version })
-        else { 
+        guard let version = Version(xcodeVersion: versionString) else { 
             throw Error.invalidVersion(versionString)
         }
 
         if let urlString = flags.getString(name: "url") {
             let url = URL(fileURLWithPath: urlString, relativeTo: nil)
+            let xcode = Xcode(version: version, url: url, filename: String(url.path.suffix(fromLast: "/")))
             return Promise.value((xcode, url))
         }
         else {
-            return downloadXcode(xcode)
+            return downloadXcode(version: version)
         }
     }
     .then { xcode, url -> Promise<Void> in
