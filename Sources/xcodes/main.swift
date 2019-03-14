@@ -21,7 +21,7 @@ func loginIfNeeded() -> Promise<Void> {
     .recover { error -> Promise<Void> in
         guard
             let username = env("XCODES_USERNAME") ?? readLine(prompt: "Apple ID: "),
-            let password = readSecureLine(prompt: "Apple ID Password: ")
+            let password = env("XCODES_PASSWORD") ?? readSecureLine(prompt: "Apple ID Password: ")
         else { throw Error.missingUsernameOrPassword }
 
         return manager.client.login(accountName: username, password: password)
