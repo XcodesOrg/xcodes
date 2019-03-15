@@ -30,7 +30,7 @@ public extension Version {
         let patch = Int(patchString) ?? 0
         let prereleaseIdentifiers = [match.groupNamed("prereleaseType", in: xcodeVersion), 
                                      match.groupNamed("prereleaseVersion", in: xcodeVersion)]
-                                        .compactMap { $0 }
+                                        .compactMap { $0?.lowercased() }
                                         .filter { !$0.isEmpty }
 
         self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers)
