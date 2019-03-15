@@ -36,6 +36,12 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 
 ## Usage
 
+E.g. `xcodes install 10.1`
+
+You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
+
+### Commands
+
 - `list`: Lists the versions of Xcode available to download
 - `install <version>`: Downloads and installs a version of Xcode
 - `installed`: Lists the versions of Xcodes that are installed in /Applications on your computer
