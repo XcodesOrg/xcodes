@@ -18,6 +18,7 @@ xcodes: $(SOURCES)
 		-c release \
 		--disable-sandbox \
 		--build-path "$(BUILDDIR)" \
+		--static-swift-stdlib \
 		-Xswiftc "-target" \
 		-Xswiftc "x86_64-apple-macosx10.13"
 
