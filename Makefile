@@ -31,6 +31,7 @@ sign: xcodes
 
 .PHONY: zip
 zip: sign
+	@rm xcodes.zip 2> /dev/null || true
 	@zip -j xcodes.zip "$(BUILDDIR)/release/xcodes"
 	@open -R xcodes.zip
 
