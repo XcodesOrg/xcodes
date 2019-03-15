@@ -31,7 +31,7 @@ sign: xcodes
 
 .PHONY: zip
 zip: sign
-	@zip xcodes.zip "$(BUILDDIR)/release/xcodes"
+	@zip -j xcodes.zip "$(BUILDDIR)/release/xcodes"
 	@open -R xcodes.zip
 
 .PHONY: install
