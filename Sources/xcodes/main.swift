@@ -98,18 +98,22 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         guard let xcode = manager.availableXcodes.first(where: { $0.version == version }) else {
             throw Error.unavailableVersion(version)
         }
-        let (progress, promise) = manager.downloadXcode(xcode)
-
+        
         // Move to the next line
         print("")
         let formatter = NumberFormatter(numberStyle: .percent)
-        let observation = progress.observe(\.fractionCompleted) { progress, _ in
-            // These escape codes move up a line and then clear to the end
-            print("\u{1B}[1A\u{1B}[K" + "Downloading Xcode \(xcode.version): " + formatter.string(from: progress.fractionCompleted)!)
-        }
+        var observation: NSKeyValueObservation?
+
+        let promise = manager.downloadXcode(xcode, progressChanged: { progress in
+            observation?.invalidate()
+            observation = progress.observe(\.fractionCompleted) { progress, _ in
+                // These escape codes move up a line and then clear to the end
+                print("\u{1B}[1A\u{1B}[K" + "Downloading Xcode \(xcode.version): " + formatter.string(from: progress.fractionCompleted)!)
+            }
+        })
 
         return promise
-            .get { _ in observation.invalidate() }
+            .get { _ in observation?.invalidate() }
             .map { return (xcode, $0) }
     }
 }

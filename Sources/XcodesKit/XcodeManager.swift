@@ -41,10 +41,13 @@ public final class XcodeManager {
             }
     }
 
-    public func downloadXcode(_ xcode: Xcode) -> (Progress, Promise<URL>) {
+    public func downloadXcode(_ xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
-        let (progress, promise) = client.session.downloadTask(.promise, with: xcode.url, to: destination.url)
-        return (progress, promise.map { $0.saveLocation })
+        return attemptResumableTask(maximumRetryCount: 3) { resumeData in
+            let (progress, promise) = self.client.session.downloadTask(.promise, with: xcode.url, to: destination.url, resumingWith: resumeData)
+            progressChanged(progress)
+            return promise.map { $0.saveLocation }
+        }
     }
 }
 
@@ -118,11 +121,11 @@ extension XcodeManager {
 }
 
 extension URLSession {
-    public func downloadTask(_: PMKNamespacer, with convertible: URLRequestConvertible, to saveLocation: URL) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
+    public func downloadTask(_: PMKNamespacer, with convertible: URLRequestConvertible, to saveLocation: URL, resumingWith resumeData: Data?) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
         var progress: Progress!
 
         let promise = Promise<(saveLocation: URL, response: URLResponse)> { seal in
-            let task = downloadTask(with: convertible.pmkRequest, completionHandler: { temporaryURL, response, error in
+            let completionHandler = { (temporaryURL: URL?, response: URLResponse?, error: Error?) in
                 if let error = error {
                     seal.reject(error)
                 } else if let response = response, let temporaryURL = temporaryURL {
@@ -135,11 +138,36 @@ extension URLSession {
                 } else {
                     seal.reject(PMKError.invalidCallingConvention)
                 }
-            })
+            }
+            
+            let task: URLSessionDownloadTask
+            if let resumeData = resumeData {
+                task = downloadTask(withResumeData: resumeData, completionHandler: completionHandler)
+            }
+            else {
+                task = downloadTask(with: convertible.pmkRequest, completionHandler: completionHandler)
+            }
             progress = task.progress
             task.resume()
         }
 
         return (progress, promise)
     }
+}
+
+/// Attempt and retry a task that fails with resume data up to `maximumRetryCount` times
+private func attemptResumableTask<T>(maximumRetryCount: Int = 3, delayBeforeRetry: DispatchTimeInterval = .seconds(2), _ body: @escaping (Data?) -> Promise<T>) -> Promise<T> {
+    var attempts = 0
+    func attempt(with resumeData: Data? = nil) -> Promise<T> {
+        attempts += 1
+        return body(resumeData).recover { error -> Promise<T> in
+            guard
+                attempts < maximumRetryCount,
+                let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+            else { throw error }
+
+            return after(delayBeforeRetry).then(on: nil) { attempt(with: resumeData) }
+        }
+    }
+    return attempt()
 }
