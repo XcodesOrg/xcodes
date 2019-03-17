@@ -43,10 +43,19 @@ public final class XcodeManager {
 
     public func downloadXcode(_ xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
+        let resumeDataPath = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).resumedata"
+        let persistedResumeData = Current.files.contents(atPath: resumeDataPath.string)
+        
         return attemptResumableTask(maximumRetryCount: 3) { resumeData in
-            let (progress, promise) = self.client.session.downloadTask(.promise, with: xcode.url, to: destination.url, resumingWith: resumeData)
+            let (progress, promise) = self.client.session.downloadTask(.promise,
+                                                                       with: xcode.url,
+                                                                       to: destination.url,
+                                                                       resumingWith: resumeData ?? persistedResumeData)
             progressChanged(progress)
             return promise.map { $0.saveLocation }
+        }
+        .tap { result in
+            self.persistOrCleanUpResumeData(at: resumeDataPath, for: result)
         }
     }
 }
@@ -116,6 +125,16 @@ extension XcodeManager {
             let filename = String(path.suffix(fromLast: "/"))
 
             return [Xcode(version: version, url: url, filename: filename)]
+        }
+    }
+    
+    private func persistOrCleanUpResumeData<T>(at path: Path, for result: Result<T>) {
+        switch result {
+        case .fulfilled:
+            try? Current.files.removeItem(at: path.url)
+        case .rejected(let error):
+            guard let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data else { return }
+            Current.files.createFile(atPath: path.string, contents: resumeData)
         }
     }
 }
