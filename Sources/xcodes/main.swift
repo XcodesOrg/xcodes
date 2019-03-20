@@ -33,7 +33,10 @@ func printAvailableXcodes(_ xcodes: [Xcode], installed: [InstalledXcode]) {
     xcodes
         .sorted { $0.version < $1.version }
         .forEach { xcode in
-            if installed.contains(where: { $0.bundleVersion == xcode.version }) {
+            // Not sure of a good way to determine which pre-release version is installed
+            // For now, compare versions without pre-release identifiers
+            // This should match xcode-install's behaviour
+            if installed.contains(where: { $0.bundleVersion.isEqualWithoutPrerelease(xcode.version) }) {
                 print("\(xcode.version) (Installed)")
             }
             else {
