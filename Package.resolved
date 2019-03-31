@@ -20,6 +20,15 @@
         }
       },
       {
+        "package": "KeychainAccess",
+        "repositoryURL": "https://github.com/kishikawakatsumi/KeychainAccess.git",
+        "state": {
+          "branch": null,
+          "revision": "f77a025d2682b958722b28f69e84c0dc7318df7f",
+          "version": "3.1.2"
+        }
+      },
+      {
         "package": "LegibleError",
         "repositoryURL": "https://github.com/mxcl/LegibleError.git",
         "state": {

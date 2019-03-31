@@ -5,8 +5,13 @@ import PromiseKit
 import XcodesKit
 import LegibleError
 import Path
+import KeychainAccess
 
 let manager = XcodeManager()
+let keychain = Keychain(service: "com.interstateone.xcodes")
+
+let xcodesUsername = "XCODES_USERNAME"
+let xcodesPassword = "XCODES_PASSWORD"
 
 enum Error: Swift.Error {
     case missingUsernameOrPassword
@@ -21,11 +26,41 @@ func loginIfNeeded() -> Promise<Void> {
     }
     .recover { error -> Promise<Void> in
         guard
-            let username = env("XCODES_USERNAME") ?? readLine(prompt: "Apple ID: "),
-            let password = env("XCODES_PASSWORD") ?? readSecureLine(prompt: "Apple ID Password: ")
+            let username = findUsername() ?? readLine(prompt: "Apple ID: "),
+            let password = findPassword() ?? readSecureLine(prompt: "Apple ID Password: ")
         else { throw Error.missingUsernameOrPassword }
 
-        return manager.client.login(accountName: username, password: password)
+        return login(username, password: password)
+    }
+}
+
+func findUsername() -> String? {
+    if let username = env(xcodesUsername) {
+        return username
+    }
+    else if let username = try? keychain.getString(xcodesUsername){
+        return username
+    }
+    return nil
+}
+
+func findPassword() -> String? {
+    if let password = env(xcodesPassword) {
+        return password
+    }
+    else if let password = try? keychain.getString(xcodesPassword){
+        return password
+    }
+    return nil
+}
+
+func login(_ username: String, password: String) -> Promise<Void> {
+    return firstly { () -> Promise<Void> in
+        manager.client.login(accountName: username, password: password)
+    }
+    .get { _ in
+        keychain["xcodesUsername"] = username
+        keychain["xcodesPassword"] = password
     }
 }
 
@@ -101,7 +136,7 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         guard let xcode = manager.availableXcodes.first(where: { $0.version == version }) else {
             throw Error.unavailableVersion(version)
         }
-        
+
         // Move to the next line
         print("")
         let formatter = NumberFormatter(numberStyle: .percent)
