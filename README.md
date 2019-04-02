@@ -8,10 +8,18 @@ Manage the Xcodes installed on your Mac
 
 Download the latest release from the [Releases](https://github.com/interstateone/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
 
-### Build from source
+**Other methods:**
 
 <details>
-<summary>Details</summary>
+<summary>Using <a href="https://github.com/yonaskolb/Mint">Mint</a></summary>
+
+```sh
+mint install interstateone/xcodes
+```
+</details>
+
+<details>
+<summary>Build from source</summary>
 
 Building from source requires Xcode, so it's not an option for setting up a computer from scratch.
 
