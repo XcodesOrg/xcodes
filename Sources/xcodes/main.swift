@@ -8,7 +8,7 @@ import Path
 import KeychainAccess
 
 let manager = XcodeManager()
-let keychain = Keychain(service: "com.interstateone.xcodes")
+let keychain = Keychain(service: "ca.brandonevans.xcodes")
 
 let xcodesUsername = "XCODES_USERNAME"
 let xcodesPassword = "XCODES_PASSWORD"
@@ -59,8 +59,8 @@ func login(_ username: String, password: String) -> Promise<Void> {
         manager.client.login(accountName: username, password: password)
     }
     .get { _ in
-        keychain["xcodesUsername"] = username
-        keychain["xcodesPassword"] = password
+        keychain[xcodesUsername] = username
+        keychain[xcodesPassword] = password
     }
 }
 
