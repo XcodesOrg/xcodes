@@ -31,7 +31,7 @@ error: terminated(72): xcrun --sdk macosx --find xctest output:
 
 ```
 
-If that occurs, it means you need to select a version of Xcode. You can do this with `xcode-select` or by choosing a Command Line Tools option in Xcode's preferences Locations tab. 
+If that occurs, it means you need to select a version of Xcode. You can do this with `xcode-select` or by choosing a Command Line Tools option in Xcode's preferences Locations tab.
 </details>
 
 ## Usage
@@ -39,6 +39,8 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 E.g. `xcodes install 10.1`
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
+
+After successful log in, xcodes will save your Apple ID password into the keychain for quick retrieval subsequent tries.
 
 ### Commands
 
