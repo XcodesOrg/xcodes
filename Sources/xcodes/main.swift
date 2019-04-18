@@ -27,7 +27,7 @@ func loginIfNeeded() -> Promise<Void> {
     .recover { error -> Promise<Void> in
         guard
             let username = findUsername() ?? readLine(prompt: "Apple ID: "),
-            let password = findPassword() ?? readSecureLine(prompt: "Apple ID Password: ")
+            let password = findPassword(withUserName: username) ?? readSecureLine(prompt: "Apple ID Password: ")
         else { throw Error.missingUsernameOrPassword }
 
         return login(username, password: password)
@@ -38,17 +38,14 @@ func findUsername() -> String? {
     if let username = env(xcodesUsername) {
         return username
     }
-    else if let username = try? keychain.getString(xcodesUsername){
-        return username
-    }
     return nil
 }
 
-func findPassword() -> String? {
+func findPassword(withUserName username: String) -> String? {
     if let password = env(xcodesPassword) {
         return password
     }
-    else if let password = try? keychain.getString(xcodesPassword){
+    else if let password = try? keychain.getString(username){
         return password
     }
     return nil
@@ -59,8 +56,7 @@ func login(_ username: String, password: String) -> Promise<Void> {
         manager.client.login(accountName: username, password: password)
     }
     .get { _ in
-        keychain[xcodesUsername] = username
-        keychain[xcodesPassword] = password
+        keychain[username] = password
     }
 }
 
