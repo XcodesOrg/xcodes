@@ -197,6 +197,11 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
     RunLoop.current.run()
 }
 
+let version = Command(usage: "version") { _, _ in
+    print(XcodesKit.version)
+    exit(0)
+}
+
 // This is awkward, but Guaka wants a root command in order to add subcommands,
 // but then seems to want it to behave like a normal command even though it'll only ever print the help.
 // But it doesn't even print the help without the user providing the --help flag,
@@ -207,4 +212,5 @@ app.add(subCommand: installed)
 app.add(subCommand: list)
 app.add(subCommand: update)
 app.add(subCommand: install)
+app.add(subCommand: version)
 app.execute()

@@ -56,6 +56,7 @@ After successful login, xcodes will save your Apple ID password into the keychai
 - `install <version>`: Downloads and installs a version of Xcode
 - `installed`: Lists the versions of Xcodes that are installed in /Applications on your computer
 - `update`: Updates the list of available versions of Xcode
+- `version`: Prints the xcodes version
 
 ## Development
 
