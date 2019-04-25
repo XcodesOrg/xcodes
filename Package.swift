@@ -15,13 +15,14 @@ let package = Package(
         .package(url: "https://github.com/mxcl/PromiseKit.git", .upToNextMinor(from: "6.8.3")),
         .package(url: "https://github.com/PromiseKit/Foundation.git", .upToNextMinor(from: "3.3.1")),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", .upToNextMinor(from: "1.7.5")),
-        .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1"))
+        .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
+        .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.1.2"))
     ],
     targets: [
         .target(
             name: "xcodes",
             dependencies: [
-                "Guaka", "XcodesKit"
+                "Guaka", "XcodesKit", "KeychainAccess"
             ]),
         .testTarget(
             name: "xcodesTests",
