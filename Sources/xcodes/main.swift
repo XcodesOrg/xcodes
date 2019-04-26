@@ -55,6 +55,11 @@ func login(_ username: String, password: String) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
         manager.client.login(accountName: username, password: password)
     }
+    .recover { error -> Promise<Void> in
+        // remove any keychain password if we fail to log in so it doesn't try again.
+        keychain[username] = nil
+        return Promise(error: error)
+    }
     .done { _ in
         keychain[username] = password
     }
