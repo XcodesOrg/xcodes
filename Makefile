@@ -19,9 +19,6 @@ xcodes: $(SOURCES)
 		-c release \
 		--disable-sandbox \
 		--build-path "$(BUILDDIR)" \
-		--static-swift-stdlib \
-		-Xswiftc "-target" \
-		-Xswiftc "x86_64-apple-macosx10.13"
 
 .PHONY: sign
 sign: xcodes
@@ -59,8 +56,7 @@ uninstall:
 
 .PHONY: project
 project:
-	@swift package generate-xcodeproj \
-		--xcconfig-overrides Package.xcconfig
+	@swift package generate-xcodeproj
 
 .PHONY: distclean
 distclean:

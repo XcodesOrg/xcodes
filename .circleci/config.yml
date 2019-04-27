@@ -2,13 +2,13 @@ version: 2
 jobs:
   test:
     macos:
-      xcode: "10.1.0"
+      xcode: "10.2.0"
     shell: /bin/bash --login -eo pipefail
     steps:
       - checkout
       - run:
           name: Run tests
-          command: swift test -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.13"
+          command: swift test
 
 workflows:
   version: 2
