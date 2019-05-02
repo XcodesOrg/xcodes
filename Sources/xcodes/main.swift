@@ -20,17 +20,25 @@ enum Error: Swift.Error {
     case unavailableVersion(Version)
 }
 
-func loginIfNeeded() -> Promise<Void> {
+func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
         return manager.client.validateSession()
     }
     .recover { error -> Promise<Void> in
         guard
-            let username = findUsername() ?? readLine(prompt: "Apple ID: "),
+            let username = existingUsername ?? findUsername() ?? readLine(prompt: "Apple ID: "),
             let password = findPassword(withUsername: username) ?? readSecureLine(prompt: "Apple ID Password: ")
         else { throw Error.missingUsernameOrPassword }
 
-        return login(username, password: password)
+        return firstly { () -> Promise<Void> in
+            login(username, password: password)
+        }
+        .recover { error -> Promise<Void> in
+            print(error.legibleLocalizedDescription)
+            // try again
+            print("Retry your password again")
+            return loginIfNeeded(withUsername: username)
+        }
     }
 }
 
