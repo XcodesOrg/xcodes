@@ -17,14 +17,14 @@ These are Developer ID-signed release builds and don't require Xcode to already 
 <details>
 <summary>Download a release</summary>
 
-Download the latest release from the [Releases](https://github.com/interstateone/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+Download the latest release from the [Releases](https://github.com/RobotsAndPencils/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
 </details>
 
 <details>
 <summary>Using <a href="https://github.com/yonaskolb/Mint">Mint</a></summary>
 
 ```sh
-mint install interstateone/xcodes
+mint install RobotsAndPencils/xcodes
 ```
 </details>
 
@@ -34,7 +34,7 @@ mint install interstateone/xcodes
 Building from source requires Xcode, so it's not an option for setting up a computer from scratch.
 
 ```sh
-git clone https://github.com/interstateone/xcodes
+git clone https://github.com/RobotsAndPencils/xcodes
 cd xcodes
 make install
 # or, if /usr/local/ isn't in your PATH
