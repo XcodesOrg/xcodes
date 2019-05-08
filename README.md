@@ -4,11 +4,21 @@ Manage the Xcodes installed on your Mac
 
 ## Installation
 
-### Download a release (Preferred)
+### Homebrew (Preferred)
 
-Download the latest release from the [Releases](https://github.com/interstateone/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+```sh
+brew install robotsandpencils/made/xcodes
+```
+
+These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
 
 **Other methods:**
+
+<details>
+<summary>Download a release</summary>
+
+Download the latest release from the [Releases](https://github.com/interstateone/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+</details>
 
 <details>
 <summary>Using <a href="https://github.com/yonaskolb/Mint">Mint</a></summary>
