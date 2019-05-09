@@ -2,6 +2,8 @@
 
 Manage the Xcodes installed on your Mac
 
+[![CircleCI](https://circleci.com/gh/RobotsAndPencils/xcodes.svg?style=svg)](https://circleci.com/gh/RobotsAndPencils/xcodes)
+
 ## Installation
 
 ### Homebrew (Preferred)
