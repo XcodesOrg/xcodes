@@ -36,6 +36,7 @@ extension Files {
             let url = URL(fileURLWithPath: "Stub.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
             return try? Data(contentsOf: url)
         },
-        removeItem: { _ in }
+        removeItem: { _ in },
+        createFile: { _, _, _ in return true }
     )
 }
