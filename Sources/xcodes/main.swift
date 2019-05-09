@@ -6,6 +6,7 @@ import XcodesKit
 import LegibleError
 import Path
 import KeychainAccess
+import AppleAPI
 
 let manager = XcodeManager()
 let keychain = Keychain(service: "ca.brandonevans.xcodes")
@@ -35,8 +36,7 @@ func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void
         }
         .recover { error -> Promise<Void> in
             print(error.legibleLocalizedDescription)
-            // try again
-            print("Retry your password again")
+            print("Try entering your password again")
             return loginIfNeeded(withUsername: username)
         }
     }
@@ -64,8 +64,17 @@ func login(_ username: String, password: String) -> Promise<Void> {
         manager.client.login(accountName: username, password: password)
     }
     .recover { error -> Promise<Void> in
-        // remove any keychain password if we fail to log in so it doesn't try again.
-        keychain[username] = nil
+
+        if let error = error as? Client.Error {
+          switch error  {
+          case .invalidUsernameOrPassword(_):
+              // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
+              keychain[username] = nil
+          default:
+              break
+          }
+        }
+
         return Promise(error: error)
     }
     .done { _ in
