@@ -6,6 +6,7 @@ import XcodesKit
 import LegibleError
 import Path
 import KeychainAccess
+import AppleAPI
 
 let manager = XcodeManager()
 let keychain = Keychain(service: "ca.brandonevans.xcodes")
@@ -20,17 +21,30 @@ enum Error: Swift.Error {
     case unavailableVersion(Version)
 }
 
-func loginIfNeeded() -> Promise<Void> {
+func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
         return manager.client.validateSession()
     }
     .recover { error -> Promise<Void> in
         guard
-            let username = findUsername() ?? readLine(prompt: "Apple ID: "),
+            let username = existingUsername ?? findUsername() ?? readLine(prompt: "Apple ID: "),
             let password = findPassword(withUsername: username) ?? readSecureLine(prompt: "Apple ID Password: ")
         else { throw Error.missingUsernameOrPassword }
 
-        return login(username, password: password)
+        return firstly { () -> Promise<Void> in
+            login(username, password: password)
+        }
+        .recover { error -> Promise<Void> in
+            print(error.legibleLocalizedDescription)
+
+            if case Client.Error.invalidUsernameOrPassword = error {
+                print("Try entering your password again")
+                return loginIfNeeded(withUsername: username)
+            }
+            else {
+                return Promise(error: error)
+            }
+        }
     }
 }
 
@@ -54,6 +68,20 @@ func findPassword(withUsername username: String) -> String? {
 func login(_ username: String, password: String) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
         manager.client.login(accountName: username, password: password)
+    }
+    .recover { error -> Promise<Void> in
+
+        if let error = error as? Client.Error {
+          switch error  {
+          case .invalidUsernameOrPassword(_):
+              // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
+              keychain[username] = nil
+          default:
+              break
+          }
+        }
+
+        return Promise(error: error)
     }
     .done { _ in
         keychain[username] = password

@@ -30,7 +30,7 @@ public class Client {
     public func validateSession() -> Promise<Void> {
         return session.dataTask(.promise, with: URLRequest.olympusSession)
         .done { data, response in
-            guard 
+            guard
                 let jsonObject = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
                 jsonObject["provider"] != nil
             else { throw Error.invalidSession }
@@ -81,7 +81,7 @@ public class Client {
             case 412 where Client.authTypes.contains(responseBody.authType ?? ""):
                 throw Error.appleIDAndPrivacyAcknowledgementRequired
             default:
-                throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode, 
+                throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode,
                                                      message: responseBody.serviceErrors?.map { $0.description }.joined(separator: ", "))
             }
         }
@@ -108,4 +108,3 @@ public class Client {
         }
     }
 }
-
