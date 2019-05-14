@@ -9,7 +9,7 @@ import KeychainAccess
 import AppleAPI
 
 let manager = XcodeManager()
-let keychain = Keychain(service: "ca.brandonevans.xcodes")
+let keychain = Keychain(service: "com.robotsandpencils.xcodes")
 
 let xcodesUsername = "XCODES_USERNAME"
 let xcodesPassword = "XCODES_PASSWORD"
