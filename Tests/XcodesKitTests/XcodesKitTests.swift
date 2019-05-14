@@ -2,6 +2,7 @@ import XCTest
 import Version
 import PromiseKit
 import PMKFoundation
+import Path
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
@@ -85,5 +86,65 @@ final class XcodesKitTests: XCTestCase {
 
         installer.verifySecurityAssessment(of: URL(fileURLWithPath: "/"))
             .tap { result in XCTAssertTrue(result.isFulfilled) }
+    }
+
+    func test_MigrateApplicationSupport_NoSupportFiles() {
+        Current.files.fileExistsAtPath = { _ in return false }
+        var source: URL?
+        var destination: URL?
+        Current.files.moveItem = { source = $0; destination = $1 } 
+        var removedItemAtURL: URL?
+        Current.files.removeItem = { removedItemAtURL = $0 } 
+
+        XcodeManager.migrateApplicationSupportFiles()
+
+        XCTAssertNil(source)
+        XCTAssertNil(destination)
+        XCTAssertNil(removedItemAtURL)
+    }
+
+    func test_MigrateApplicationSupport_OnlyOldSupportFiles() {
+        Current.files.fileExistsAtPath = { return $0.contains("ca.brandonevans") }
+        var source: URL?
+        var destination: URL?
+        Current.files.moveItem = { source = $0; destination = $1 } 
+        var removedItemAtURL: URL?
+        Current.files.removeItem = { removedItemAtURL = $0 } 
+
+        XcodeManager.migrateApplicationSupportFiles()
+
+        XCTAssertEqual(source, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
+        XCTAssertEqual(destination, Path.applicationSupport.join("com.robotsandpencils.xcodes").url)
+        XCTAssertNil(removedItemAtURL)
+    }
+
+    func test_MigrateApplicationSupport_OldAndNewSupportFiles() {
+        Current.files.fileExistsAtPath = { _ in return true }
+        var source: URL?
+        var destination: URL?
+        Current.files.moveItem = { source = $0; destination = $1 } 
+        var removedItemAtURL: URL?
+        Current.files.removeItem = { removedItemAtURL = $0 } 
+
+        XcodeManager.migrateApplicationSupportFiles()
+
+        XCTAssertNil(source)
+        XCTAssertNil(destination)
+        XCTAssertEqual(removedItemAtURL, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
+    }
+
+    func test_MigrateApplicationSupport_OnlyNewSupportFiles() {
+        Current.files.fileExistsAtPath = { return $0.contains("com.robotsandpencils") }
+        var source: URL?
+        var destination: URL?
+        Current.files.moveItem = { source = $0; destination = $1 } 
+        var removedItemAtURL: URL?
+        Current.files.removeItem = { removedItemAtURL = $0 } 
+
+        XcodeManager.migrateApplicationSupportFiles()
+
+        XCTAssertNil(source)
+        XCTAssertNil(destination)
+        XCTAssertNil(removedItemAtURL)
     }
 }

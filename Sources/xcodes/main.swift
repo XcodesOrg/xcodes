@@ -230,6 +230,8 @@ let version = Command(usage: "version") { _, _ in
     exit(0)
 }
 
+XcodeManager.migrateApplicationSupportFiles()
+
 // This is awkward, but Guaka wants a root command in order to add subcommands,
 // but then seems to want it to behave like a normal command even though it'll only ever print the help.
 // But it doesn't even print the help without the user providing the --help flag,

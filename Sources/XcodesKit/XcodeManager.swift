@@ -61,8 +61,26 @@ public final class XcodeManager {
 }
 
 extension XcodeManager {
-    private static let applicationSupportPath = Path.applicationSupport/"ca.brandonevans.xcodes"
+    private static let applicationSupportPath = Path.applicationSupport/"com.robotsandpencils.xcodes"
     private static let cacheFilePath = applicationSupportPath/"available-xcodes.json"
+
+    /// Migrates any application support files from Xcodes < v0.4 if application support files from >= v0.4 don't exist
+    public static func migrateApplicationSupportFiles() {
+        let oldApplicationSupportPath = Path.applicationSupport/"ca.brandonevans.xcodes"
+
+        if Current.files.fileExistsAtPath(oldApplicationSupportPath.string) {
+            if Current.files.fileExistsAtPath(applicationSupportPath.string) {
+                print("Removing old support files...")
+                try? Current.files.removeItem(oldApplicationSupportPath.url)
+                print("Done")
+            }
+            else {
+                print("Migrating old support files...")
+                try? Current.files.moveItem(oldApplicationSupportPath.url, applicationSupportPath.url)
+                print("Done")
+            }
+        }
+    }
 
     private func loadCachedAvailableXcodes() throws {
         let data = try Data(contentsOf: XcodeManager.cacheFilePath.url)
