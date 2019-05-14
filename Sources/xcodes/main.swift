@@ -9,7 +9,7 @@ import KeychainAccess
 import AppleAPI
 
 let manager = XcodeManager()
-let keychain = Keychain(service: "ca.brandonevans.xcodes")
+let keychain = Keychain(service: "com.robotsandpencils.xcodes")
 
 let xcodesUsername = "XCODES_USERNAME"
 let xcodesPassword = "XCODES_PASSWORD"
@@ -229,6 +229,8 @@ let version = Command(usage: "version") { _, _ in
     print(XcodesKit.version)
     exit(0)
 }
+
+XcodeManager.migrateApplicationSupportFiles()
 
 // This is awkward, but Guaka wants a root command in order to add subcommands,
 // but then seems to want it to behave like a normal command even though it'll only ever print the help.
