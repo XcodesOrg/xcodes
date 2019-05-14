@@ -36,8 +36,14 @@ func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void
         }
         .recover { error -> Promise<Void> in
             print(error.legibleLocalizedDescription)
-            print("Try entering your password again")
-            return loginIfNeeded(withUsername: username)
+
+            if case Client.Error.invalidUsernameOrPassword = error {
+                print("Try entering your password again")
+                return loginIfNeeded(withUsername: username)
+            }
+            else {
+                return Promise(error: error)
+            }
         }
     }
 }
