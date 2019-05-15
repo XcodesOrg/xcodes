@@ -13,6 +13,7 @@ SOURCES = $(wildcard $(srcdir)/**/*.swift)
 .PHONY: all
 all: xcodes
 
+.PHONY: xcodes
 xcodes: $(SOURCES)
 	@swift build \
 		-c release \
@@ -44,11 +45,15 @@ install: xcodes
 uninstall:
 	@rm -rf "$(bindir)/xcodes"
 
-.PHONY: clean
+.PHONY: project
+project:
+	@swift package generate-xcodeproj \
+		--xcconfig-overrides Package.xcconfig
+
+.PHONY: distclean
 distclean:
 	@rm -f $(BUILDDIR)/release
 
 .PHONY: clean
 clean: distclean
 	@rm -rf $(BUILDDIR)
-
