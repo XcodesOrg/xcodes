@@ -26,7 +26,7 @@ xcodes: $(SOURCES)
 .PHONY: sign
 sign: xcodes
 	@codesign \
-		-s "Developer ID Application: Brandon Evans (Z2R9WCWER2)" \
+		-s "Developer ID Application: Robots and Pencils Inc. (PBH8V487HB)" \
 		--prefix com.robotsandpencils. \
 		"$(BUILDDIR)/release/xcodes"
 
