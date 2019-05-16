@@ -12,6 +12,7 @@ public final class XcodeManager {
 
     public init() {
         try? loadCachedAvailableXcodes()
+        try? loadConfiguration()
     }
 
     public var installedXcodes: [InstalledXcode] {
@@ -26,6 +27,8 @@ public final class XcodeManager {
     }
 
     public private(set) var availableXcodes: [Xcode] = []
+
+    public private(set) var configuration = Configuration(defaultUsername: nil)
 
     public var shouldUpdate: Bool {
         return availableXcodes.isEmpty
@@ -58,11 +61,17 @@ public final class XcodeManager {
             self.persistOrCleanUpResumeData(at: resumeDataPath, for: result)
         }
     }
+
+    public func saveUsername(_ username: String) {
+        self.configuration = Configuration(defaultUsername: username)
+        try? saveConfiguration(self.configuration)
+    }
 }
 
 extension XcodeManager {
     private static let applicationSupportPath = Path.applicationSupport/"com.robotsandpencils.xcodes"
     private static let cacheFilePath = applicationSupportPath/"available-xcodes.json"
+    private static let configurationFilePath = applicationSupportPath/"configuration.json"
 
     /// Migrates any application support files from Xcodes < v0.4 if application support files from >= v0.4 don't exist
     public static func migrateApplicationSupportFiles() {
@@ -93,6 +102,18 @@ extension XcodeManager {
         try FileManager.default.createDirectory(at: XcodeManager.cacheFilePath.url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try data.write(to: XcodeManager.cacheFilePath.url)
+    }
+
+    private func loadConfiguration() throws {
+        let data = try Data(contentsOf: XcodeManager.configurationFilePath.url)
+        self.configuration = try JSONDecoder().decode(Configuration.self, from: data)
+    }
+
+    private func saveConfiguration(_ configuration: Configuration) throws {
+        let data = try JSONEncoder().encode(configuration)
+        try FileManager.default.createDirectory(at: XcodeManager.configurationFilePath.url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try data.write(to: XcodeManager.configurationFilePath.url)
     }
 }
 
