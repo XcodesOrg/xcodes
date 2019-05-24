@@ -19,17 +19,17 @@ enum XcodesError: Swift.Error, LocalizedError {
     case missingSudoerPassword
     case invalidVersion(String)
     case unavailableVersion(Version)
-    
+
     var errorDescription: String? {
         switch self {
         case .missingUsernameOrPassword:
-            return NSLocalizedString("Missing username or a password. Please try again.", comment: ".missingUsernameOrPassword")
+            return "Missing username or a password. Please try again."
         case .missingSudoerPassword:
-            return NSLocalizedString("Missing password. Please try again.", comment: ".missingSudoerPassword")
+            return "Missing password. Please try again."
         case let .invalidVersion(version):
-            return NSLocalizedString("Version \(version) does not exist.", comment: ".invalidVersion")
+            return "\(version) is not a valid version number."
         case let .unavailableVersion(version):
-            return NSLocalizedString("Could not find version \(version.xcodeDescription).", comment: ".invalidVersion")
+            return "Could not find version \(version.xcodeDescription)."
         }
     }
 }
