@@ -60,7 +60,7 @@ E.g. `xcodes install 10.1`
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
 
-After successfully authenticating, xcodes will save your Apple ID password into the keychain for future use.
+After successfully authenticating, xcodes will save your Apple ID password into the keychain and will remember your Apple ID for future use. If you need to use a different Apple ID than the one that's remembered, set the `XCODES_USERNAME` environment variable.
 
 ### Commands
 
