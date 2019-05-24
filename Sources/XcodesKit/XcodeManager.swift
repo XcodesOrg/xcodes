@@ -2,7 +2,6 @@ import Foundation
 import Path
 import Version
 import PromiseKit
-import PMKFoundation
 import SwiftSoup
 import AppleAPI
 
@@ -146,40 +145,5 @@ extension XcodeManager {
         let filename = String(path.suffix(fromLast: "/"))
 
         return [Xcode(version: version, url: url, filename: filename)]
-    }
-}
-
-extension URLSession {
-    public func downloadTask(_: PMKNamespacer, with convertible: URLRequestConvertible, to saveLocation: URL, resumingWith resumeData: Data?) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
-        var progress: Progress!
-
-        let promise = Promise<(saveLocation: URL, response: URLResponse)> { seal in
-            let completionHandler = { (temporaryURL: URL?, response: URLResponse?, error: Error?) in
-                if let error = error {
-                    seal.reject(error)
-                } else if let response = response, let temporaryURL = temporaryURL {
-                    do {
-                        try FileManager.default.moveItem(at: temporaryURL, to: saveLocation)
-                        seal.fulfill((saveLocation, response))
-                    } catch {
-                        seal.reject(error)
-                    }
-                } else {
-                    seal.reject(PMKError.invalidCallingConvention)
-                }
-            }
-            
-            let task: URLSessionDownloadTask
-            if let resumeData = resumeData {
-                task = downloadTask(withResumeData: resumeData, completionHandler: completionHandler)
-            }
-            else {
-                task = downloadTask(with: convertible.pmkRequest, completionHandler: completionHandler)
-            }
-            progress = task.progress
-            task.resume()
-        }
-
-        return (progress, promise)
     }
 }
