@@ -52,6 +52,9 @@ func findUsername() -> String? {
     if let username = env(xcodesUsername) {
         return username
     }
+    else if let username = manager.configuration.defaultUsername {
+        return username
+    }
     return nil
 }
 
@@ -85,6 +88,10 @@ func login(_ username: String, password: String) -> Promise<Void> {
     }
     .done { _ in
         keychain[username] = password
+
+        if manager.configuration.defaultUsername != username {
+            manager.saveUsername(username)
+        }
     }
 }
 
