@@ -3,6 +3,7 @@ import Version
 import PromiseKit
 import PMKFoundation
 import Path
+import AppleAPI
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
@@ -16,7 +17,7 @@ final class XcodesKitTests: XCTestCase {
         Current = .mock
     }
 
-    let installer = XcodeInstaller()
+    let installer = XcodeInstaller(client: AppleAPI.Client())
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """

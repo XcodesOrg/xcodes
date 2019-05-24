@@ -8,7 +8,9 @@ import Path
 import KeychainAccess
 import AppleAPI
 
-let manager = XcodeManager()
+let client = AppleAPI.Client()
+let installer = XcodeInstaller(client: client)
+let manager = XcodeManager(client: client)
 let keychain = Keychain(service: "com.robotsandpencils.xcodes")
 
 let xcodesUsername = "XCODES_USERNAME"
@@ -36,7 +38,7 @@ enum XcodesError: Swift.Error, LocalizedError {
 
 func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
-        return manager.client.validateSession()
+        return client.validateSession()
     }
     .recover { error -> Promise<Void> in
         guard
@@ -83,7 +85,7 @@ func findPassword(withUsername username: String) -> String? {
 
 func login(_ username: String, password: String) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
-        manager.client.login(accountName: username, password: password)
+        client.login(accountName: username, password: password)
     }
     .recover { error -> Promise<Void> in
 
@@ -186,7 +188,7 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         let formatter = NumberFormatter(numberStyle: .percent)
         var observation: NSKeyValueObservation?
 
-        let promise = manager.downloadXcode(xcode, progressChanged: { progress in
+        let promise = installer.downloadXcode(xcode, progressChanged: { progress in
             observation?.invalidate()
             observation = progress.observe(\.fractionCompleted) { progress, _ in
                 // These escape codes move up a line and then clear to the end
@@ -226,7 +228,7 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         }
     }
     .then { xcode, url -> Promise<Void> in
-        return manager.installer.installArchivedXcode(xcode, at: url, passwordInput: { () -> Promise<String> in
+        return installer.installArchivedXcode(xcode, at: url, passwordInput: { () -> Promise<String> in
             return Promise { seal in
                 print("xcodes requires superuser privileges in order to setup some parts of Xcode.")
                 guard let password = readSecureLine(prompt: "Password: ") else { seal.reject(XcodesError.missingSudoerPassword); return }

@@ -6,11 +6,12 @@ import PMKFoundation
 import SwiftSoup
 import AppleAPI
 
+/// Provides lists of available and installed Xcodes
 public final class XcodeManager {
-    public let client = AppleAPI.Client()
-    public let installer = XcodeInstaller()
+    private let client: AppleAPI.Client
 
-    public init() {
+    public init(client: AppleAPI.Client) {
+        self.client = client
         try? loadCachedAvailableXcodes()
         try? loadConfiguration()
     }
@@ -44,24 +45,6 @@ public final class XcodeManager {
             }
     }
 
-    public func downloadXcode(_ xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
-        let destination = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
-        let resumeDataPath = XcodeManager.applicationSupportPath/"Xcode-\(xcode.version).resumedata"
-        let persistedResumeData = Current.files.contents(atPath: resumeDataPath.string)
-        
-        return attemptResumableTask(maximumRetryCount: 3) { resumeData in
-            let (progress, promise) = self.client.session.downloadTask(.promise,
-                                                                       with: xcode.url,
-                                                                       to: destination.url,
-                                                                       resumingWith: resumeData ?? persistedResumeData)
-            progressChanged(progress)
-            return promise.map { $0.saveLocation }
-        }
-        .tap { result in
-            self.persistOrCleanUpResumeData(at: resumeDataPath, for: result)
-        }
-    }
-
     public func saveUsername(_ username: String) {
         self.configuration = Configuration(defaultUsername: username)
         try? saveConfiguration(self.configuration)
@@ -69,51 +52,45 @@ public final class XcodeManager {
 }
 
 extension XcodeManager {
-    private static let applicationSupportPath = Path.applicationSupport/"com.robotsandpencils.xcodes"
-    private static let cacheFilePath = applicationSupportPath/"available-xcodes.json"
-    private static let configurationFilePath = applicationSupportPath/"configuration.json"
-
     /// Migrates any application support files from Xcodes < v0.4 if application support files from >= v0.4 don't exist
     public static func migrateApplicationSupportFiles() {
-        let oldApplicationSupportPath = Path.applicationSupport/"ca.brandonevans.xcodes"
-
-        if Current.files.fileExistsAtPath(oldApplicationSupportPath.string) {
-            if Current.files.fileExistsAtPath(applicationSupportPath.string) {
+        if Current.files.fileExistsAtPath(Path.oldXcodesApplicationSupport.string) {
+            if Current.files.fileExistsAtPath(Path.xcodesApplicationSupport.string) {
                 print("Removing old support files...")
-                try? Current.files.removeItem(oldApplicationSupportPath.url)
+                try? Current.files.removeItem(Path.oldXcodesApplicationSupport.url)
                 print("Done")
             }
             else {
                 print("Migrating old support files...")
-                try? Current.files.moveItem(oldApplicationSupportPath.url, applicationSupportPath.url)
+                try? Current.files.moveItem(Path.oldXcodesApplicationSupport.url, Path.xcodesApplicationSupport.url)
                 print("Done")
             }
         }
     }
 
     private func loadCachedAvailableXcodes() throws {
-        let data = try Data(contentsOf: XcodeManager.cacheFilePath.url)
+        let data = try Data(contentsOf: Path.cacheFile.url)
         let xcodes = try JSONDecoder().decode([Xcode].self, from: data)
         self.availableXcodes = xcodes
     }
 
     private func cacheAvailableXcodes(_ xcodes: [Xcode]) throws {
         let data = try JSONEncoder().encode(xcodes)
-        try FileManager.default.createDirectory(at: XcodeManager.cacheFilePath.url.deletingLastPathComponent(),
+        try FileManager.default.createDirectory(at: Path.cacheFile.url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-        try data.write(to: XcodeManager.cacheFilePath.url)
+        try data.write(to: Path.cacheFile.url)
     }
 
     private func loadConfiguration() throws {
-        let data = try Data(contentsOf: XcodeManager.configurationFilePath.url)
+        let data = try Data(contentsOf: Path.configurationFile.url)
         self.configuration = try JSONDecoder().decode(Configuration.self, from: data)
     }
 
     private func saveConfiguration(_ configuration: Configuration) throws {
         let data = try JSONEncoder().encode(configuration)
-        try FileManager.default.createDirectory(at: XcodeManager.configurationFilePath.url.deletingLastPathComponent(),
+        try FileManager.default.createDirectory(at: Path.configurationFile.url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-        try data.write(to: XcodeManager.configurationFilePath.url)
+        try data.write(to: Path.configurationFile.url)
     }
 }
 
@@ -170,16 +147,6 @@ extension XcodeManager {
 
         return [Xcode(version: version, url: url, filename: filename)]
     }
-    
-    private func persistOrCleanUpResumeData<T>(at path: Path, for result: Result<T>) {
-        switch result {
-        case .fulfilled:
-            try? Current.files.removeItem(at: path.url)
-        case .rejected(let error):
-            guard let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data else { return }
-            Current.files.createFile(atPath: path.string, contents: resumeData)
-        }
-    }
 }
 
 extension URLSession {
@@ -215,21 +182,4 @@ extension URLSession {
 
         return (progress, promise)
     }
-}
-
-/// Attempt and retry a task that fails with resume data up to `maximumRetryCount` times
-private func attemptResumableTask<T>(maximumRetryCount: Int = 3, delayBeforeRetry: DispatchTimeInterval = .seconds(2), _ body: @escaping (Data?) -> Promise<T>) -> Promise<T> {
-    var attempts = 0
-    func attempt(with resumeData: Data? = nil) -> Promise<T> {
-        attempts += 1
-        return body(resumeData).recover { error -> Promise<T> in
-            guard
-                attempts < maximumRetryCount,
-                let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
-            else { throw error }
-
-            return after(delayBeforeRetry).then(on: nil) { attempt(with: resumeData) }
-        }
-    }
-    return attempt()
 }
