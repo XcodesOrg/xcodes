@@ -14,11 +14,24 @@ let keychain = Keychain(service: "com.robotsandpencils.xcodes")
 let xcodesUsername = "XCODES_USERNAME"
 let xcodesPassword = "XCODES_PASSWORD"
 
-enum Error: Swift.Error {
+enum XcodesError: Swift.Error, LocalizedError {
     case missingUsernameOrPassword
     case missingSudoerPassword
     case invalidVersion(String)
     case unavailableVersion(Version)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingUsernameOrPassword:
+            return "Missing username or a password. Please try again."
+        case .missingSudoerPassword:
+            return "Missing password. Please try again."
+        case let .invalidVersion(version):
+            return "\(version) is not a valid version number."
+        case let .unavailableVersion(version):
+            return "Could not find version \(version.xcodeDescription)."
+        }
+    }
 }
 
 func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void> {
@@ -29,7 +42,7 @@ func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void
         guard
             let username = existingUsername ?? findUsername() ?? readLine(prompt: "Apple ID: "),
             let password = findPassword(withUsername: username) ?? readSecureLine(prompt: "Apple ID Password: ")
-        else { throw Error.missingUsernameOrPassword }
+        else { throw XcodesError.missingUsernameOrPassword }
 
         return firstly { () -> Promise<Void> in
             login(username, password: password)
@@ -165,7 +178,7 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
     }
     .then { version -> Promise<(Xcode, URL)> in
         guard let xcode = manager.availableXcodes.first(where: { $0.version == version }) else {
-            throw Error.unavailableVersion(version)
+            throw XcodesError.unavailableVersion(version)
         }
 
         // Move to the next line
@@ -200,7 +213,7 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
     firstly { () -> Promise<(Xcode, URL)> in
         let versionString = args.joined(separator: " ")
         guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
-            throw Error.invalidVersion(versionString)
+            throw XcodesError.invalidVersion(versionString)
         }
 
         if let urlString = flags.getString(name: "url") {
@@ -216,7 +229,7 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         return manager.installer.installArchivedXcode(xcode, at: url, passwordInput: { () -> Promise<String> in
             return Promise { seal in
                 print("xcodes requires superuser privileges in order to setup some parts of Xcode.")
-                guard let password = readSecureLine(prompt: "Password: ") else { seal.reject(Error.missingSudoerPassword); return }
+                guard let password = readSecureLine(prompt: "Password: ") else { seal.reject(XcodesError.missingSudoerPassword); return }
                 seal.fulfill(password + "\n")
             }
         })
