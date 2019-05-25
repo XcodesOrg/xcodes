@@ -10,7 +10,7 @@ import AppleAPI
 
 let client = AppleAPI.Client()
 let installer = XcodeInstaller(client: client)
-let manager = XcodeManager(client: client)
+let xcodeList = XcodeList(client: client)
 let keychain = Keychain(service: "com.robotsandpencils.xcodes")
 
 let xcodesUsername = "XCODES_USERNAME"
@@ -67,7 +67,7 @@ func findUsername() -> String? {
     if let username = env(xcodesUsername) {
         return username
     }
-    else if let username = manager.configuration.defaultUsername {
+    else if let username = xcodeList.configuration.defaultUsername {
         return username
     }
     return nil
@@ -104,8 +104,8 @@ func login(_ username: String, password: String) -> Promise<Void> {
     .done { _ in
         keychain[username] = password
 
-        if manager.configuration.defaultUsername != username {
-            manager.saveUsername(username)
+        if xcodeList.configuration.defaultUsername != username {
+            xcodeList.saveUsername(username)
         }
     }
 }
@@ -131,10 +131,10 @@ func updateAndPrint() {
         loginIfNeeded()
     }
     .then { () -> Promise<[Xcode]> in
-        manager.update()
+        xcodeList.update()
     }
     .done { xcodes in
-        printAvailableXcodes(xcodes, installed: manager.installedXcodes)
+        printAvailableXcodes(xcodes, installed: xcodeList.installedXcodes)
         exit(0)
     }
     .catch { error in
@@ -146,7 +146,7 @@ func updateAndPrint() {
 }
 
 let installed = Command(usage: "installed") { _, _ in
-    manager
+    xcodeList
         .installedXcodes
         .map { $0.bundleVersion }
         .sorted()
@@ -154,11 +154,11 @@ let installed = Command(usage: "installed") { _, _ in
 }
 
 let list = Command(usage: "list") { _, _ in
-    if manager.shouldUpdate {
+    if xcodeList.shouldUpdate {
         updateAndPrint()
     }
     else {
-        printAvailableXcodes(manager.availableXcodes, installed: manager.installedXcodes)
+        printAvailableXcodes(xcodeList.availableXcodes, installed: xcodeList.installedXcodes)
     }
 }
 
@@ -171,15 +171,15 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         loginIfNeeded().map { version }
     }
     .then { version -> Promise<Version> in
-        if manager.shouldUpdate {
-            return manager.update().map { _ in version }
+        if xcodeList.shouldUpdate {
+            return xcodeList.update().map { _ in version }
         }
         else {
             return Promise.value(version)
         }
     }
     .then { version -> Promise<(Xcode, URL)> in
-        guard let xcode = manager.availableXcodes.first(where: { $0.version == version }) else {
+        guard let xcode = xcodeList.availableXcodes.first(where: { $0.version == version }) else {
             throw XcodesError.unavailableVersion(version)
         }
 
@@ -262,7 +262,7 @@ let version = Command(usage: "version") { _, _ in
     exit(0)
 }
 
-XcodeManager.migrateApplicationSupportFiles()
+XcodeList.migrateApplicationSupportFiles()
 
 // This is awkward, but Guaka wants a root command in order to add subcommands,
 // but then seems to want it to behave like a normal command even though it'll only ever print the help.

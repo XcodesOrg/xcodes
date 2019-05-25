@@ -6,7 +6,7 @@ import SwiftSoup
 import AppleAPI
 
 /// Provides lists of available and installed Xcodes
-public final class XcodeManager {
+public final class XcodeList {
     private let client: AppleAPI.Client
 
     public init(client: AppleAPI.Client) {
@@ -50,7 +50,7 @@ public final class XcodeManager {
     }
 }
 
-extension XcodeManager {
+extension XcodeList {
     /// Migrates any application support files from Xcodes < v0.4 if application support files from >= v0.4 don't exist
     public static func migrateApplicationSupportFiles() {
         if Current.files.fileExistsAtPath(Path.oldXcodesApplicationSupport.string) {
@@ -93,7 +93,7 @@ extension XcodeManager {
     }
 }
 
-extension XcodeManager {
+extension XcodeList {
     private func releasedXcodes() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             client.session.dataTask(.promise, with: URLRequest.downloads)
