@@ -12,6 +12,8 @@ let client = AppleAPI.Client()
 let installer = XcodeInstaller(client: client)
 let xcodeList = XcodeList(client: client)
 let keychain = Keychain(service: "com.robotsandpencils.xcodes")
+var configuration = Configuration()
+try? configuration.load()
 
 let xcodesUsername = "XCODES_USERNAME"
 let xcodesPassword = "XCODES_PASSWORD"
@@ -67,7 +69,7 @@ func findUsername() -> String? {
     if let username = env(xcodesUsername) {
         return username
     }
-    else if let username = xcodeList.configuration.defaultUsername {
+    else if let username = configuration.defaultUsername {
         return username
     }
     return nil
@@ -104,8 +106,9 @@ func login(_ username: String, password: String) -> Promise<Void> {
     .done { _ in
         keychain[username] = password
 
-        if xcodeList.configuration.defaultUsername != username {
-            xcodeList.saveUsername(username)
+        if configuration.defaultUsername != username {
+            configuration.defaultUsername = username
+            try? configuration.save()
         }
     }
 }

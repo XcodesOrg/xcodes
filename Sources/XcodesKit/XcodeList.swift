@@ -12,7 +12,6 @@ public final class XcodeList {
     public init(client: AppleAPI.Client) {
         self.client = client
         try? loadCachedAvailableXcodes()
-        try? loadConfiguration()
     }
 
     public var installedXcodes: [InstalledXcode] {
@@ -28,8 +27,6 @@ public final class XcodeList {
 
     public private(set) var availableXcodes: [Xcode] = []
 
-    public private(set) var configuration = Configuration(defaultUsername: nil)
-
     public var shouldUpdate: Bool {
         return availableXcodes.isEmpty
     }
@@ -42,11 +39,6 @@ public final class XcodeList {
                 try? self.cacheAvailableXcodes(xcodes)
                 return xcodes
             }
-    }
-
-    public func saveUsername(_ username: String) {
-        self.configuration = Configuration(defaultUsername: username)
-        try? saveConfiguration(self.configuration)
     }
 }
 
@@ -78,18 +70,6 @@ extension XcodeList {
         try FileManager.default.createDirectory(at: Path.cacheFile.url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try data.write(to: Path.cacheFile.url)
-    }
-
-    private func loadConfiguration() throws {
-        let data = try Data(contentsOf: Path.configurationFile.url)
-        self.configuration = try JSONDecoder().decode(Configuration.self, from: data)
-    }
-
-    private func saveConfiguration(_ configuration: Configuration) throws {
-        let data = try JSONEncoder().encode(configuration)
-        try FileManager.default.createDirectory(at: Path.configurationFile.url.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
-        try data.write(to: Path.configurationFile.url)
     }
 }
 

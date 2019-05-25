@@ -51,7 +51,3 @@ public struct InfoPlist: Decodable {
         case bundleShortVersion = "CFBundleShortVersionString"
     }
 }
-
-public struct Configuration: Codable {
-    public let defaultUsername: String?
-}
