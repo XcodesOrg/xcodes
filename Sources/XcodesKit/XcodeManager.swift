@@ -155,9 +155,9 @@ extension XcodeManager {
             let document = try SwiftSoup.parse(body)
 
             guard 
-                let versionString = try document.select("span.platform-title:containsOwn(Xcode)").first()?.parent()?.text(),
+                let versionString = try document.select("h2:containsOwn(Xcode)").first()?.text(),
                 let version = Version(xcodeVersion: versionString),
-                let path = try document.select("button.direct-download[value*=xip]").first()?.val(),
+                let path = try document.select(".direct-download[href*=xip]").first()?.attr("href"),
                 let url = URL(string: "https://developer.apple.com" + path)
             else { return [] }
 
