@@ -150,21 +150,25 @@ extension XcodeManager {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             client.session.dataTask(.promise, with: URLRequest.download)
         }
-        .map { (data, response) -> [Xcode] in
-            let body = String(data: data, encoding: .utf8)!
-            let document = try SwiftSoup.parse(body)
-
-            guard 
-                let versionString = try document.select("span.platform-title:containsOwn(Xcode)").first()?.parent()?.text(),
-                let version = Version(xcodeVersion: versionString),
-                let path = try document.select("button.direct-download[value*=xip]").first()?.val(),
-                let url = URL(string: "https://developer.apple.com" + path)
-            else { return [] }
-
-            let filename = String(path.suffix(fromLast: "/"))
-
-            return [Xcode(version: version, url: url, filename: filename)]
+        .map { (data, _) -> [Xcode] in
+            try self.parsePrereleaseXcodes(from: data)
         }
+    }
+
+    func parsePrereleaseXcodes(from data: Data) throws -> [Xcode] {
+        let body = String(data: data, encoding: .utf8)!
+        let document = try SwiftSoup.parse(body)
+
+        guard 
+            let versionString = try document.select("h2:containsOwn(Xcode)").first()?.text(),
+            let version = Version(xcodeVersion: versionString),
+            let path = try document.select(".direct-download[href*=xip]").first()?.attr("href"),
+            let url = URL(string: "https://developer.apple.com" + path)
+        else { return [] }
+
+        let filename = String(path.suffix(fromLast: "/"))
+
+        return [Xcode(version: version, url: url, filename: filename)]
     }
     
     private func persistOrCleanUpResumeData<T>(at path: Path, for result: Result<T>) {

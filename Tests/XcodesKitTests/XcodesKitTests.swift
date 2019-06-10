@@ -147,4 +147,14 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertNil(destination)
         XCTAssertNil(removedItemAtURL)
     }
+
+    func test_ParsePrereleaseXcodes() {
+        let url = URL(fileURLWithPath: "developer.apple.com-download-19-6-9.html", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+        let data = try! Data(contentsOf: url)
+
+        let xcodes = try! XcodeManager().parsePrereleaseXcodes(from: data)
+
+        XCTAssertEqual(xcodes.count, 1)
+        XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta"))
+    }
 }
