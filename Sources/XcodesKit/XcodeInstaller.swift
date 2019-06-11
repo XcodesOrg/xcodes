@@ -6,9 +6,9 @@ public final class XcodeInstaller {
     static let XcodeTeamIdentifier = "59GAB85EFG"
     static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
 
-    enum Error: Swift.Error, Equatable {
+    public enum Error: Swift.Error, Equatable {
         case failedToMoveXcodeToApplications
-        case failedSecurityAssessment
+        case failedSecurityAssessment(xcode: InstalledXcode, output: String)
         case codesignVerifyFailed
         case unsupportedFileFormat(extension: String)
     }
@@ -37,7 +37,7 @@ public final class XcodeInstaller {
         .then { xcode -> Promise<InstalledXcode> in
             try Current.files.removeItem(at: url)
 
-            return when(fulfilled: self.verifySecurityAssessment(of: xcode.path.url),
+            return when(fulfilled: self.verifySecurityAssessment(of: xcode),
                                    self.verifySigningCertificate(of: xcode.path.url))
                 .map { xcode }
         }
@@ -70,9 +70,16 @@ public final class XcodeInstaller {
         }
     }
 
-    func verifySecurityAssessment(of url: URL) -> Promise<Void> {
-        return Current.shell.spctlAssess(url).asVoid()
-            .recover { _ in throw Error.failedSecurityAssessment }
+    public func verifySecurityAssessment(of xcode: InstalledXcode) -> Promise<Void> {
+        return Current.shell.spctlAssess(xcode.path.url)
+            .recover { (error: Swift.Error) throws -> Promise<ProcessOutput> in
+                var output = ""
+                if case let Process.PMKError.execution(_, possibleOutput, possibleError) = error {
+                    output = [possibleOutput, possibleError].compactMap { $0 }.joined(separator: "\n")
+                }
+                throw Error.failedSecurityAssessment(xcode: xcode, output: output)
+            }
+            .asVoid()
     }
 
     func verifySigningCertificate(of url: URL) -> Promise<Void> {
