@@ -44,8 +44,9 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
+        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), passwordInput: { Promise.value("") })
-            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment) }
+            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment(xcode: installedXcode, output: "")) }
     }
 
     func test_InstallArchivedXcode_VerifySigningCertificateFails_Throws() {
@@ -77,14 +78,16 @@ final class XcodesKitTests: XCTestCase {
     func test_VerifySecurityAssessment_Fails() {
         Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
-        installer.verifySecurityAssessment(of: URL(fileURLWithPath: "/"))
+        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
+        installer.verifySecurityAssessment(of: installedXcode)
             .tap { result in XCTAssertFalse(result.isFulfilled) }
     }
 
     func test_VerifySecurityAssessment_Succeeds() {
         Current.shell.spctlAssess = { _ in return Promise.value((0, "", "")) }
 
-        installer.verifySecurityAssessment(of: URL(fileURLWithPath: "/"))
+        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
+        installer.verifySecurityAssessment(of: installedXcode)
             .tap { result in XCTAssertTrue(result.isFulfilled) }
     }
 

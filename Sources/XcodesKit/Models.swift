@@ -2,7 +2,7 @@ import Foundation
 import Path
 import Version
 
-public struct InstalledXcode {
+public struct InstalledXcode: Equatable {
     public let path: Path
     public let bundleVersion: Version
 

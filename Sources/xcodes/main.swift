@@ -238,7 +238,17 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         exit(0)
     }
     .catch { error in
-        print(error.legibleLocalizedDescription)
+        switch error {
+        case XcodeInstaller.Error.failedSecurityAssessment(let xcode, let output):
+            print("""
+                  Xcode \(xcode.bundleVersion) failed its security assessment with the following output:
+                  \(output)
+                  It remains installed at \(xcode.path) if you wish to use it anyways.
+                  """)
+        default:
+            print(error.legibleLocalizedDescription)
+        }
+
         exit(1)
     }
 
