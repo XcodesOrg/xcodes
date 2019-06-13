@@ -6,8 +6,8 @@
         "repositoryURL": "https://github.com/PromiseKit/Foundation.git",
         "state": {
           "branch": null,
-          "revision": "04b196a1cb3ce65a404724c4e6e87c43c56542a4",
-          "version": "3.3.1"
+          "revision": "0a59b0d89f469979aecacdf9046df14f99d1cc6b",
+          "version": "3.3.2"
         }
       },
       {
@@ -15,8 +15,8 @@
         "repositoryURL": "https://github.com/nsomar/Guaka.git",
         "state": {
           "branch": null,
-          "revision": "7d6135f0bcb324977698c40a1985f481899b6dce",
-          "version": "0.3.1"
+          "revision": "90c03a9e4c894808a8882a16ccf56743b4b2d40c",
+          "version": "0.4.0"
         }
       },
       {
@@ -42,8 +42,8 @@
         "repositoryURL": "https://github.com/mxcl/Path.swift.git",
         "state": {
           "branch": null,
-          "revision": "e915bc0cfb5bcee9d48adfdb9e8208d07291c0e8",
-          "version": "0.16.0"
+          "revision": "f324b4a562ca421fd2905414a10fb0fc91d58b67",
+          "version": "0.16.2"
         }
       },
       {
@@ -51,8 +51,8 @@
         "repositoryURL": "https://github.com/mxcl/PromiseKit.git",
         "state": {
           "branch": null,
-          "revision": "db3b2aaf0b26299c1828e0a302adf1a5523f4af5",
-          "version": "6.8.3"
+          "revision": "fe1e9c5b62465227cceb7b0e6e79489ba7b824af",
+          "version": "6.8.4"
         }
       },
       {
@@ -60,8 +60,8 @@
         "repositoryURL": "https://github.com/getGuaka/StringScanner.git",
         "state": {
           "branch": null,
-          "revision": "c2cf5c81dade9486386f1cacd917c03e959a3005",
-          "version": "0.3.0"
+          "revision": "39f9b77e37c69ab6fec14aadf79a066468ce63e3",
+          "version": "0.4.0"
         }
       },
       {
@@ -69,8 +69,8 @@
         "repositoryURL": "https://github.com/scinfu/SwiftSoup.git",
         "state": {
           "branch": null,
-          "revision": "11da8c685ddde2d519fad04a7daf8485bbbc773e",
-          "version": "1.7.5"
+          "revision": "aeb5b4249c273d1783a5299e05be1b26e061ea81",
+          "version": "2.0.0"
         }
       },
       {

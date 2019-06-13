@@ -33,7 +33,7 @@ mint install RobotsAndPencils/xcodes
 <details>
 <summary>Build from source</summary>
 
-Building from source requires Xcode, so it's not an option for setting up a computer from scratch.
+Building from source requires Xcode 10.2 or later, so it's not an option for setting up a computer from scratch.
 
 ```sh
 git clone https://github.com/RobotsAndPencils/xcodes
@@ -46,7 +46,7 @@ PREFIX=/your/install/directory make install
 While installing, you may get the following output:
 
 ```
-swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.13"
+swift build
 error: terminated(72): xcrun --sdk macosx --find xctest output:
 
 ```
