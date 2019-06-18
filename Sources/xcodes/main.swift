@@ -120,7 +120,7 @@ func printAvailableXcodes(_ xcodes: [Xcode], installed: [InstalledXcode]) {
             // Not sure of a good way to determine which pre-release version is installed
             // For now, compare versions without pre-release identifiers
             // This should match xcode-install's behaviour
-            if installed.contains(where: { $0.bundleVersion.isEqualWithoutPrerelease(xcode.version) }) {
+            if installed.contains(where: { $0.version.isEqualWithoutPrerelease(xcode.version) }) {
                 print("\(xcode.version) (Installed)")
             }
             else {
@@ -151,7 +151,7 @@ func updateAndPrint() {
 let installed = Command(usage: "installed") { _, _ in
     xcodeList
         .installedXcodes
-        .map { $0.bundleVersion }
+        .map { $0.version }
         .sorted()
         .forEach { print($0) }
 }
@@ -246,7 +246,7 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         switch error {
         case XcodeInstaller.Error.failedSecurityAssessment(let xcode, let output):
             print("""
-                  Xcode \(xcode.bundleVersion) failed its security assessment with the following output:
+                  Xcode \(xcode.version) failed its security assessment with the following output:
                   \(output)
                   It remains installed at \(xcode.path) if you wish to use it anyways.
                   """)

@@ -4,20 +4,29 @@ import Version
 
 public struct InstalledXcode: Equatable {
     public let path: Path
-    public let bundleVersion: Version
+    /// Composed of the bundle short version from Info.plist and the product build version from version.plist
+    public let version: Version
 
     public init?(path: Path) {
         self.path = path
 
         let infoPlistPath = path.join("Contents").join("Info.plist")
+        let versionPlistPath = path.join("Contents").join("version.plist")
         guard 
             let infoPlistData = Current.files.contents(atPath: infoPlistPath.string),
             let infoPlist = try? PropertyListDecoder().decode(InfoPlist.self, from: infoPlistData),
             let bundleShortVersion = infoPlist.bundleShortVersion,
-            let bundleVersion = Version(tolerant: bundleShortVersion)
+            let bundleVersion = Version(tolerant: bundleShortVersion),
+
+            let versionPlistData = Current.files.contents(atPath: versionPlistPath.string),
+            let versionPlist = try? PropertyListDecoder().decode(VersionPlist.self, from: versionPlistData)
         else { return nil }
 
-        self.bundleVersion = bundleVersion
+        self.version = Version(major: bundleVersion.major,
+                               minor: bundleVersion.minor,
+                               patch: bundleVersion.patch,
+                               prereleaseIdentifiers: bundleVersion.prereleaseIdentifiers,
+                               buildMetadataIdentifiers: [versionPlist.productBuildVersion].compactMap { $0 })
     }
 }
 
@@ -51,3 +60,12 @@ public struct InfoPlist: Decodable {
         case bundleShortVersion = "CFBundleShortVersionString"
     }
 }
+
+public struct VersionPlist: Decodable {
+    public let productBuildVersion: String
+
+    public enum CodingKeys: String, CodingKey {
+        case productBuildVersion = "ProductBuildVersion"
+    }
+}
+
