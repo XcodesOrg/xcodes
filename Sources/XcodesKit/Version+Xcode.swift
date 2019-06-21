@@ -43,6 +43,10 @@ public extension Version {
         }
         if !prereleaseIdentifiers.isEmpty {
             base += " " + prereleaseIdentifiers.map { $0.capitalized }.joined(separator: " ")
+
+            if !buildMetadataIdentifiers.isEmpty {
+                base += " (\(buildMetadataIdentifiers.joined(separator: " ")))"
+            }
         }
         return base
     }

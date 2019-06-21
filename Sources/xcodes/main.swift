@@ -114,17 +114,19 @@ func login(_ username: String, password: String) -> Promise<Void> {
 }
 
 func printAvailableXcodes(_ xcodes: [Xcode], installed: [InstalledXcode]) {
-    xcodes
-        .sorted { $0.version < $1.version }
-        .forEach { xcode in
-            // Not sure of a good way to determine which pre-release version is installed
-            // For now, compare versions without pre-release identifiers
-            // This should match xcode-install's behaviour
-            if installed.contains(where: { $0.version.isEqualWithoutPrerelease(xcode.version) }) {
-                print("\(xcode.version) (Installed)")
+    var allXcodeVersions = xcodes.map { $0.version }
+    for xcode in installed where !allXcodeVersions.contains(where: { $0.isEquivalentForDeterminingIfInstalled(to: xcode.version) }) {
+        allXcodeVersions.append(xcode.version)
+    }
+
+    allXcodeVersions
+        .sorted { $0 < $1 }
+        .forEach { xcodeVersion in
+            if installed.contains(where: { $0.version.isEquivalentForDeterminingIfInstalled(to: xcodeVersion) }) {
+                print("\(xcodeVersion.xcodeDescription) (Installed)")
             }
             else {
-                print(xcode.version.xcodeDescription)
+                print(xcodeVersion.xcodeDescription)
             }
         }
 }
@@ -182,7 +184,7 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         }
     }
     .then { version -> Promise<(Xcode, URL)> in
-        guard let xcode = xcodeList.availableXcodes.first(where: { $0.version == version }) else {
+        guard let xcode = xcodeList.availableXcodes.first(where: { version.isEqualWithoutBuildMetadataIdentifiers(to: $0.version) }) else {
             throw XcodesError.unavailableVersion(version)
         }
 

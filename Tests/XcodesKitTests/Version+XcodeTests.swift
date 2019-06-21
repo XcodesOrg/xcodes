@@ -14,4 +14,10 @@ class VersionXcodeTests: XCTestCase {
         XCTAssertEqual(Version(xcodeVersion: "10.2"), Version("10.2.0"))
         XCTAssertEqual(Version(xcodeVersion: "10.2.1"), Version("10.2.1"))
     }
+
+    func test_Equivalence() {
+        XCTAssertTrue(Version("10.2.1")!.isEquivalentForDeterminingIfInstalled(to: Version("10.2.1+abcdef")!))
+        XCTAssertFalse(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(to: Version("10.2.1-beta+abcdef")!))
+        XCTAssertTrue(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(to: Version("10.2.1-beta+QWERTY")!))
+    }
 }

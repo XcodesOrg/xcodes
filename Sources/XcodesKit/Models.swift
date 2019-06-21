@@ -22,10 +22,19 @@ public struct InstalledXcode: Equatable {
             let versionPlist = try? PropertyListDecoder().decode(VersionPlist.self, from: versionPlistData)
         else { return nil }
 
+        // Installed betas don't include the beta number anywhere, so try to parse it from the filename or fall back to simply "beta"
+        var prereleaseIdentifiers = bundleVersion.prereleaseIdentifiers
+        if let filenameVersion = Version(path.basename(dropExtension: true).replacingOccurrences(of: "Xcode-", with: "")) {
+            prereleaseIdentifiers = filenameVersion.prereleaseIdentifiers
+        }
+        else if infoPlist.bundleIconName == "XcodeBeta", !prereleaseIdentifiers.contains("beta") {
+            prereleaseIdentifiers = ["beta"]
+        }
+
         self.version = Version(major: bundleVersion.major,
                                minor: bundleVersion.minor,
                                patch: bundleVersion.patch,
-                               prereleaseIdentifiers: bundleVersion.prereleaseIdentifiers,
+                               prereleaseIdentifiers: prereleaseIdentifiers,
                                buildMetadataIdentifiers: [versionPlist.productBuildVersion].compactMap { $0 })
     }
 }
@@ -54,10 +63,12 @@ public struct Download: Decodable {
 public struct InfoPlist: Decodable {
     public let bundleID: String?
     public let bundleShortVersion: String?
+    public let bundleIconName: String?
 
     public enum CodingKeys: String, CodingKey {
         case bundleID = "CFBundleIdentifier"
         case bundleShortVersion = "CFBundleShortVersionString"
+        case bundleIconName = "CFBundleIconName"
     }
 }
 
