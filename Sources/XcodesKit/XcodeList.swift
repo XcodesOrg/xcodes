@@ -116,8 +116,9 @@ extension XcodeList {
         let document = try SwiftSoup.parse(body)
 
         guard 
-            let versionString = try document.select("h2:containsOwn(Xcode)").first()?.text(),
-            let version = Version(xcodeVersion: versionString),
+            let xcodeHeader = try document.select("h2:containsOwn(Xcode)").first(),
+            let productBuildVersion = try xcodeHeader.parent()?.select("li:contains(Build)").text().replacingOccurrences(of: "Build", with: ""),
+            let version = Version(xcodeVersion: try xcodeHeader.text(), buildMetadataIdentifier: productBuildVersion),
             let path = try document.select(".direct-download[href*=xip]").first()?.attr("href"),
             let url = URL(string: "https://developer.apple.com" + path)
         else { return [] }

@@ -159,6 +159,6 @@ final class XcodesKitTests: XCTestCase {
         let xcodes = try! XcodeList(client: AppleAPI.Client()).parsePrereleaseXcodes(from: data)
 
         XCTAssertEqual(xcodes.count, 1)
-        XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta"))
+        XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta+11M336W"))
     }
 }

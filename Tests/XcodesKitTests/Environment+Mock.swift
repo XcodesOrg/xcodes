@@ -32,9 +32,18 @@ extension Files {
     static var mock = Files(
         fileExistsAtPath: { _ in return true },
         moveItem: { _, _ in return },
-        contentsAtPath: { _ in 
-            let url = URL(fileURLWithPath: "Stub.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
-            return try? Data(contentsOf: url)
+        contentsAtPath: { path in
+            if path.contains("Info.plist") {
+                let url = URL(fileURLWithPath: "Stub.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
         },
         removeItem: { _ in },
         createFile: { _, _, _ in return true }

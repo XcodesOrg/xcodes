@@ -13,7 +13,7 @@ public extension Version {
      10.2
      10.2.1
      */
-    init?(xcodeVersion: String) {
+    init?(xcodeVersion: String, buildMetadataIdentifier: String? = nil) {
         let nsrange = NSRange(xcodeVersion.startIndex..<xcodeVersion.endIndex, in: xcodeVersion)
         let pattern = "^(Xcode )?(?<major>\\d+)\\.?(?<minor>\\d?)\\.?(?<patch>\\d?) ?(?<prereleaseType>\\w+)? ?(?<prereleaseVersion>\\d?)"
 
@@ -33,7 +33,7 @@ public extension Version {
                                         .compactMap { $0?.lowercased() }
                                         .filter { !$0.isEmpty }
 
-        self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers)
+        self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers, buildMetadataIdentifiers: [buildMetadataIdentifier].compactMap { $0 })
     }
 
     var xcodeDescription: String {
@@ -43,6 +43,10 @@ public extension Version {
         }
         if !prereleaseIdentifiers.isEmpty {
             base += " " + prereleaseIdentifiers.map { $0.capitalized }.joined(separator: " ")
+
+            if !buildMetadataIdentifiers.isEmpty {
+                base += " (\(buildMetadataIdentifiers.joined(separator: " ")))"
+            }
         }
         return base
     }
