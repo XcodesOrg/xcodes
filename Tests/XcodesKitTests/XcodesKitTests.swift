@@ -3,6 +3,7 @@ import Version
 import PromiseKit
 import PMKFoundation
 import Path
+import AppleAPI
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
@@ -16,7 +17,7 @@ final class XcodesKitTests: XCTestCase {
         Current = .mock
     }
 
-    let installer = XcodeInstaller()
+    let installer = XcodeInstaller(client: AppleAPI.Client())
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """
@@ -99,7 +100,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeManager.migrateApplicationSupportFiles()
+        XcodeList.migrateApplicationSupportFiles()
 
         XCTAssertNil(source)
         XCTAssertNil(destination)
@@ -114,7 +115,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeManager.migrateApplicationSupportFiles()
+        XcodeList.migrateApplicationSupportFiles()
 
         XCTAssertEqual(source, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
         XCTAssertEqual(destination, Path.applicationSupport.join("com.robotsandpencils.xcodes").url)
@@ -129,7 +130,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeManager.migrateApplicationSupportFiles()
+        XcodeList.migrateApplicationSupportFiles()
 
         XCTAssertNil(source)
         XCTAssertNil(destination)
@@ -144,7 +145,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeManager.migrateApplicationSupportFiles()
+        XcodeList.migrateApplicationSupportFiles()
 
         XCTAssertNil(source)
         XCTAssertNil(destination)
@@ -155,7 +156,7 @@ final class XcodesKitTests: XCTestCase {
         let url = URL(fileURLWithPath: "developer.apple.com-download-19-6-9.html", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
         let data = try! Data(contentsOf: url)
 
-        let xcodes = try! XcodeManager().parsePrereleaseXcodes(from: data)
+        let xcodes = try! XcodeList(client: AppleAPI.Client()).parsePrereleaseXcodes(from: data)
 
         XCTAssertEqual(xcodes.count, 1)
         XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta"))

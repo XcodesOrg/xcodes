@@ -1,7 +1,9 @@
 import Foundation
 import PromiseKit
 import Path
+import AppleAPI
 
+/// Downloads and installs Xcodes
 public final class XcodeInstaller {
     static let XcodeTeamIdentifier = "59GAB85EFG"
     static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
@@ -13,7 +15,29 @@ public final class XcodeInstaller {
         case unsupportedFileFormat(extension: String)
     }
 
-    public init() {}
+    private let client: AppleAPI.Client
+
+    public init(client: AppleAPI.Client) {
+        self.client = client
+    }
+
+    public func downloadXcode(_ xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
+        let destination = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
+        let resumeDataPath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).resumedata"
+        let persistedResumeData = Current.files.contents(atPath: resumeDataPath.string)
+        
+        return attemptResumableTask(maximumRetryCount: 3) { resumeData in
+            let (progress, promise) = self.client.session.downloadTask(.promise,
+                                                                       with: xcode.url,
+                                                                       to: destination.url,
+                                                                       resumingWith: resumeData ?? persistedResumeData)
+            progressChanged(progress)
+            return promise.map { $0.saveLocation }
+        }
+        .tap { result in
+            self.persistOrCleanUpResumeData(at: resumeDataPath, for: result)
+        }
+    }
 
     public func installArchivedXcode(_ xcode: Xcode, at url: URL, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
@@ -169,4 +193,33 @@ public final class XcodeInstaller {
             return Current.shell.touchInstallCheck(cacheDirectory, macOSBuildVersion, toolsVersion).asVoid()
         }
     }
+}
+
+private extension XcodeInstaller {
+    func persistOrCleanUpResumeData<T>(at path: Path, for result: Result<T>) {
+        switch result {
+        case .fulfilled:
+            try? Current.files.removeItem(at: path.url)
+        case .rejected(let error):
+            guard let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data else { return }
+            Current.files.createFile(atPath: path.string, contents: resumeData)
+        }
+    }
+}
+
+/// Attempt and retry a task that fails with resume data up to `maximumRetryCount` times
+private func attemptResumableTask<T>(maximumRetryCount: Int = 3, delayBeforeRetry: DispatchTimeInterval = .seconds(2), _ body: @escaping (Data?) -> Promise<T>) -> Promise<T> {
+    var attempts = 0
+    func attempt(with resumeData: Data? = nil) -> Promise<T> {
+        attempts += 1
+        return body(resumeData).recover { error -> Promise<T> in
+            guard
+                attempts < maximumRetryCount,
+                let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+            else { throw error }
+
+            return after(delayBeforeRetry).then(on: nil) { attempt(with: resumeData) }
+        }
+    }
+    return attempt()
 }

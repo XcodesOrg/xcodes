@@ -8,8 +8,12 @@ import Path
 import KeychainAccess
 import AppleAPI
 
-let manager = XcodeManager()
+let client = AppleAPI.Client()
+let installer = XcodeInstaller(client: client)
+let xcodeList = XcodeList(client: client)
 let keychain = Keychain(service: "com.robotsandpencils.xcodes")
+var configuration = Configuration()
+try? configuration.load()
 
 let xcodesUsername = "XCODES_USERNAME"
 let xcodesPassword = "XCODES_PASSWORD"
@@ -36,7 +40,7 @@ enum XcodesError: Swift.Error, LocalizedError {
 
 func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
-        return manager.client.validateSession()
+        return client.validateSession()
     }
     .recover { error -> Promise<Void> in
         guard
@@ -65,7 +69,7 @@ func findUsername() -> String? {
     if let username = env(xcodesUsername) {
         return username
     }
-    else if let username = manager.configuration.defaultUsername {
+    else if let username = configuration.defaultUsername {
         return username
     }
     return nil
@@ -83,7 +87,7 @@ func findPassword(withUsername username: String) -> String? {
 
 func login(_ username: String, password: String) -> Promise<Void> {
     return firstly { () -> Promise<Void> in
-        manager.client.login(accountName: username, password: password)
+        client.login(accountName: username, password: password)
     }
     .recover { error -> Promise<Void> in
 
@@ -102,8 +106,9 @@ func login(_ username: String, password: String) -> Promise<Void> {
     .done { _ in
         keychain[username] = password
 
-        if manager.configuration.defaultUsername != username {
-            manager.saveUsername(username)
+        if configuration.defaultUsername != username {
+            configuration.defaultUsername = username
+            try? configuration.save()
         }
     }
 }
@@ -129,10 +134,10 @@ func updateAndPrint() {
         loginIfNeeded()
     }
     .then { () -> Promise<[Xcode]> in
-        manager.update()
+        xcodeList.update()
     }
     .done { xcodes in
-        printAvailableXcodes(xcodes, installed: manager.installedXcodes)
+        printAvailableXcodes(xcodes, installed: xcodeList.installedXcodes)
         exit(0)
     }
     .catch { error in
@@ -144,7 +149,7 @@ func updateAndPrint() {
 }
 
 let installed = Command(usage: "installed") { _, _ in
-    manager
+    xcodeList
         .installedXcodes
         .map { $0.bundleVersion }
         .sorted()
@@ -152,11 +157,11 @@ let installed = Command(usage: "installed") { _, _ in
 }
 
 let list = Command(usage: "list") { _, _ in
-    if manager.shouldUpdate {
+    if xcodeList.shouldUpdate {
         updateAndPrint()
     }
     else {
-        printAvailableXcodes(manager.availableXcodes, installed: manager.installedXcodes)
+        printAvailableXcodes(xcodeList.availableXcodes, installed: xcodeList.installedXcodes)
     }
 }
 
@@ -169,15 +174,15 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         loginIfNeeded().map { version }
     }
     .then { version -> Promise<Version> in
-        if manager.shouldUpdate {
-            return manager.update().map { _ in version }
+        if xcodeList.shouldUpdate {
+            return xcodeList.update().map { _ in version }
         }
         else {
             return Promise.value(version)
         }
     }
     .then { version -> Promise<(Xcode, URL)> in
-        guard let xcode = manager.availableXcodes.first(where: { $0.version == version }) else {
+        guard let xcode = xcodeList.availableXcodes.first(where: { $0.version == version }) else {
             throw XcodesError.unavailableVersion(version)
         }
 
@@ -186,7 +191,7 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         let formatter = NumberFormatter(numberStyle: .percent)
         var observation: NSKeyValueObservation?
 
-        let promise = manager.downloadXcode(xcode, progressChanged: { progress in
+        let promise = installer.downloadXcode(xcode, progressChanged: { progress in
             observation?.invalidate()
             observation = progress.observe(\.fractionCompleted) { progress, _ in
                 // These escape codes move up a line and then clear to the end
@@ -226,7 +231,7 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         }
     }
     .then { xcode, url -> Promise<Void> in
-        return manager.installer.installArchivedXcode(xcode, at: url, passwordInput: { () -> Promise<String> in
+        return installer.installArchivedXcode(xcode, at: url, passwordInput: { () -> Promise<String> in
             return Promise { seal in
                 print("xcodes requires superuser privileges in order to setup some parts of Xcode.")
                 guard let password = readSecureLine(prompt: "Password: ") else { seal.reject(XcodesError.missingSudoerPassword); return }
@@ -260,7 +265,7 @@ let version = Command(usage: "version") { _, _ in
     exit(0)
 }
 
-XcodeManager.migrateApplicationSupportFiles()
+XcodeList.migrateApplicationSupportFiles()
 
 // This is awkward, but Guaka wants a root command in order to add subcommands,
 // but then seems to want it to behave like a normal command even though it'll only ever print the help.
