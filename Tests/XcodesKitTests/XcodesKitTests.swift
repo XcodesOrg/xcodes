@@ -46,7 +46,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), passwordInput: { Promise.value("") })
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in },  passwordInput: { Promise.value("") })
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment(xcode: installedXcode, output: "")) }
     }
 
@@ -54,7 +54,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), passwordInput: { Promise.value("") })
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed) }
     }
 
@@ -62,18 +62,21 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise.value((0, "", "")) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), passwordInput: { Promise.value("") })
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed) }
     }
 
-    func test_InstallArchivedXcode_RemovesXIPWhenFinished() {
-        var removedItemAtURL: URL?
-        Current.files.removeItem = { removedItemAtURL = $0 } 
+    func test_InstallArchivedXcode_TrashesXIPWhenFinished() {
+        var trashedItemAtURL: URL?
+        Current.files.trashItem = { itemURL in
+            trashedItemAtURL = itemURL
+            return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
+        }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
         let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
-        installer.installArchivedXcode(xcode, at: xipURL, passwordInput: { Promise.value("") })
-            .ensure { XCTAssertEqual(removedItemAtURL, xipURL) }
+        installer.installArchivedXcode(xcode, at: xipURL, archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
+            .ensure { XCTAssertEqual(trashedItemAtURL, xipURL) }
     }
 
     func test_VerifySecurityAssessment_Fails() {

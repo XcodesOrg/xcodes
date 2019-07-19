@@ -39,7 +39,7 @@ public final class XcodeInstaller {
         }
     }
 
-    public func installArchivedXcode(_ xcode: Xcode, at url: URL, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
+    public func installArchivedXcode(_ xcode: Xcode, at url: URL, archiveTrashed: @escaping (URL) -> Void, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = Path.root.join("Applications").join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
             switch url.pathExtension {
@@ -59,7 +59,8 @@ public final class XcodeInstaller {
             }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            try Current.files.removeItem(at: url)
+            try Current.files.trashItem(at: url)
+            archiveTrashed(url)
 
             return when(fulfilled: self.verifySecurityAssessment(of: xcode),
                                    self.verifySigningCertificate(of: xcode.path.url))
