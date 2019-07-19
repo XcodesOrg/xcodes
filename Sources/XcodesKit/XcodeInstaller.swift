@@ -39,12 +39,12 @@ public final class XcodeInstaller {
         }
     }
 
-    public func installArchivedXcode(_ xcode: Xcode, at url: URL, archiveTrashed: @escaping (URL) -> Void, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
+    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, archiveTrashed: @escaping (URL) -> Void, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = Path.root.join("Applications").join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
-            switch url.pathExtension {
+            switch archiveURL.pathExtension {
             case "xip":
-                return try unarchiveAndMoveXIP(at: url, to: destinationURL).map { xcodeURL in
+                return try unarchiveAndMoveXIP(at: archiveURL, to: destinationURL).map { xcodeURL in
                     guard 
                         let path = Path(url: xcodeURL),
                         Current.files.fileExists(atPath: path.string),
@@ -55,12 +55,12 @@ public final class XcodeInstaller {
             case "dmg":
                 throw Error.unsupportedFileFormat(extension: "dmg")
             default:
-                throw Error.unsupportedFileFormat(extension: url.pathExtension)
+                throw Error.unsupportedFileFormat(extension: archiveURL.pathExtension)
             }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            try Current.files.trashItem(at: url)
-            archiveTrashed(url)
+            try Current.files.trashItem(at: archiveURL)
+            archiveTrashed(archiveURL)
 
             return when(fulfilled: self.verifySecurityAssessment(of: xcode),
                                    self.verifySigningCertificate(of: xcode.path.url))
