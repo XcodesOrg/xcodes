@@ -25,6 +25,7 @@ sign: xcodes
 	@codesign \
 		-s "Developer ID Application: Robots and Pencils Inc. (PBH8V487HB)" \
 		--prefix com.robotsandpencils. \
+		--options runtime \
 		"$(BUILDDIR)/release/xcodes"
 
 .PHONY: zip
