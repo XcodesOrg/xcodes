@@ -16,14 +16,14 @@ all: xcodes
 .PHONY: xcodes
 xcodes: $(SOURCES)
 	@swift build \
-		-c release \
+		--configuration release \
 		--disable-sandbox \
 		--build-path "$(BUILDDIR)" \
 
 .PHONY: sign
 sign: xcodes
 	@codesign \
-		-s "Developer ID Application: Robots and Pencils Inc. (PBH8V487HB)" \
+		--sign "Developer ID Application: Robots and Pencils Inc. (PBH8V487HB)" \
 		--prefix com.robotsandpencils. \
 		--options runtime \
 		"$(BUILDDIR)/release/xcodes"
@@ -31,7 +31,7 @@ sign: xcodes
 .PHONY: zip
 zip: sign
 	@rm xcodes.zip 2> /dev/null || true
-	@zip -j xcodes.zip "$(BUILDDIR)/release/xcodes"
+	@zip --junk-paths xcodes.zip "$(BUILDDIR)/release/xcodes"
 	@open -R xcodes.zip
 
 # E.g.
