@@ -233,7 +233,9 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         }
     }
     .then { xcode, url -> Promise<Void> in
-        return installer.installArchivedXcode(xcode, at: url, passwordInput: { () -> Promise<String> in
+        return installer.installArchivedXcode(xcode, at: url, archiveTrashed: { archiveURL in
+            print("Xcode archive \(url.lastPathComponent) has been moved to the Trash.")
+        }, passwordInput: { () -> Promise<String> in
             return Promise { seal in
                 print("xcodes requires superuser privileges in order to setup some parts of Xcode.")
                 guard let password = readSecureLine(prompt: "Password: ") else { seal.reject(XcodesError.missingSudoerPassword); return }

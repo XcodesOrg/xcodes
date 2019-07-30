@@ -55,6 +55,13 @@ struct Files {
     func removeItem(at URL: URL) throws {
         try removeItem(URL)
     }
+
+    var trashItem: (URL) throws -> URL = { try FileManager.default.trashItem(at: $0) }
+
+    @discardableResult
+    func trashItem(at URL: URL) throws -> URL {
+        return try trashItem(URL)
+    }
     
     var createFile: (String, Data?, [FileAttributeKey: Any]?) -> Bool = { FileManager.default.createFile(atPath: $0, contents: $1, attributes: $2) }
     
