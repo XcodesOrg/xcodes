@@ -23,6 +23,7 @@ enum XcodesError: Swift.Error, LocalizedError {
     case missingSudoerPassword
     case invalidVersion(String)
     case unavailableVersion(Version)
+    case versionAlreadyInstalled(InstalledXcode)
 
     var errorDescription: String? {
         switch self {
@@ -34,6 +35,8 @@ enum XcodesError: Swift.Error, LocalizedError {
             return "\(version) is not a valid version number."
         case let .unavailableVersion(version):
             return "Could not find version \(version.xcodeDescription)."
+        case let .versionAlreadyInstalled(installedXcode):
+            return "\(installedXcode.version.xcodeDescription) is already installed at \(installedXcode.path)"
         }
     }
 }
@@ -221,6 +224,10 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
         let versionString = args.joined(separator: " ")
         guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
             throw XcodesError.invalidVersion(versionString)
+        }
+
+        if let installedXcode = xcodeList.installedXcodes.first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) {
+            throw XcodesError.versionAlreadyInstalled(installedXcode)
         }
 
         if let urlString = flags.getString(name: "url") {
