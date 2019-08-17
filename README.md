@@ -67,6 +67,7 @@ After successfully authenticating, xcodes will save your Apple ID password into 
 - `list`: Lists the versions of Xcode available to download
 - `install <version>`: Downloads and installs a version of Xcode
 - `installed`: Lists the versions of Xcodes that are installed in /Applications on your computer
+- `uninstall <version>`: Uninstalls an installed version of Xcode
 - `update`: Updates the list of available versions of Xcode
 - `version`: Prints the xcodes version
 

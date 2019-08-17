@@ -24,6 +24,7 @@ enum XcodesError: Swift.Error, LocalizedError {
     case invalidVersion(String)
     case unavailableVersion(Version)
     case versionAlreadyInstalled(InstalledXcode)
+    case versionNotInstalled(Version)
 
     var errorDescription: String? {
         switch self {
@@ -37,6 +38,8 @@ enum XcodesError: Swift.Error, LocalizedError {
             return "Could not find version \(version.xcodeDescription)."
         case let .versionAlreadyInstalled(installedXcode):
             return "\(installedXcode.version.xcodeDescription) is already installed at \(installedXcode.path)"
+        case let .versionNotInstalled(version):
+            return "\(version.xcodeDescription) is not installed."
         }
     }
 }
@@ -271,6 +274,31 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
     RunLoop.current.run()
 }
 
+let uninstall = Command(usage: "uninstall <version>") { _, args in
+    firstly { () -> Promise<(InstalledXcode, URL)> in
+        let versionString = args.joined(separator: " ")
+        guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
+            throw XcodesError.invalidVersion(versionString)
+        }
+
+        guard let installedXcode = xcodeList.installedXcodes.first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) else {
+            throw XcodesError.versionNotInstalled(version)
+        }
+
+        return installer.uninstallXcode(installedXcode).map { (installedXcode, $0) }
+    }
+    .done { (installedXcode, trashURL) in
+        print("Xcode \(installedXcode.version.xcodeDescription) moved to Trash: \(trashURL.path)")
+        exit(0)
+    }
+    .catch { error in
+        print(error.legibleLocalizedDescription)
+        exit(1)
+    }
+
+    RunLoop.current.run()
+}
+
 let version = Command(usage: "version") { _, _ in
     print(XcodesKit.version)
     exit(0)
@@ -288,5 +316,6 @@ app.add(subCommand: installed)
 app.add(subCommand: list)
 app.add(subCommand: update)
 app.add(subCommand: install)
+app.add(subCommand: uninstall)
 app.add(subCommand: version)
 app.execute()

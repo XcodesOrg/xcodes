@@ -79,6 +79,18 @@ final class XcodesKitTests: XCTestCase {
             .ensure { XCTAssertEqual(trashedItemAtURL, xipURL) }
     }
 
+    func test_UninstallXcode_TrashesXcode() {
+        var trashedItemAtURL: URL?
+        Current.files.trashItem = { itemURL in
+            trashedItemAtURL = itemURL
+            return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
+        }
+
+        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
+        installer.uninstallXcode(installedXcode)
+            .ensure { XCTAssertEqual(trashedItemAtURL, installedXcode.path.url) }
+    }
+
     func test_VerifySecurityAssessment_Fails() {
         Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
