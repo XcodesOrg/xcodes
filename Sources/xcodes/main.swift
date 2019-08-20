@@ -9,7 +9,8 @@ import KeychainAccess
 import AppleAPI
 
 let client = AppleAPI.Client()
-let installer = XcodeInstaller(client: client)
+Current.network.downloadTask = client.session.downloadTask(with:to:resumingWith:)
+let installer = XcodeInstaller()
 let xcodeList = XcodeList(client: client)
 let keychain = Keychain(service: "com.robotsandpencils.xcodes")
 var configuration = Configuration()

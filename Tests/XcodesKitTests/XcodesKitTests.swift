@@ -17,7 +17,7 @@ final class XcodesKitTests: XCTestCase {
         Current = .mock
     }
 
-    var installer = XcodeInstaller(client: AppleAPI.Client())
+    let installer = XcodeInstaller()
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """
@@ -42,16 +42,36 @@ final class XcodesKitTests: XCTestCase {
     }
 
     func test_DownloadOrUseExistingArchive_ReturnsExistingArchive() {
-        let client = SpyClient()
-        installer = XcodeInstaller(client: client)
         Current.files.fileExistsAtPath = { _ in return true }
+        var xcodeDownloadURL: URL?
+        Current.network.downloadTask = { url, _, _ in
+            xcodeDownloadURL = url.pmkRequest.url
+            return (Progress(), Promise(error: PMKError.invalidCallingConvention))
+        }
 
-        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock.xip")
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip")
         installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
-                XCTAssertFalse(client.didAccessSession)
+                XCTAssertNil(xcodeDownloadURL)
+            }
+    }
+
+    func test_DownloadOrUseExistingArchive_DownloadsArchive() {
+        Current.files.fileExistsAtPath = { _ in return false }
+        var xcodeDownloadURL: URL?
+        Current.network.downloadTask = { url, destination, _ in
+            xcodeDownloadURL = url.pmkRequest.url
+            return (Progress(), Promise.value((destination, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)))
+        }
+
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip")
+        installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { _ in })
+            .tap { result in
+                guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
+                XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
+                XCTAssertEqual(xcodeDownloadURL, URL(string: "https://apple.com/xcode.xip")!)
             }
     }
 
@@ -177,14 +197,5 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssertEqual(xcodes.count, 1)
         XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta+11M336W"))
-    }
-}
-
-// TODO: Create a better way to stub responses and spy on XcodeInstaller's interaction with AppleAPI.Client
-class SpyClient: AppleAPI.Client {
-    private(set) var didAccessSession = false
-    override var session: URLSession {
-        didAccessSession = true
-        return URLSession.shared
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import PromiseKit
+import PMKFoundation
 import Path
 
 /**
@@ -12,6 +13,7 @@ import Path
 public struct Environment {
     public var shell = Shell()
     public var files = Files()
+    public var network = Network()
 }
 
 public var Current = Environment()
@@ -68,5 +70,13 @@ public struct Files {
     @discardableResult
     public func createFile(atPath path: String, contents data: Data?, attributes attr: [FileAttributeKey : Any]? = nil) -> Bool {
         return createFile(path, data, attr)
+    }
+}
+
+public struct Network {
+    public var downloadTask: (URLRequestConvertible, URL, Data?) -> (Progress, Promise<(saveLocation: URL, response: URLResponse)>) = { URLSession.shared.downloadTask(with: $0, to: $1, resumingWith: $2) }
+
+    public func downloadTask(with convertible: URLRequestConvertible, to saveLocation: URL, resumingWith resumeData: Data?) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
+        return downloadTask(convertible, saveLocation, resumeData)
     }
 }
