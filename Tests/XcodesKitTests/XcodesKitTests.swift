@@ -17,7 +17,7 @@ final class XcodesKitTests: XCTestCase {
         Current = .mock
     }
 
-    let installer = XcodeInstaller(client: AppleAPI.Client())
+    var installer = XcodeInstaller(client: AppleAPI.Client())
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """
@@ -39,6 +39,20 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(info.authority, ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"])
         XCTAssertEqual(info.teamIdentifier, "59GAB85EFG")
         XCTAssertEqual(info.bundleIdentifier, "com.apple.dt.Xcode")
+    }
+
+    func test_DownloadOrUseExistingArchive_ReturnsExistingArchive() {
+        let client = SpyClient()
+        installer = XcodeInstaller(client: client)
+        Current.files.fileExistsAtPath = { _ in return true }
+
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock.xip")
+        installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { _ in })
+            .tap { result in
+                guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
+                XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
+                XCTAssertFalse(client.didAccessSession)
+            }
     }
 
     func test_InstallArchivedXcode_SecurityAssessmentFails_Throws() {
@@ -163,5 +177,14 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssertEqual(xcodes.count, 1)
         XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta+11M336W"))
+    }
+}
+
+// TODO: Create a better way to stub responses and spy on XcodeInstaller's interaction with AppleAPI.Client
+class SpyClient: AppleAPI.Client {
+    private(set) var didAccessSession = false
+    override var session: URLSession {
+        didAccessSession = true
+        return URLSession.shared
     }
 }

@@ -193,7 +193,7 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         let formatter = NumberFormatter(numberStyle: .percent)
         var observation: NSKeyValueObservation?
 
-        let promise = installer.downloadXcode(xcode, progressChanged: { progress in
+        let promise = installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { progress in
             observation?.invalidate()
             observation = progress.observe(\.fractionCompleted) { progress, _ in
                 // These escape codes move up a line and then clear to the end

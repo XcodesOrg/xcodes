@@ -21,6 +21,18 @@ public final class XcodeInstaller {
         self.client = client
     }
 
+    public func downloadOrUseExistingArchive(for xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
+        // Check to see if the archive is in the expected path in case it was downloaded but failed to install
+        let expectedArchivePath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
+        if Current.files.fileExistsAtPath(expectedArchivePath.string) {
+            print("Found existing archive that will be used for installation at \(expectedArchivePath).")
+            return Promise.value(expectedArchivePath.url)
+        }
+        else {
+            return downloadXcode(xcode, progressChanged: progressChanged)
+        }
+    }
+
     public func downloadXcode(_ xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         let destination = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
         let resumeDataPath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).resumedata"
