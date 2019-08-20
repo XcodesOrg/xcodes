@@ -2,8 +2,8 @@ import Foundation
 import PromiseKit
 import PMKFoundation
 
-open class Client {
-    private(set) open var session = URLSession.shared
+public class Client {
+    private(set) public var session = URLSession.shared
     private static let authTypes = ["sa", "hsa", "non-sa", "hsa2"]
 
     public init() {}
