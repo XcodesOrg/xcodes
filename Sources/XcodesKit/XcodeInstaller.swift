@@ -77,6 +77,12 @@ public final class XcodeInstaller {
         }
     }
 
+    public func uninstallXcode(_ installedXcode: InstalledXcode) -> Promise<URL> {
+        return Promise<URL> { seal in
+            seal.fulfill(try Current.files.trashItem(at: installedXcode.path.url))
+        }
+    }
+
     func unarchiveAndMoveXIP(at source: URL, to destination: URL) throws -> Promise<URL> {
         return firstly { () -> Promise<ProcessOutput> in
             return Current.shell.unxip(source)
