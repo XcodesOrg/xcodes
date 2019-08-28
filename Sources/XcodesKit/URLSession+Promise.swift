@@ -12,7 +12,7 @@ extension URLSession {
 
      - Note: We do not create the destination directory for you, because we move the file with FileManager.moveItem which changes its behavior depending on the directory status of the URL you provide. So create your own directory first!
      */
-    public func downloadTask(_: PMKNamespacer, with convertible: URLRequestConvertible, to saveLocation: URL, resumingWith resumeData: Data?) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
+    public func downloadTask(with convertible: URLRequestConvertible, to saveLocation: URL, resumingWith resumeData: Data?) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
         var progress: Progress!
 
         let promise = Promise<(saveLocation: URL, response: URLResponse)> { seal in

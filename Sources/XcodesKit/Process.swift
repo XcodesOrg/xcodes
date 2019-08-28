@@ -3,7 +3,7 @@ import PromiseKit
 import PMKFoundation
 import Path
 
-typealias ProcessOutput = (status: Int32, out: String, err: String)
+public typealias ProcessOutput = (status: Int32, out: String, err: String)
 
 extension Process {
     @discardableResult

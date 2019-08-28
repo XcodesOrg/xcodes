@@ -5,7 +5,8 @@ import PromiseKit
 extension Environment {
     static var mock = Environment(
         shell: .mock,
-        files: .mock
+        files: .mock,
+        network: .mock
     )
 }
 
@@ -48,5 +49,11 @@ extension Files {
         removeItem: { _ in },
         trashItem: { _ in return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash") },
         createFile: { _, _, _ in return true }
+    )
+}
+
+extension Network {
+    static var mock = Network(
+        downloadTask: { url, saveLocation, _ in return (Progress(), Promise.value((saveLocation, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))) }
     )
 }

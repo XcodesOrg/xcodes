@@ -9,7 +9,8 @@ import KeychainAccess
 import AppleAPI
 
 let client = AppleAPI.Client()
-let installer = XcodeInstaller(client: client)
+Current.network.downloadTask = client.session.downloadTask(with:to:resumingWith:)
+let installer = XcodeInstaller()
 let xcodeList = XcodeList(client: client)
 let keychain = Keychain(service: "com.robotsandpencils.xcodes")
 var configuration = Configuration()
@@ -199,7 +200,7 @@ func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
         let formatter = NumberFormatter(numberStyle: .percent)
         var observation: NSKeyValueObservation?
 
-        let promise = installer.downloadXcode(xcode, progressChanged: { progress in
+        let promise = installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { progress in
             observation?.invalidate()
             observation = progress.observe(\.fractionCompleted) { progress, _ in
                 // These escape codes move up a line and then clear to the end

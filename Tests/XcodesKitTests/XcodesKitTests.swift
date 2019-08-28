@@ -17,7 +17,7 @@ final class XcodesKitTests: XCTestCase {
         Current = .mock
     }
 
-    let installer = XcodeInstaller(client: AppleAPI.Client())
+    let installer = XcodeInstaller()
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """
@@ -39,6 +39,40 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(info.authority, ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"])
         XCTAssertEqual(info.teamIdentifier, "59GAB85EFG")
         XCTAssertEqual(info.bundleIdentifier, "com.apple.dt.Xcode")
+    }
+
+    func test_DownloadOrUseExistingArchive_ReturnsExistingArchive() {
+        Current.files.fileExistsAtPath = { _ in return true }
+        var xcodeDownloadURL: URL?
+        Current.network.downloadTask = { url, _, _ in
+            xcodeDownloadURL = url.pmkRequest.url
+            return (Progress(), Promise(error: PMKError.invalidCallingConvention))
+        }
+
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip")
+        installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { _ in })
+            .tap { result in
+                guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
+                XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
+                XCTAssertNil(xcodeDownloadURL)
+            }
+    }
+
+    func test_DownloadOrUseExistingArchive_DownloadsArchive() {
+        Current.files.fileExistsAtPath = { _ in return false }
+        var xcodeDownloadURL: URL?
+        Current.network.downloadTask = { url, destination, _ in
+            xcodeDownloadURL = url.pmkRequest.url
+            return (Progress(), Promise.value((destination, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)))
+        }
+
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip")
+        installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { _ in })
+            .tap { result in
+                guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
+                XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
+                XCTAssertEqual(xcodeDownloadURL, URL(string: "https://apple.com/xcode.xip")!)
+            }
     }
 
     func test_InstallArchivedXcode_SecurityAssessmentFails_Throws() {
