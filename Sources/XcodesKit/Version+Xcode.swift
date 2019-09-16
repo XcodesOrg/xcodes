@@ -6,6 +6,7 @@ public extension Version {
      E.g.:
      Xcode 10.2 Beta 4
      Xcode 10.2 GM
+     Xcode 10.2 GM seed 2
      Xcode 10.2
      Xcode 10.2.1
      10.2 Beta 4
@@ -15,7 +16,8 @@ public extension Version {
      */
     init?(xcodeVersion: String, buildMetadataIdentifier: String? = nil) {
         let nsrange = NSRange(xcodeVersion.startIndex..<xcodeVersion.endIndex, in: xcodeVersion)
-        let pattern = "^(Xcode )?(?<major>\\d+)\\.?(?<minor>\\d?)\\.?(?<patch>\\d?) ?(?<prereleaseType>\\w+)? ?(?<prereleaseVersion>\\d?)"
+        // https://regex101.com/r/dLLvsz/1
+        let pattern = "^(Xcode )?(?<major>\\d+)\\.?(?<minor>\\d?)\\.?(?<patch>\\d?) ?(?<prereleaseType>[a-zA-Z ]+)? ?(?<prereleaseVersion>\\d?)"
 
         guard
             let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
@@ -30,7 +32,7 @@ public extension Version {
         let patch = Int(patchString) ?? 0
         let prereleaseIdentifiers = [match.groupNamed("prereleaseType", in: xcodeVersion), 
                                      match.groupNamed("prereleaseVersion", in: xcodeVersion)]
-                                        .compactMap { $0?.lowercased() }
+                                        .compactMap { $0?.lowercased().trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "-") }
                                         .filter { !$0.isEmpty }
 
         self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers, buildMetadataIdentifiers: [buildMetadataIdentifier].compactMap { $0 })
@@ -42,7 +44,9 @@ public extension Version {
             base += ".\(patch)"
         }
         if !prereleaseIdentifiers.isEmpty {
-            base += " " + prereleaseIdentifiers.map { $0.capitalized }.joined(separator: " ")
+            base += " " + prereleaseIdentifiers
+                .map { $0.replacingOccurrences(of: "-", with: " ").capitalized.replacingOccurrences(of: "Gm", with: "GM") }
+                .joined(separator: " ")
 
             if !buildMetadataIdentifiers.isEmpty {
                 base += " (\(buildMetadataIdentifiers.joined(separator: " ")))"
