@@ -10,20 +10,29 @@ public extension Version {
 
     /// If release versions, don't compare build metadata because that's not provided in the /downloads/more list
     /// if beta versions, compare build metadata because it's available in versions.plist
-    func isEquivalentForDeterminingIfInstalled(to other: Version) -> Bool {
+    func isEquivalentForDeterminingIfInstalled(toInstalled installed: Version) -> Bool {
         let isBeta = !prereleaseIdentifiers.isEmpty
-        let otherIsBeta = !other.prereleaseIdentifiers.isEmpty
+        let otherIsBeta = !installed.prereleaseIdentifiers.isEmpty
 
         if isBeta && otherIsBeta {
-            return major == other.major && 
-                   minor == other.minor &&
-                   patch == other.patch &&
-                   buildMetadataIdentifiers.map { $0.lowercased() } == other.buildMetadataIdentifiers.map { $0.lowercased() }
+            if buildMetadataIdentifiers.isEmpty {
+                return major == installed.major &&
+                       minor == installed.minor &&
+                       patch == installed.patch &&
+                       prereleaseIdentifiers == installed.prereleaseIdentifiers
+            }
+            else {
+                return major == installed.major &&
+                       minor == installed.minor &&
+                       patch == installed.patch &&
+                       prereleaseIdentifiers == installed.prereleaseIdentifiers &&
+                       buildMetadataIdentifiers.map { $0.lowercased() } == installed.buildMetadataIdentifiers.map { $0.lowercased() }
+            }
         }
         else if !isBeta && !otherIsBeta {
-            return major == other.major && 
-                   minor == other.minor &&
-                   patch == other.patch
+            return major == installed.major && 
+                   minor == installed.minor &&
+                   patch == installed.patch
         }
 
         return false

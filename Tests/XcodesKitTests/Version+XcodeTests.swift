@@ -29,8 +29,8 @@ class VersionXcodeTests: XCTestCase {
     }
 
     func test_Equivalence() {
-        XCTAssertTrue(Version("10.2.1")!.isEquivalentForDeterminingIfInstalled(to: Version("10.2.1+abcdef")!))
-        XCTAssertFalse(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(to: Version("10.2.1-beta+abcdef")!))
-        XCTAssertTrue(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(to: Version("10.2.1-beta+QWERTY")!))
+        XCTAssertTrue(Version("10.2.1")!.isEquivalentForDeterminingIfInstalled(toInstalled: Version("10.2.1+abcdef")!))
+        XCTAssertFalse(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(toInstalled: Version("10.2.1-beta+abcdef")!))
+        XCTAssertTrue(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(toInstalled: Version("10.2.1-beta+QWERTY")!))
     }
 }
