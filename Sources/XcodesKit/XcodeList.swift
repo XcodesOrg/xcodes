@@ -33,8 +33,14 @@ public final class XcodeList {
 
     public func update() -> Promise<[Xcode]> {
         return when(fulfilled: releasedXcodes(), prereleaseXcodes())
-            .map { availableXcodes, prereleaseXcodes in
-                let xcodes = availableXcodes + prereleaseXcodes
+            .map { releasedXcodes, prereleaseXcodes in
+                // Starting with Xcode 11 beta 6, developer.apple.com/download and developer.apple.com/download/more both list some pre-release versions of Xcode.
+                // Previously pre-release versions only appeared on developer.apple.com/download.
+                // /download/more doesn't include build numbers, so we trust that if the version number and prerelease identifiers are the same that they're the same build.
+                // If an Xcode version is listed on both sites then prefer the one on /download because the build metadata is used to compare against installed Xcodes.
+                let xcodes = releasedXcodes.filter { releasedXcode in
+                    prereleaseXcodes.contains { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: releasedXcode.version) } == false
+                } + prereleaseXcodes
                 self.availableXcodes = xcodes
                 try? self.cacheAvailableXcodes(xcodes)
                 return xcodes
@@ -92,8 +98,7 @@ extension XcodeList {
                     guard 
                         let xcodeFile = download.files.first(where: { $0.remotePath.hasSuffix("dmg") || $0.remotePath.hasSuffix("xip") }),
                         let url = URL(string: urlPrefix + xcodeFile.remotePath),
-                        let versionString = download.name.replacingOccurrences(of: "Xcode ", with: "").split(separator: " ").map(String.init).first,
-                        let version = Version(tolerant: versionString)
+                        let version = Version(xcodeVersion: download.name)
                     else { return nil }
 
                     return Xcode(version: version, url: url, filename: String(xcodeFile.remotePath.suffix(fromLast: "/")))

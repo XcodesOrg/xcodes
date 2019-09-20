@@ -120,16 +120,28 @@ func login(_ username: String, password: String) -> Promise<Void> {
     }
 }
 
-func printAvailableXcodes(_ xcodes: [Xcode], installed: [InstalledXcode]) {
+func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode]) {
     var allXcodeVersions = xcodes.map { $0.version }
-    for xcode in installed where !allXcodeVersions.contains(where: { $0.isEquivalentForDeterminingIfInstalled(to: xcode.version) }) {
-        allXcodeVersions.append(xcode.version)
+    for installedXcode in installedXcodes {
+        // If an installed version isn't listed online, add the installed version
+        if !allXcodeVersions.contains(where: { version in
+            version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version)
+        }) {
+            allXcodeVersions.append(installedXcode.version)
+        }
+        // If an installed version is the same as one that's listed online which doesn't have build metadata, replace it with the installed version with build metadata
+        else if let index = allXcodeVersions.firstIndex(where: { version in
+            version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version) &&
+            version.buildMetadataIdentifiers.isEmpty
+        }) {
+            allXcodeVersions[index] = installedXcode.version
+        }
     }
 
     allXcodeVersions
         .sorted { $0 < $1 }
         .forEach { xcodeVersion in
-            if installed.contains(where: { $0.version.isEquivalentForDeterminingIfInstalled(to: xcodeVersion) }) {
+            if installedXcodes.contains(where: { xcodeVersion.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
                 print("\(xcodeVersion.xcodeDescription) (Installed)")
             }
             else {
