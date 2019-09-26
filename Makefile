@@ -36,6 +36,12 @@ zip: sign
 	@open -R xcodes.zip
 
 # E.g.
+# make notarize USERNAME="test@example.com" PASSWORD="@keychain:altool" ASC_PROVIDER=MyOrg
+.PHONY: notarize
+notarize: zip
+	./notarize.sh "$(USERNAME)" "$(PASSWORD)" "$(ASC_PROVIDER)" xcodes.zip
+
+# E.g.
 # make bottle VERSION=0.4.0
 .PHONY: bottle
 bottle: sign

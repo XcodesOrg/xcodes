@@ -12,7 +12,7 @@ Manage the Xcodes installed on your Mac
 brew install robotsandpencils/made/xcodes
 ```
 
-These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+These are Developer ID-signed and notarized release builds and don't require Xcode to already be installed in order to use.
 
 **Other methods:**
 
