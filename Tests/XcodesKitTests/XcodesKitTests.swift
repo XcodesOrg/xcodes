@@ -56,6 +56,7 @@ final class XcodesKitTests: XCTestCase {
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
                 XCTAssertNil(xcodeDownloadURL)
             }
+            .cauterize()
     }
 
     func test_DownloadOrUseExistingArchive_DownloadsArchive() {
@@ -73,6 +74,7 @@ final class XcodesKitTests: XCTestCase {
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
                 XCTAssertEqual(xcodeDownloadURL, URL(string: "https://apple.com/xcode.xip")!)
             }
+            .cauterize()
     }
 
     func test_InstallArchivedXcode_SecurityAssessmentFails_Throws() {
@@ -89,7 +91,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
-            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed) }
+            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed(output: "")) }
     }
 
     func test_InstallArchivedXcode_VerifySigningCertificateDoesntMatch_Throws() {
@@ -97,7 +99,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
-            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed) }
+            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.unexpectedCodeSigningIdentity(identifier: "", certificateAuthority: [])) }
     }
 
     func test_InstallArchivedXcode_TrashesXIPWhenFinished() {
@@ -111,6 +113,7 @@ final class XcodesKitTests: XCTestCase {
         let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
         installer.installArchivedXcode(xcode, at: xipURL, archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
             .ensure { XCTAssertEqual(trashedItemAtURL, xipURL) }
+            .cauterize()
     }
 
     func test_UninstallXcode_TrashesXcode() {
@@ -123,6 +126,7 @@ final class XcodesKitTests: XCTestCase {
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         installer.uninstallXcode(installedXcode)
             .ensure { XCTAssertEqual(trashedItemAtURL, installedXcode.path.url) }
+            .cauterize()
     }
 
     func test_VerifySecurityAssessment_Fails() {
@@ -131,6 +135,7 @@ final class XcodesKitTests: XCTestCase {
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         installer.verifySecurityAssessment(of: installedXcode)
             .tap { result in XCTAssertFalse(result.isFulfilled) }
+            .cauterize()
     }
 
     func test_VerifySecurityAssessment_Succeeds() {
@@ -139,6 +144,7 @@ final class XcodesKitTests: XCTestCase {
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         installer.verifySecurityAssessment(of: installedXcode)
             .tap { result in XCTAssertTrue(result.isFulfilled) }
+            .cauterize()
     }
 
     func test_MigrateApplicationSupport_NoSupportFiles() {

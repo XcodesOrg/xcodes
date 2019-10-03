@@ -8,11 +8,42 @@ public final class XcodeInstaller {
     static let XcodeTeamIdentifier = "59GAB85EFG"
     static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
 
-    public enum Error: Swift.Error, Equatable {
+    public enum Error: LocalizedError, Equatable {
         case failedToMoveXcodeToApplications
         case failedSecurityAssessment(xcode: InstalledXcode, output: String)
-        case codesignVerifyFailed
+        case codesignVerifyFailed(output: String)
+        case unexpectedCodeSigningIdentity(identifier: String, certificateAuthority: [String])
         case unsupportedFileFormat(extension: String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .failedToMoveXcodeToApplications:
+                return "Failed to move Xcode to the /Applications directory."
+            case .failedSecurityAssessment(let xcode, let output):
+                return """
+                       Xcode \(xcode.version) failed its security assessment with the following output:
+                       \(output)
+                       It remains installed at \(xcode.path) if you wish to use it anyways.
+                       """
+            case .codesignVerifyFailed(let output):
+                return """
+                       The downloaded Xcode failed code signing verification with the following output:
+                       \(output)
+                       """
+            case .unexpectedCodeSigningIdentity(let identity, let certificateAuthority):
+                return """
+                       The downloaded Xcode doesn't have the expected code signing identity.
+                       Got:
+                         \(identity)
+                         \(certificateAuthority)
+                       Expected:
+                         \(XcodeInstaller.XcodeTeamIdentifier)
+                         \(XcodeInstaller.XcodeCertificateAuthority)
+                       """
+            case .unsupportedFileFormat(let fileExtension):
+                return "xcodes doesn't (yet) support installing Xcode from the \(fileExtension) file format."
+            }
+        }
     }
 
     public init() {}
@@ -51,7 +82,7 @@ public final class XcodeInstaller {
             let destinationURL = Path.root.join("Applications").join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
             switch archiveURL.pathExtension {
             case "xip":
-                return try unarchiveAndMoveXIP(at: archiveURL, to: destinationURL).map { xcodeURL in
+                return unarchiveAndMoveXIP(at: archiveURL, to: destinationURL).map { xcodeURL in
                     guard 
                         let path = Path(url: xcodeURL),
                         Current.files.fileExists(atPath: path.string),
@@ -90,7 +121,7 @@ public final class XcodeInstaller {
         }
     }
 
-    func unarchiveAndMoveXIP(at source: URL, to destination: URL) throws -> Promise<URL> {
+    func unarchiveAndMoveXIP(at source: URL, to destination: URL) -> Promise<URL> {
         return firstly { () -> Promise<ProcessOutput> in
             return Current.shell.unxip(source)
         }
@@ -122,7 +153,13 @@ public final class XcodeInstaller {
 
     func verifySigningCertificate(of url: URL) -> Promise<Void> {
         return Current.shell.codesignVerify(url)
-            .recover { _ -> Promise<ProcessOutput> in throw Error.codesignVerifyFailed }
+            .recover { error -> Promise<ProcessOutput> in
+                var output = ""
+                if case let Process.PMKError.execution(_, possibleOutput, possibleError) = error {
+                    output = [possibleOutput, possibleError].compactMap { $0 }.joined(separator: "\n")
+                }
+                throw Error.codesignVerifyFailed(output: output)
+            }
             .map { output -> CertificateInfo in
                 // codesign prints to stderr
                 return self.parseCertificateInfo(output.err)
@@ -131,7 +168,7 @@ public final class XcodeInstaller {
                 guard
                     cert.teamIdentifier == XcodeInstaller.XcodeTeamIdentifier,
                     cert.authority == XcodeInstaller.XcodeCertificateAuthority
-                else { throw Error.codesignVerifyFailed }
+                else { throw Error.unexpectedCodeSigningIdentity(identifier: cert.teamIdentifier, certificateAuthority: cert.authority) }
             }
     }
 
