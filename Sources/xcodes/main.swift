@@ -19,7 +19,7 @@ try? configuration.load()
 let xcodesUsername = "XCODES_USERNAME"
 let xcodesPassword = "XCODES_PASSWORD"
 
-enum XcodesError: Swift.Error, LocalizedError {
+enum XcodesError: LocalizedError {
     case missingUsernameOrPassword
     case missingSudoerPassword
     case invalidVersion(String)
@@ -271,11 +271,10 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
     }
     .catch { error in
         switch error {
-        case XcodeInstaller.Error.failedSecurityAssessment(let xcode, let output):
+        case Process.PMKError.execution(let process, let standardOutput, let standardError):
             print("""
-                  Xcode \(xcode.version) failed its security assessment with the following output:
-                  \(output)
-                  It remains installed at \(xcode.path) if you wish to use it anyways.
+                  Failed executing: `\(process)` (\(process.terminationStatus))
+                  \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
                   """)
         default:
             print(error.legibleLocalizedDescription)
