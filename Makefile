@@ -13,10 +13,14 @@ SOURCES = $(wildcard $(srcdir)/**/*.swift)
 .PHONY: all
 all: xcodes
 
+# -Onone is a temporary workaround for FB7347879
+# "swift build" gets stuck on a certain file in this project when using release configuration
+# https://github.com/apple/swift/pull/26660
 .PHONY: xcodes
 xcodes: $(SOURCES)
 	@swift build \
 		--configuration release \
+		-Xswiftc -Onone \
 		--disable-sandbox \
 		--build-path "$(BUILDDIR)" \
 
