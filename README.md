@@ -12,7 +12,7 @@ Manage the Xcodes installed on your Mac
 brew install robotsandpencils/made/xcodes
 ```
 
-These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+These are Developer ID-signed and notarized release builds and don't require Xcode to already be installed in order to use.
 
 **Other methods:**
 
@@ -56,7 +56,7 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 
 ## Usage
 
-E.g. `xcodes install 10.1`
+E.g. `xcodes install 11`
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
 
