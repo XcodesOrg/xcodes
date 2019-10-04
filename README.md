@@ -33,7 +33,7 @@ mint install RobotsAndPencils/xcodes
 <details>
 <summary>Build from source</summary>
 
-Building from source requires Xcode 10.2 or later, so it's not an option for setting up a computer from scratch.
+Building from source requires Xcode 11.0 or later, so it's not an option for setting up a computer from scratch.
 
 ```sh
 git clone https://github.com/RobotsAndPencils/xcodes
