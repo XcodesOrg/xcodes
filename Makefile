@@ -56,10 +56,6 @@ install: xcodes
 uninstall:
 	@rm -rf "$(bindir)/xcodes"
 
-.PHONY: project
-project:
-	@swift package generate-xcodeproj
-
 .PHONY: distclean
 distclean:
 	@rm -f $(BUILDDIR)/release
