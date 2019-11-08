@@ -56,7 +56,11 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 
 ## Usage
 
-E.g. `xcodes install 11`
+```
+xcodes install 10.2.1
+xcodes install 11 Beta 7
+xcodes install 11.2 GM seed
+```
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
 
@@ -64,12 +68,12 @@ After successfully authenticating, xcodes will save your Apple ID password into 
 
 ### Commands
 
-- `list`: Lists the versions of Xcode available to download
-- `install <version>`: Downloads and installs a version of Xcode
-- `installed`: Lists the versions of Xcodes that are installed in /Applications on your computer
-- `uninstall <version>`: Uninstalls an installed version of Xcode
-- `update`: Updates the list of available versions of Xcode
-- `version`: Prints the xcodes version
+- `install <version>`: Download and install a specific version of Xcode
+- `installed`: List the versions of Xcode that are installed
+- `list`: List all versions of Xcode that are available to install
+- `uninstall <version>`: Uninstall a specific version of Xcode
+- `update`: Update the list of available versions of Xcode
+- `version`: Print the version number of xcodes itself
 
 ## Development
 
