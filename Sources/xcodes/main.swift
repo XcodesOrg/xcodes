@@ -169,7 +169,8 @@ func updateAndPrint() {
     RunLoop.current.run()
 }
 
-let installed = Command(usage: "installed") { _, _ in
+let installed = Command(usage: "installed",
+                        shortMessage: "List the versions of Xcode that are installed") { _, _ in
     xcodeList
         .installedXcodes
         .map { $0.version }
@@ -177,7 +178,8 @@ let installed = Command(usage: "installed") { _, _ in
         .forEach { print($0) }
 }
 
-let list = Command(usage: "list") { _, _ in
+let list = Command(usage: "list",
+                   shortMessage: "List all versions of Xcode that are available to install") { _, _ in
     if xcodeList.shouldUpdate {
         updateAndPrint()
     }
@@ -186,7 +188,8 @@ let list = Command(usage: "list") { _, _ in
     }
 }
 
-let update = Command(usage: "update") { _, _ in
+let update = Command(usage: "update",
+                     shortMessage: "Update the list of available versions of Xcode") { _, _ in
     updateAndPrint()
 }
 
@@ -234,8 +237,16 @@ func versionFromXcodeVersionFile() -> Version? {
     return version
 }
 
-let urlFlag = Flag(longName: "url", type: String.self, description: "Local path or HTTP(S) URL (currently unsupported) of Xcode .dmg or .xip.")
-let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, args in
+let urlFlag = Flag(longName: "url", type: String.self, description: "Local path to Xcode .xip")
+let install = Command(usage: "install <version>",
+                      shortMessage: "Download and install a specific version of Xcode",
+                      flags: [urlFlag],
+                      example: """
+                               xcodes install 10.2.1
+                               xcodes install 11 Beta 7
+                               xcodes install 11.2 GM seed
+                               xcodes install 9.0 --url ~/Archive/Xcode_9.xip
+                               """) { flags, args in
     firstly { () -> Promise<(Xcode, URL)> in
         let versionString = args.joined(separator: " ")
         guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
@@ -286,7 +297,9 @@ let install = Command(usage: "install <version>", flags: [urlFlag]) { flags, arg
     RunLoop.current.run()
 }
 
-let uninstall = Command(usage: "uninstall <version>") { _, args in
+let uninstall = Command(usage: "uninstall <version>",
+                        shortMessage: "Uninstall a specific version of Xcode",
+                        example: "xcodes uninstall 10.2.1") { _, args in
     firstly { () -> Promise<(InstalledXcode, URL)> in
         let versionString = args.joined(separator: " ")
         guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
@@ -311,7 +324,8 @@ let uninstall = Command(usage: "uninstall <version>") { _, args in
     RunLoop.current.run()
 }
 
-let version = Command(usage: "version") { _, _ in
+let version = Command(usage: "version",
+                      shortMessage: "Print the version number of xcodes itself") { _, _ in
     print(XcodesKit.version)
     exit(0)
 }
