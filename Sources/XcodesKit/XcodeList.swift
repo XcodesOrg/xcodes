@@ -53,14 +53,14 @@ extension XcodeList {
     public static func migrateApplicationSupportFiles() {
         if Current.files.fileExistsAtPath(Path.oldXcodesApplicationSupport.string) {
             if Current.files.fileExistsAtPath(Path.xcodesApplicationSupport.string) {
-                print("Removing old support files...")
+                Current.logging.log("Removing old support files...")
                 try? Current.files.removeItem(Path.oldXcodesApplicationSupport.url)
-                print("Done")
+                Current.logging.log("Done")
             }
             else {
-                print("Migrating old support files...")
+                Current.logging.log("Migrating old support files...")
                 try? Current.files.moveItem(Path.oldXcodesApplicationSupport.url, Path.xcodesApplicationSupport.url)
-                print("Done")
+                Current.logging.log("Done")
             }
         }
     }

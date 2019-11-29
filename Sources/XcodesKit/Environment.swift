@@ -14,6 +14,7 @@ public struct Environment {
     public var shell = Shell()
     public var files = Files()
     public var network = Network()
+    public var logging = Logging()
 }
 
 public var Current = Environment()
@@ -79,4 +80,8 @@ public struct Network {
     public func downloadTask(with convertible: URLRequestConvertible, to saveLocation: URL, resumingWith resumeData: Data?) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
         return downloadTask(convertible, saveLocation, resumeData)
     }
+}
+
+public struct Logging {
+    public var log: (String) -> Void = { print($0) }
 }
