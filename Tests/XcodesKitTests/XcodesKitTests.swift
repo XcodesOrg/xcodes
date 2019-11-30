@@ -17,7 +17,7 @@ final class XcodesKitTests: XCTestCase {
         Current = .mock
     }
 
-    let installer = XcodeInstaller()
+    let installer = XcodeInstaller(configuration: Configuration(), xcodeList: XcodeList())
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """
@@ -117,14 +117,15 @@ final class XcodesKitTests: XCTestCase {
     }
 
     func test_UninstallXcode_TrashesXcode() {
+        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         var trashedItemAtURL: URL?
         Current.files.trashItem = { itemURL in
             trashedItemAtURL = itemURL
             return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
         }
+        Current.files.installedXcodes = { [installedXcode] }
 
-        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
-        installer.uninstallXcode(installedXcode)
+        installer.uninstallXcode("0.0.0")
             .ensure { XCTAssertEqual(trashedItemAtURL, installedXcode.path.url) }
             .cauterize()
     }
@@ -155,7 +156,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeList.migrateApplicationSupportFiles()
+        migrateApplicationSupportFiles()
 
         XCTAssertNil(source)
         XCTAssertNil(destination)
@@ -170,7 +171,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeList.migrateApplicationSupportFiles()
+        migrateApplicationSupportFiles()
 
         XCTAssertEqual(source, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
         XCTAssertEqual(destination, Path.applicationSupport.join("com.robotsandpencils.xcodes").url)
@@ -185,7 +186,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeList.migrateApplicationSupportFiles()
+        migrateApplicationSupportFiles()
 
         XCTAssertNil(source)
         XCTAssertNil(destination)
@@ -200,7 +201,7 @@ final class XcodesKitTests: XCTestCase {
         var removedItemAtURL: URL?
         Current.files.removeItem = { removedItemAtURL = $0 } 
 
-        XcodeList.migrateApplicationSupportFiles()
+        migrateApplicationSupportFiles()
 
         XCTAssertNil(source)
         XCTAssertNil(destination)
@@ -211,7 +212,7 @@ final class XcodesKitTests: XCTestCase {
         let url = URL(fileURLWithPath: "developer.apple.com-download-19-6-9.html", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
         let data = try! Data(contentsOf: url)
 
-        let xcodes = try! XcodeList(client: AppleAPI.Client()).parsePrereleaseXcodes(from: data)
+        let xcodes = try! XcodeList().parsePrereleaseXcodes(from: data)
 
         XCTAssertEqual(xcodes.count, 1)
         XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta+11M336W"))

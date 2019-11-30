@@ -6,7 +6,9 @@ extension Environment {
     static var mock = Environment(
         shell: .mock,
         files: .mock,
-        network: .mock
+        network: .mock,
+        logging: .mock,
+        keychain: .mock
     )
 }
 
@@ -25,7 +27,11 @@ extension Shell {
         buildVersion: { return Promise.value(Shell.processOutputMock) },
         xcodeBuildVersion: { _ in return Promise.value(Shell.processOutputMock) },
         getUserCacheDir: { return Promise.value(Shell.processOutputMock) },
-        touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) }
+        touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) },
+        readLine: { _ in return nil },
+        readSecureLine: { _ in return nil },
+        env: { _ in nil },
+        exit: { _ in }
     )
 }
 
@@ -55,5 +61,19 @@ extension Files {
 extension Network {
     static var mock = Network(
         downloadTask: { url, saveLocation, _ in return (Progress(), Promise.value((saveLocation, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))) }
+    )
+}
+
+extension Logging {
+    static var mock = Logging(
+        log: { print($0) }
+    )
+}
+
+extension Keychain {
+    static var mock = Keychain(
+        getString: { _ in return nil },
+        set: { _, _ in },
+        remove: { _ in }
     )
 }
