@@ -116,6 +116,99 @@ final class XcodesKitTests: XCTestCase {
             .cauterize()
     }
 
+    func test_InstallLogging_FullHappyPath() {
+        var log = ""
+        Current.logging.log = { log.append($0 + "\n") }
+
+        // Don't have a valid session
+        Current.network.validateSession = { Promise(error: AppleAPI.Client.Error.invalidSession) }
+        // It hasn't been downloaded
+        Current.files.fileExistsAtPath = { path in
+            if path == (Path.xcodesApplicationSupport/"Xcode-0.0.0.xip").string {
+                return false
+            }
+            else {
+                return true
+            }
+        }
+        // It's an available release version
+        Current.network.dataTask = { url in
+            if url.pmkRequest.url! == URLRequest.downloads.url! {
+                let downloads = Downloads(downloads: [Download(name: "Xcode 0.0.0", files: [Download.File(remotePath: "https://apple.com/xcode.xip")])])
+                let downloadsData = try! JSONEncoder().encode(downloads)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+
+            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+        }
+        // It downloads and updates progress
+        Current.network.downloadTask = { (url, saveLocation, _) -> (Progress, Promise<(saveLocation: URL, response: URLResponse)>) in
+            let progress = Progress(totalUnitCount: 100)
+            return (progress,
+                    Promise { resolver in
+                        // Need this to run after the Promise has returned to the caller. This makes the test async, requiring waiting for an expectation.
+                        DispatchQueue.main.async {
+                            for i in 0...100 {
+                                progress.completedUnitCount = Int64(i)
+                            }
+                            resolver.fulfill((saveLocation: saveLocation,
+                                              response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+                        }
+                    })
+        }
+        // It's a valid .app
+        Current.shell.codesignVerify = { _ in
+            return Promise.value(
+                ProcessOutput(
+                    status: 0,
+                    out: "",
+                    err: """
+                        TeamIdentifier=\(XcodeInstaller.XcodeTeamIdentifier)
+                        Authority=\(XcodeInstaller.XcodeCertificateAuthority[0])
+                        Authority=\(XcodeInstaller.XcodeCertificateAuthority[1])
+                        Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
+                        """))
+        }
+        // Don't have superuser privileges the first time
+        var validateSudoAuthenticationCallCount = 0
+        Current.shell.validateSudoAuthentication = {
+            validateSudoAuthenticationCallCount += 1
+
+            if validateSudoAuthenticationCallCount == 1 {
+                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
+            }
+            else {
+                return Promise.value(Shell.processOutputMock)
+            }
+        }
+        // User enters password
+        Current.shell.readSecureLine = { prompt in
+            Current.logging.log(prompt)
+            return "password"
+        }
+        // User enters something
+        Current.shell.readLine = { prompt in
+            Current.logging.log(prompt)
+            return "asdf"
+        }
+
+        let expectation = self.expectation(description: "Finished")
+
+        installer.install("0.0.0", nil)
+            .ensure {
+                let url = URL(fileURLWithPath: "LogOutput-FullHappyPath.txt", 
+                              relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                XCTAssertEqual(log, try! String(contentsOf: url))
+                expectation.fulfill()
+            }
+            .catch {
+                XCTFail($0.localizedDescription)
+                expectation.fulfill()
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
     func test_UninstallXcode_TrashesXcode() {
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         var trashedItemAtURL: URL?

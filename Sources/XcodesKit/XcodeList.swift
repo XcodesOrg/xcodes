@@ -35,7 +35,7 @@ public final class XcodeList {
 
 extension XcodeList {
     private func loadCachedAvailableXcodes() throws {
-        let data = try Data(contentsOf: Path.cacheFile.url)
+        guard let data = Current.files.contents(atPath: Path.cacheFile.string) else { return }
         let xcodes = try JSONDecoder().decode([Xcode].self, from: data)
         self.availableXcodes = xcodes
     }
@@ -54,10 +54,6 @@ extension XcodeList {
             Current.network.dataTask(with: URLRequest.downloads)
         }
         .map { (data, response) -> [Xcode] in
-            struct Downloads: Decodable {
-                let downloads: [Download]
-            }
-
             let downloads = try JSONDecoder().decode(Downloads.self, from: data)
             let xcodes = downloads
                 .downloads

@@ -54,13 +54,17 @@ extension Files {
         },
         removeItem: { _ in },
         trashItem: { _ in return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash") },
-        createFile: { _, _, _ in return true }
+        createFile: { _, _, _ in return true },
+        installedXcodes: { [] }
     )
 }
 
 extension Network {
     static var mock = Network(
-        downloadTask: { url, saveLocation, _ in return (Progress(), Promise.value((saveLocation, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))) }
+        dataTask: { url in return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)) },
+        downloadTask: { url, saveLocation, _ in return (Progress(), Promise.value((saveLocation, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))) },
+        validateSession: { Promise() },
+        login: { _, _ in Promise() }
     )
 }
 
