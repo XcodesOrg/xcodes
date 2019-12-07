@@ -82,7 +82,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in },  passwordInput: { Promise.value("") })
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"))
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment(xcode: installedXcode, output: "")) }
     }
 
@@ -90,7 +90,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"))
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed(output: "")) }
     }
 
@@ -98,7 +98,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise.value((0, "", "")) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"))
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.unexpectedCodeSigningIdentity(identifier: "", certificateAuthority: [])) }
     }
 
@@ -111,7 +111,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
         let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
-        installer.installArchivedXcode(xcode, at: xipURL, archiveTrashed: { _ in }, passwordInput: { Promise.value("") })
+        installer.installArchivedXcode(xcode, at: xipURL)
             .ensure { XCTAssertEqual(trashedItemAtURL, xipURL) }
             .cauterize()
     }
