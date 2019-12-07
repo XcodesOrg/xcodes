@@ -93,18 +93,19 @@ public final class XcodeInstaller {
                 return self.downloadXcode(version: version)
             }
         }
-        .then { xcode, url -> Promise<Void> in
+        .then { xcode, url -> Promise<InstalledXcode> in
             return self.installArchivedXcode(xcode, at: url, archiveTrashed: { archiveURL in
-                Current.logging.log("Xcode archive \(url.lastPathComponent) has been moved to the Trash.")
+                Current.logging.log("(4/6) Moved Xcode archive \(url.lastPathComponent) to the Trash")
             }, passwordInput: { () -> Promise<String> in
                 return Promise { seal in
-                    Current.logging.log("xcodes requires superuser privileges in order to setup some parts of Xcode.")
-                    guard let password = Current.shell.readSecureLine(prompt: "Password: ") else { seal.reject(Error.missingSudoerPassword); return }
+                    Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
+                    guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(Error.missingSudoerPassword); return }
                     seal.fulfill(password + "\n")
                 }
             })
         }
-        .done {
+        .done { xcode in
+            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)")
             Current.shell.exit(0)
         }
     }
@@ -143,7 +144,7 @@ public final class XcodeInstaller {
                 observation?.invalidate()
                 observation = progress.observe(\.fractionCompleted) { progress, _ in
                     // These escape codes move up a line and then clear to the end
-                    Current.logging.log("\u{1B}[1A\u{1B}[K" + "Downloading Xcode \(xcode.version): " + formatter.string(from: progress.fractionCompleted)!)
+                    Current.logging.log("\u{1B}[1A\u{1B}[K" + "(1/6) Downloading Xcode \(xcode.version): " + formatter.string(from: progress.fractionCompleted)!)
                 }
             })
 
@@ -260,7 +261,7 @@ public final class XcodeInstaller {
         }
     }
 
-    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, archiveTrashed: @escaping (URL) -> Void, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
+    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, archiveTrashed: @escaping (URL) -> Void, passwordInput: @escaping () -> Promise<String>) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = Path.root.join("Applications").join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
             switch archiveURL.pathExtension {
@@ -282,19 +283,22 @@ public final class XcodeInstaller {
         .then { xcode -> Promise<InstalledXcode> in
             try Current.files.trashItem(at: archiveURL)
             archiveTrashed(archiveURL)
+            Current.logging.log("(5/6) Checking security assessment and code signing")
 
             return when(fulfilled: self.verifySecurityAssessment(of: xcode),
                                    self.verifySigningCertificate(of: xcode.path.url))
                 .map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
+            Current.logging.log("(6/6) Finishing installation")
+
+            return self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
             self.approveLicense(for: xcode, passwordInput: passwordInput).map { xcode }
         }
-        .then { xcode -> Promise<Void> in
-            self.installComponents(for: xcode, passwordInput: passwordInput)
+        .then { xcode -> Promise<InstalledXcode> in
+            self.installComponents(for: xcode, passwordInput: passwordInput).map { xcode }
         }
     }
 
@@ -363,6 +367,7 @@ public final class XcodeInstaller {
 
     func unarchiveAndMoveXIP(at source: URL, to destination: URL) -> Promise<URL> {
         return firstly { () -> Promise<ProcessOutput> in
+            Current.logging.log("(2/6) Unarchiving Xcode (This can take a while)")
             return Current.shell.unxip(source)
         }
         .map { output -> URL in
@@ -374,6 +379,8 @@ public final class XcodeInstaller {
             else if Current.files.fileExists(atPath: xcodeBetaURL.path) {
                 try Current.files.moveItem(at: xcodeBetaURL, to: destination)
             }
+            
+            Current.logging.log("(3/6) Moved Xcode to \(destination.path)")
 
             return destination
         }
