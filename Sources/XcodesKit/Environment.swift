@@ -93,6 +93,11 @@ public struct Files {
         return createFile(path, data, attr)
     }
 
+    public var createDirectory: (URL, Bool, [FileAttributeKey : Any]?) throws -> Void = FileManager.default.createDirectory(at:withIntermediateDirectories:attributes:)
+    public func createDirectory(at url: URL, withIntermediateDirectories createIntermediates: Bool, attributes: [FileAttributeKey : Any]? = nil) throws {
+        try createDirectory(url, createIntermediates, attributes)
+    }
+
     public var installedXcodes = XcodesKit.installedXcodes
 }
 private func installedXcodes() -> [InstalledXcode] {

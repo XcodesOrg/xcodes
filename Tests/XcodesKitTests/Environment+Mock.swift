@@ -55,6 +55,7 @@ extension Files {
         removeItem: { _ in },
         trashItem: { _ in return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash") },
         createFile: { _, _, _ in return true },
+        createDirectory: { _, _, _ in },
         installedXcodes: { [] }
     )
 }
