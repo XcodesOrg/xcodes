@@ -56,6 +56,8 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 
 ## Usage
 
+Install a specific version of Xcode using a command like one of these:
+
 ```
 xcodes install 10.2.1
 xcodes install 11 Beta 7
@@ -65,6 +67,21 @@ xcodes install 11.2 GM seed
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
 
 After successfully authenticating, xcodes will save your Apple ID password into the keychain and will remember your Apple ID for future use. If you need to use a different Apple ID than the one that's remembered, set the `XCODES_USERNAME` environment variable.
+
+xcodes will download and install the version you asked for so that it's ready to use.
+
+```
+(1/6) Downloading Xcode 11.2.0: 100%
+(2/6) Unarchiving Xcode (This can take a while)
+(3/6) Moving Xcode to /Applications/Xcode-11.2.0.app
+(4/6) Moving Xcode archive Xcode-11.2.0.xip to the Trash
+(5/6) Checking security assessment and code signing
+(6/6) Finishing installation
+xcodes requires superuser privileges in order to finish installation.
+macOS User Password:
+
+Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
+```
 
 ### Commands
 
