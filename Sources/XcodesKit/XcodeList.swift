@@ -3,26 +3,11 @@ import Path
 import Version
 import PromiseKit
 import SwiftSoup
-import AppleAPI
 
 /// Provides lists of available and installed Xcodes
 public final class XcodeList {
-    private let client: AppleAPI.Client
-
-    public init(client: AppleAPI.Client) {
-        self.client = client
+    public init() {
         try? loadCachedAvailableXcodes()
-    }
-
-    public var installedXcodes: [InstalledXcode] {
-        let results = try! Path.root.join("Applications").ls().filter { entry in
-            guard entry.kind == .directory && entry.path.extension == "app" && !entry.path.isSymlink else { return false }
-            let infoPlistPath = entry.path.join("Contents").join("Info.plist")
-            let infoPlist = try! PropertyListDecoder().decode(InfoPlist.self, from: try! Data(contentsOf: infoPlistPath.url))
-            return infoPlist.bundleID == "com.apple.dt.Xcode"
-        }
-        let installedXcodes = results.map { $0.path }.compactMap(InstalledXcode.init)
-        return installedXcodes
     }
 
     public private(set) var availableXcodes: [Xcode] = []
@@ -49,24 +34,8 @@ public final class XcodeList {
 }
 
 extension XcodeList {
-    /// Migrates any application support files from Xcodes < v0.4 if application support files from >= v0.4 don't exist
-    public static func migrateApplicationSupportFiles() {
-        if Current.files.fileExistsAtPath(Path.oldXcodesApplicationSupport.string) {
-            if Current.files.fileExistsAtPath(Path.xcodesApplicationSupport.string) {
-                print("Removing old support files...")
-                try? Current.files.removeItem(Path.oldXcodesApplicationSupport.url)
-                print("Done")
-            }
-            else {
-                print("Migrating old support files...")
-                try? Current.files.moveItem(Path.oldXcodesApplicationSupport.url, Path.xcodesApplicationSupport.url)
-                print("Done")
-            }
-        }
-    }
-
     private func loadCachedAvailableXcodes() throws {
-        let data = try Data(contentsOf: Path.cacheFile.url)
+        guard let data = Current.files.contents(atPath: Path.cacheFile.string) else { return }
         let xcodes = try JSONDecoder().decode([Xcode].self, from: data)
         self.availableXcodes = xcodes
     }
@@ -82,13 +51,9 @@ extension XcodeList {
 extension XcodeList {
     private func releasedXcodes() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
-            client.session.dataTask(.promise, with: URLRequest.downloads)
+            Current.network.dataTask(with: URLRequest.downloads)
         }
         .map { (data, response) -> [Xcode] in
-            struct Downloads: Decodable {
-                let downloads: [Download]
-            }
-
             let downloads = try JSONDecoder().decode(Downloads.self, from: data)
             let xcodes = downloads
                 .downloads
@@ -109,7 +74,7 @@ extension XcodeList {
 
     private func prereleaseXcodes() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
-            client.session.dataTask(.promise, with: URLRequest.download)
+            Current.network.dataTask(with: URLRequest.download)
         }
         .map { (data, _) -> [Xcode] in
             try self.parsePrereleaseXcodes(from: data)

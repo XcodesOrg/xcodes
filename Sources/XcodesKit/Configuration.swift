@@ -9,15 +9,13 @@ public struct Configuration: Codable {
     }
 
     public mutating func load() throws {
-        let data = try Data(contentsOf: Path.configurationFile.url)
+        guard let data = Current.files.contents(atPath: Path.configurationFile.string) else { return }
         self = try JSONDecoder().decode(Configuration.self, from: data)
     }
 
     public func save() throws {
         let data = try JSONEncoder().encode(self)
-        try FileManager.default.createDirectory(at: Path.configurationFile.url.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
-        try data.write(to: Path.configurationFile.url)
+        try Current.files.createDirectory(at: Path.configurationFile.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        Current.files.createFile(atPath: Path.configurationFile.string, contents: data)
     }
 }
-

@@ -51,11 +51,15 @@ public struct Xcode: Codable {
     }
 }
 
-public struct Download: Decodable {
+struct Downloads: Codable {
+    let downloads: [Download]
+}
+
+public struct Download: Codable {
     public let name: String
     public let files: [File]
 
-    public struct File: Decodable {
+    public struct File: Codable {
         public let remotePath: String
     }
 }

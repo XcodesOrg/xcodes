@@ -6,7 +6,9 @@ extension Environment {
     static var mock = Environment(
         shell: .mock,
         files: .mock,
-        network: .mock
+        network: .mock,
+        logging: .mock,
+        keychain: .mock
     )
 }
 
@@ -25,7 +27,11 @@ extension Shell {
         buildVersion: { return Promise.value(Shell.processOutputMock) },
         xcodeBuildVersion: { _ in return Promise.value(Shell.processOutputMock) },
         getUserCacheDir: { return Promise.value(Shell.processOutputMock) },
-        touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) }
+        touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) },
+        readLine: { _ in return nil },
+        readSecureLine: { _ in return nil },
+        env: { _ in nil },
+        exit: { _ in }
     )
 }
 
@@ -48,12 +54,31 @@ extension Files {
         },
         removeItem: { _ in },
         trashItem: { _ in return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash") },
-        createFile: { _, _, _ in return true }
+        createFile: { _, _, _ in return true },
+        createDirectory: { _, _, _ in },
+        installedXcodes: { [] }
     )
 }
 
 extension Network {
     static var mock = Network(
-        downloadTask: { url, saveLocation, _ in return (Progress(), Promise.value((saveLocation, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))) }
+        dataTask: { url in return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)) },
+        downloadTask: { url, saveLocation, _ in return (Progress(), Promise.value((saveLocation, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))) },
+        validateSession: { Promise() },
+        login: { _, _ in Promise() }
+    )
+}
+
+extension Logging {
+    static var mock = Logging(
+        log: { print($0) }
+    )
+}
+
+extension Keychain {
+    static var mock = Keychain(
+        getString: { _ in return nil },
+        set: { _, _ in },
+        remove: { _ in }
     )
 }

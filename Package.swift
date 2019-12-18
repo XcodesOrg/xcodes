@@ -25,7 +25,7 @@ let package = Package(
         .target(
             name: "xcodes",
             dependencies: [
-                "Guaka", "XcodesKit", "KeychainAccess"
+                "Guaka", "XcodesKit"
             ]),
         .testTarget(
             name: "xcodesTests",
@@ -33,7 +33,7 @@ let package = Package(
         .target(
             name: "XcodesKit",
             dependencies: [
-                "AppleAPI", "Path", "Version", "PromiseKit", "PMKFoundation", "SwiftSoup", "LegibleError"
+                "AppleAPI", "Path", "Version", "PromiseKit", "PMKFoundation", "SwiftSoup", "LegibleError", "KeychainAccess"
             ]),
         .testTarget(
             name: "XcodesKitTests",
