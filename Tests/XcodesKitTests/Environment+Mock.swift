@@ -29,7 +29,7 @@ extension Shell {
         getUserCacheDir: { return Promise.value(Shell.processOutputMock) },
         touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) },
         readLine: { _ in return nil },
-        readSecureLine: { _ in return nil },
+        readSecureLine: { _, _ in return nil },
         env: { _ in nil },
         exit: { _ in }
     )

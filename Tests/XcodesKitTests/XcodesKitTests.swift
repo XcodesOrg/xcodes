@@ -183,7 +183,7 @@ final class XcodesKitTests: XCTestCase {
             }
         }
         // User enters password
-        Current.shell.readSecureLine = { prompt in
+        Current.shell.readSecureLine = { prompt, _ in
             Current.logging.log(prompt)
             return "password"
         }

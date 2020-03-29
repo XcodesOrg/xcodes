@@ -10,8 +10,6 @@ var configuration = Configuration()
 try? configuration.load()
 let xcodeList = XcodeList()
 let installer = XcodeInstaller(configuration: configuration, xcodeList: xcodeList)
-Current.shell.readLine = readLine
-Current.shell.readSecureLine = { readSecureLine(prompt: $0) }
 
 migrateApplicationSupportFiles()
 
