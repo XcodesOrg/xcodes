@@ -7,6 +7,8 @@ import AppleAPI
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
+    var installer: XcodeInstaller!
+
     override class func setUp() {
         super.setUp()
         PromiseKit.conf.Q.map = nil
@@ -15,9 +17,8 @@ final class XcodesKitTests: XCTestCase {
 
     override func setUp() {
         Current = .mock
+        installer = XcodeInstaller(configuration: Configuration(), xcodeList: XcodeList())
     }
-
-    let installer = XcodeInstaller(configuration: Configuration(), xcodeList: XcodeList())
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """
@@ -203,7 +204,6 @@ final class XcodesKitTests: XCTestCase {
             }
             .catch {
                 XCTFail($0.localizedDescription)
-                expectation.fulfill()
             }
 
         waitForExpectations(timeout: 1.0)
