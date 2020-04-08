@@ -360,6 +360,23 @@ public final class XcodeInstaller {
                 seal.fulfill(try Current.files.trashItem(at: installedXcode.path.url))
             }.map { (installedXcode, $0) }
         }
+        .then { (installedXcode, trashURL) -> Promise<(InstalledXcode, URL)> in
+            // If we just uninstalled the selected Xcode, try to select the latest installed version so things don't accidentally break
+            Current.shell.xcodeSelectPrintPath()
+                .then { output -> Promise<(InstalledXcode, URL)> in
+                    if output.out.hasPrefix(installedXcode.path.string),
+                       let latestInstalledXcode = Current.files.installedXcodes().sorted(by: { $0.version < $1.version }).last {
+                        return selectXcodeAtPath(latestInstalledXcode.path.string)
+                            .map { output in
+                                Current.logging.log("Selected \(output.out)")
+                                return (installedXcode, trashURL)
+                            }
+                    }
+                    else {
+                        return Promise.value((installedXcode, trashURL))
+                    }
+                }
+        }
         .done { (installedXcode, trashURL) in
             Current.logging.log("Xcode \(installedXcode.version.xcodeDescription) moved to Trash: \(trashURL.path)")
             Current.shell.exit(0)

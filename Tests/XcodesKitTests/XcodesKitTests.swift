@@ -208,18 +208,58 @@ final class XcodesKitTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
     }
-
-    func test_UninstallXcode_TrashesXcode() {
-        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
+    
+    func test_UninstallXcode() {
+        // There are installed Xcodes
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!
+        ]
+        Current.files.installedXcodes = { installedXcodes }
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-2.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-2.0.1.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        // The one that's going to be deleted is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-0.0.0.app/Contents/Developer", err: ""))
+        }
+        // Trashing succeeds
         var trashedItemAtURL: URL?
         Current.files.trashItem = { itemURL in
             trashedItemAtURL = itemURL
             return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
         }
-        Current.files.installedXcodes = { [installedXcode] }
+        // Switching succeeds
+        var selectedPaths: [String] = []
+        Current.shell.xcodeSelectSwitch = { password, path in
+            selectedPaths.append(path)
+            return Promise.value((status: 0, out: "", err: ""))
+        }
 
         installer.uninstallXcode("0.0.0")
-            .ensure { XCTAssertEqual(trashedItemAtURL, installedXcode.path.url) }
+            .ensure {
+                XCTAssertEqual(selectedPaths, ["/Applications/Xcode-2.0.1.app"])
+                XCTAssertEqual(trashedItemAtURL, installedXcodes[0].path.url)
+            }
             .cauterize()
     }
 
