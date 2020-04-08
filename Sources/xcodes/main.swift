@@ -29,6 +29,27 @@ let installed = Command(usage: "installed",
 }
 app.add(subCommand: installed)
 
+let printFlag = Flag(shortName: "p", longName: "print-path", value: false, description: "Print the path of the selected Xcode")
+let select = Command(usage: "select",
+                     shortMessage: "Change the selected Xcode",
+                     longMessage: "Change the selected Xcode. Run without any arguments to interactively select from a list, or provide an absolute path.",
+                     flags: [printFlag],
+                     example: """
+                              xcodes select
+                              xcodes select /Applications/Xcode-11.4.0.app
+                              xcodes select -p
+                              """) { flags, args in
+
+    selectXcode(shouldPrint: flags.getBool(name: "print-path") ?? false, path: args.first)
+        .catch { error in
+            print(error.legibleLocalizedDescription)
+            exit(1)
+        }
+
+    RunLoop.current.run()
+}
+app.add(subCommand: select)
+
 let list = Command(usage: "list",
                    shortMessage: "List all versions of Xcode that are available to install") { _, _ in
     if xcodeList.shouldUpdate {

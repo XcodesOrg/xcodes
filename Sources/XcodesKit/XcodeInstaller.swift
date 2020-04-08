@@ -487,18 +487,9 @@ public final class XcodeInstaller {
         return info
     }
 
-    func authenticateSudoerIfNecessary(passwordInput: @escaping () -> Promise<String>) -> Promise<String?> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.validateSudoAuthentication().map { _ in return nil }
-        }
-        .recover { _ -> Promise<String?> in
-            return passwordInput().map(Optional.init)
-        }
-    }
-
     func enableDeveloperMode(passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<String?> in
-            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
         }
         .then { possiblePassword -> Promise<String?> in
             return Current.shell.devToolsSecurityEnable(possiblePassword).map { _ in possiblePassword }
@@ -510,7 +501,7 @@ public final class XcodeInstaller {
 
     func approveLicense(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<String?> in
-            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
         }
         .then { possiblePassword in
             return Current.shell.acceptXcodeLicense(xcode, possiblePassword).asVoid()
@@ -519,7 +510,7 @@ public final class XcodeInstaller {
 
     func installComponents(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<String?> in
-            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
         }
         .then { possiblePassword -> Promise<Void> in
             Current.shell.runFirstLaunch(xcode, possiblePassword).asVoid()

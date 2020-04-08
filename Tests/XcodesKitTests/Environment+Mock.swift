@@ -19,7 +19,6 @@ extension Shell {
         unxip: { _ in return Promise.value(Shell.processOutputMock) },
         spctlAssess: { _ in return Promise.value(Shell.processOutputMock) },
         codesignVerify: { _ in return Promise.value(Shell.processOutputMock) },
-        validateSudoAuthentication: { return Promise.value(Shell.processOutputMock) },
         devToolsSecurityEnable: { _ in return Promise.value(Shell.processOutputMock) },
         addStaffToDevelopersGroup: { _ in return Promise.value(Shell.processOutputMock) },
         acceptXcodeLicense: { _, _ in return Promise.value(Shell.processOutputMock) },
@@ -28,6 +27,10 @@ extension Shell {
         xcodeBuildVersion: { _ in return Promise.value(Shell.processOutputMock) },
         getUserCacheDir: { return Promise.value(Shell.processOutputMock) },
         touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) },
+        validateSudoAuthentication: { return Promise.value(Shell.processOutputMock) },
+        // Deliberately using real implementation of authenticateSudoerIfNecessary since it depends on others that can be mocked
+        xcodeSelectPrintPath: { return Promise.value(Shell.processOutputMock) },
+        xcodeSelectSwitch: { _, _ in return Promise.value(Shell.processOutputMock) },
         readLine: { _ in return nil },
         readSecureLine: { _, _ in return nil },
         env: { _ in nil },
@@ -41,7 +44,7 @@ extension Files {
         moveItem: { _, _ in return },
         contentsAtPath: { path in
             if path.contains("Info.plist") {
-                let url = URL(fileURLWithPath: "Stub.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
                 return try? Data(contentsOf: url)
             }
             else if path.contains("version.plist") {
