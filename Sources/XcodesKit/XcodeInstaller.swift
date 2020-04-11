@@ -436,6 +436,21 @@ public final class XcodeInstaller {
                     }
             }
     }
+    
+    public func printInstalledXcodes() -> Promise<Void> {
+        Current.shell.xcodeSelectPrintPath()
+            .done { pathOutput in
+                Current.files.installedXcodes()
+                    .sorted { $0.version < $1.version }
+                    .forEach { installedXcode in
+                        var output = installedXcode.version.xcodeDescription
+                        if pathOutput.out.hasPrefix(installedXcode.path.string) {
+                            output += " (Selected)"
+                        }
+                        Current.logging.log(output)
+                    }
+            }
+    }
 
     func unarchiveAndMoveXIP(at source: URL, to destination: URL) -> Promise<URL> {
         return firstly { () -> Promise<ProcessOutput> in

@@ -22,10 +22,16 @@ app = Command(usage: "xcodes") { _, _ in print(GuakaConfig.helpGenerator.init(co
 
 let installed = Command(usage: "installed",
                         shortMessage: "List the versions of Xcode that are installed") { _, _ in
-    Current.files.installedXcodes()
-        .map { $0.version }
-        .sorted()
-        .forEach { print($0) }
+    installer.printInstalledXcodes()
+        .done {
+            exit(0)
+        }
+        .catch { error in
+            print(error.legibleLocalizedDescription)
+            exit(1)
+        }
+
+    RunLoop.current.run()
 }
 app.add(subCommand: installed)
 
