@@ -390,13 +390,15 @@ public final class XcodeInstaller {
         .then { () -> Promise<[Xcode]> in
             self.xcodeList.update()
         }
-        .done { xcodes in
+        .then { xcodes -> Promise<Void> in
             self.printAvailableXcodes(xcodes, installed: Current.files.installedXcodes())
+        }
+        .done {
             Current.shell.exit(0)
         }
     }
 
-    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode]) {
+    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode]) -> Promise<Void> {
         var allXcodeVersions = xcodes.map { $0.version }
         for installedXcode in installedXcodes {
             // If an installed version isn't listed online, add the installed version
@@ -413,16 +415,25 @@ public final class XcodeInstaller {
                 allXcodeVersions[index] = installedXcode.version
             }
         }
+        
+        return Current.shell.xcodeSelectPrintPath()
+            .done { output in
+                let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
 
-        allXcodeVersions
-            .sorted { $0 < $1 }
-            .forEach { xcodeVersion in
-                if installedXcodes.contains(where: { xcodeVersion.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
-                    Current.logging.log("\(xcodeVersion.xcodeDescription) (Installed)")
-                }
-                else {
-                    Current.logging.log(xcodeVersion.xcodeDescription)
-                }
+                allXcodeVersions
+                    .sorted { $0 < $1 }
+                    .forEach { xcodeVersion in
+                        var output = xcodeVersion.xcodeDescription
+                        if installedXcodes.contains(where: { xcodeVersion.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
+                            if xcodeVersion == selectedInstalledXcodeVersion {
+                                output += " (Installed, Selected)"
+                            }
+                            else {
+                                output += " (Installed)"
+                            }
+                        }
+                        Current.logging.log(output)
+                    }
             }
     }
 

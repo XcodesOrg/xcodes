@@ -52,20 +52,23 @@ app.add(subCommand: select)
 
 let list = Command(usage: "list",
                    shortMessage: "List all versions of Xcode that are available to install") { _, _ in
-    if xcodeList.shouldUpdate {
-        firstly {
-            installer.updateAndPrint()
+    firstly { () -> Promise<Void> in
+        if xcodeList.shouldUpdate {
+            return installer.updateAndPrint()
         }
-        .catch { error in
-            print(error.legibleLocalizedDescription)
-            exit(1)
+        else {
+            return installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes())
         }
+    }
+    .done {
+        exit(0)
+    }
+    .catch { error in
+        print(error.legibleLocalizedDescription)
+        exit(1)
+    }
 
-        RunLoop.current.run()
-    }
-    else {
-        installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes())
-    }
+    RunLoop.current.run()
 }
 app.add(subCommand: list)
 
