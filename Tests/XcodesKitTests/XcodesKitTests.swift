@@ -360,7 +360,7 @@ final class XcodesKitTests: XCTestCase {
 
         Current.shell.xcodeSelectPrintPath = { Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: "")) }
 
-        selectXcode(shouldPrint: true, path: nil)
+        selectXcode(shouldPrint: true, pathOrVersion: "")
             .cauterize()
 
         XCTAssertEqual(log, """
@@ -426,7 +426,7 @@ final class XcodesKitTests: XCTestCase {
             Promise.value((status: 0, out: "", err: ""))
         }
 
-        selectXcode(shouldPrint: false, path: "/Applications/Xcode-0.0.0.app")
+        selectXcode(shouldPrint: false, pathOrVersion: "/Applications/Xcode-0.0.0.app")
             .cauterize()
 
         XCTAssertEqual(log, """
@@ -460,6 +460,12 @@ final class XcodesKitTests: XCTestCase {
             else {
                 return nil
             }
+        }
+        Current.files.fileExistsAtPath = { path in
+            if path == "" {
+                return false
+            }
+            return true
         }
         // It prints the expected paths
         var xcodeSelectPrintPathCallCount = 0
@@ -499,7 +505,7 @@ final class XcodesKitTests: XCTestCase {
             Promise.value((status: 0, out: "", err: ""))
         }
 
-        selectXcode(shouldPrint: false, path: nil)
+        selectXcode(shouldPrint: false, pathOrVersion: "")
             .cauterize()
 
         XCTAssertEqual(log, """

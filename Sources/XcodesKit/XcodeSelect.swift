@@ -1,8 +1,9 @@
 import Foundation
 import PromiseKit
 import Path
+import Version
 
-public func selectXcode(shouldPrint: Bool, path: String?) -> Promise<Void> {
+public func selectXcode(shouldPrint: Bool, pathOrVersion: String) -> Promise<Void> {
     firstly { () -> Promise<ProcessOutput> in
         Current.shell.xcodeSelectPrintPath()
     }
@@ -20,19 +21,28 @@ public func selectXcode(shouldPrint: Bool, path: String?) -> Promise<Void> {
             }
         }
 
-        if let desiredPath = path {
-            return selectXcodeAtPath(desiredPath)
+        if let version = Version(xcodeVersion: pathOrVersion),
+           let installedXcode = Current.files.installedXcodes().first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) {
+            return selectXcodeAtPath(installedXcode.path.string)
                 .done { output in
                     Current.logging.log("Selected \(output.out)")
                     Current.shell.exit(0)
                 }
         }
-
-        return try selectXcodeInteractively(currentPath: output.out)
-            .done { output in
-                Current.logging.log("Selected \(output.out)")
-                Current.shell.exit(0)
-            }
+        else {
+            return selectXcodeAtPath(pathOrVersion)
+                .done { output in
+                    Current.logging.log("Selected \(output.out)")
+                    Current.shell.exit(0)
+                }
+                .recover { _ in
+                    try selectXcodeInteractively(currentPath: output.out)
+                        .done { output in
+                            Current.logging.log("Selected \(output.out)")
+                            Current.shell.exit(0)
+                        }
+                }
+        }
     }
 }
 

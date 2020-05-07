@@ -36,17 +36,17 @@ let installed = Command(usage: "installed",
 app.add(subCommand: installed)
 
 let printFlag = Flag(shortName: "p", longName: "print-path", value: false, description: "Print the path of the selected Xcode")
-let select = Command(usage: "select",
+let select = Command(usage: "select <version or path>",
                      shortMessage: "Change the selected Xcode",
                      longMessage: "Change the selected Xcode. Run without any arguments to interactively select from a list, or provide an absolute path.",
                      flags: [printFlag],
                      example: """
                               xcodes select
+                              xcodes select 11.4.0
                               xcodes select /Applications/Xcode-11.4.0.app
                               xcodes select -p
                               """) { flags, args in
-
-    selectXcode(shouldPrint: flags.getBool(name: "print-path") ?? false, path: args.first)
+    selectXcode(shouldPrint: flags.getBool(name: "print-path") ?? false, pathOrVersion: args.joined(separator: " "))
         .catch { error in
             print(error.legibleLocalizedDescription)
             exit(1)
@@ -102,7 +102,7 @@ let install = Command(usage: "install <version>",
                                xcodes install 11.2 GM seed
                                xcodes install 9.0 --url ~/Archive/Xcode_9.xip
                                """) { flags, args in
-        let versionString = args.joined(separator: " ")
+    let versionString = args.joined(separator: " ")
     installer.install(versionString, flags.getString(name: "url"))
         .catch { error in
             switch error {
