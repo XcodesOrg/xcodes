@@ -10,8 +10,6 @@ var configuration = Configuration()
 try? configuration.load()
 let xcodeList = XcodeList()
 let installer = XcodeInstaller(configuration: configuration, xcodeList: xcodeList)
-Current.shell.readLine = readLine
-Current.shell.readSecureLine = { readSecureLine(prompt: $0) }
 
 migrateApplicationSupportFiles()
 
@@ -24,29 +22,59 @@ app = Command(usage: "xcodes") { _, _ in print(GuakaConfig.helpGenerator.init(co
 
 let installed = Command(usage: "installed",
                         shortMessage: "List the versions of Xcode that are installed") { _, _ in
-    Current.files.installedXcodes()
-        .map { $0.version }
-        .sorted()
-        .forEach { print($0) }
-}
-app.add(subCommand: installed)
-
-let list = Command(usage: "list",
-                   shortMessage: "List all versions of Xcode that are available to install") { _, _ in
-    if xcodeList.shouldUpdate {
-        firstly {
-            installer.updateAndPrint()
+    installer.printInstalledXcodes()
+        .done {
+            exit(0)
         }
         .catch { error in
             print(error.legibleLocalizedDescription)
             exit(1)
         }
 
-        RunLoop.current.run()
+    RunLoop.current.run()
+}
+app.add(subCommand: installed)
+
+let printFlag = Flag(shortName: "p", longName: "print-path", value: false, description: "Print the path of the selected Xcode")
+let select = Command(usage: "select <version or path>",
+                     shortMessage: "Change the selected Xcode",
+                     longMessage: "Change the selected Xcode. Run without any arguments to interactively select from a list, or provide an absolute path.",
+                     flags: [printFlag],
+                     example: """
+                              xcodes select
+                              xcodes select 11.4.0
+                              xcodes select /Applications/Xcode-11.4.0.app
+                              xcodes select -p
+                              """) { flags, args in
+    selectXcode(shouldPrint: flags.getBool(name: "print-path") ?? false, pathOrVersion: args.joined(separator: " "))
+        .catch { error in
+            print(error.legibleLocalizedDescription)
+            exit(1)
+        }
+
+    RunLoop.current.run()
+}
+app.add(subCommand: select)
+
+let list = Command(usage: "list",
+                   shortMessage: "List all versions of Xcode that are available to install") { _, _ in
+    firstly { () -> Promise<Void> in
+        if xcodeList.shouldUpdate {
+            return installer.updateAndPrint()
+        }
+        else {
+            return installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes())
+        }
     }
-    else {
-        installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes())
+    .done {
+        exit(0)
     }
+    .catch { error in
+        print(error.legibleLocalizedDescription)
+        exit(1)
+    }
+
+    RunLoop.current.run()
 }
 app.add(subCommand: list)
 
@@ -74,7 +102,7 @@ let install = Command(usage: "install <version>",
                                xcodes install 11.2 GM seed
                                xcodes install 9.0 --url ~/Archive/Xcode_9.xip
                                """) { flags, args in
-        let versionString = args.joined(separator: " ")
+    let versionString = args.joined(separator: " ")
     installer.install(versionString, flags.getString(name: "url"))
         .catch { error in
             switch error {

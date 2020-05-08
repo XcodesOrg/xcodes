@@ -360,6 +360,23 @@ public final class XcodeInstaller {
                 seal.fulfill(try Current.files.trashItem(at: installedXcode.path.url))
             }.map { (installedXcode, $0) }
         }
+        .then { (installedXcode, trashURL) -> Promise<(InstalledXcode, URL)> in
+            // If we just uninstalled the selected Xcode, try to select the latest installed version so things don't accidentally break
+            Current.shell.xcodeSelectPrintPath()
+                .then { output -> Promise<(InstalledXcode, URL)> in
+                    if output.out.hasPrefix(installedXcode.path.string),
+                       let latestInstalledXcode = Current.files.installedXcodes().sorted(by: { $0.version < $1.version }).last {
+                        return selectXcodeAtPath(latestInstalledXcode.path.string)
+                            .map { output in
+                                Current.logging.log("Selected \(output.out)")
+                                return (installedXcode, trashURL)
+                            }
+                    }
+                    else {
+                        return Promise.value((installedXcode, trashURL))
+                    }
+                }
+        }
         .done { (installedXcode, trashURL) in
             Current.logging.log("Xcode \(installedXcode.version.xcodeDescription) moved to Trash: \(trashURL.path)")
             Current.shell.exit(0)
@@ -373,13 +390,15 @@ public final class XcodeInstaller {
         .then { () -> Promise<[Xcode]> in
             self.xcodeList.update()
         }
-        .done { xcodes in
+        .then { xcodes -> Promise<Void> in
             self.printAvailableXcodes(xcodes, installed: Current.files.installedXcodes())
+        }
+        .done {
             Current.shell.exit(0)
         }
     }
 
-    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode]) {
+    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode]) -> Promise<Void> {
         var allXcodeVersions = xcodes.map { $0.version }
         for installedXcode in installedXcodes {
             // If an installed version isn't listed online, add the installed version
@@ -396,16 +415,40 @@ public final class XcodeInstaller {
                 allXcodeVersions[index] = installedXcode.version
             }
         }
+        
+        return Current.shell.xcodeSelectPrintPath()
+            .done { output in
+                let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
 
-        allXcodeVersions
-            .sorted { $0 < $1 }
-            .forEach { xcodeVersion in
-                if installedXcodes.contains(where: { xcodeVersion.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
-                    Current.logging.log("\(xcodeVersion.xcodeDescription) (Installed)")
-                }
-                else {
-                    Current.logging.log(xcodeVersion.xcodeDescription)
-                }
+                allXcodeVersions
+                    .sorted { $0 < $1 }
+                    .forEach { xcodeVersion in
+                        var output = xcodeVersion.xcodeDescription
+                        if installedXcodes.contains(where: { xcodeVersion.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
+                            if xcodeVersion == selectedInstalledXcodeVersion {
+                                output += " (Installed, Selected)"
+                            }
+                            else {
+                                output += " (Installed)"
+                            }
+                        }
+                        Current.logging.log(output)
+                    }
+            }
+    }
+    
+    public func printInstalledXcodes() -> Promise<Void> {
+        Current.shell.xcodeSelectPrintPath()
+            .done { pathOutput in
+                Current.files.installedXcodes()
+                    .sorted { $0.version < $1.version }
+                    .forEach { installedXcode in
+                        var output = installedXcode.version.xcodeDescription
+                        if pathOutput.out.hasPrefix(installedXcode.path.string) {
+                            output += " (Selected)"
+                        }
+                        Current.logging.log(output)
+                    }
             }
     }
 
@@ -487,18 +530,9 @@ public final class XcodeInstaller {
         return info
     }
 
-    func authenticateSudoerIfNecessary(passwordInput: @escaping () -> Promise<String>) -> Promise<String?> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.validateSudoAuthentication().map { _ in return nil }
-        }
-        .recover { _ -> Promise<String?> in
-            return passwordInput().map(Optional.init)
-        }
-    }
-
     func enableDeveloperMode(passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<String?> in
-            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
         }
         .then { possiblePassword -> Promise<String?> in
             return Current.shell.devToolsSecurityEnable(possiblePassword).map { _ in possiblePassword }
@@ -510,7 +544,7 @@ public final class XcodeInstaller {
 
     func approveLicense(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<String?> in
-            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
         }
         .then { possiblePassword in
             return Current.shell.acceptXcodeLicense(xcode, possiblePassword).asVoid()
@@ -519,7 +553,7 @@ public final class XcodeInstaller {
 
     func installComponents(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
         return firstly { () -> Promise<String?> in
-            authenticateSudoerIfNecessary(passwordInput: passwordInput)
+            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
         }
         .then { possiblePassword -> Promise<Void> in
             Current.shell.runFirstLaunch(xcode, possiblePassword).asVoid()

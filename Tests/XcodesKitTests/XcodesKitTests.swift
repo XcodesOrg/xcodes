@@ -7,6 +7,8 @@ import AppleAPI
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
+    var installer: XcodeInstaller!
+
     override class func setUp() {
         super.setUp()
         PromiseKit.conf.Q.map = nil
@@ -15,9 +17,8 @@ final class XcodesKitTests: XCTestCase {
 
     override func setUp() {
         Current = .mock
+        installer = XcodeInstaller(configuration: Configuration(), xcodeList: XcodeList())
     }
-
-    let installer = XcodeInstaller(configuration: Configuration(), xcodeList: XcodeList())
 
     func test_ParseCertificateInfo_Succeeds() throws {
         let sampleRawInfo = """
@@ -182,7 +183,7 @@ final class XcodesKitTests: XCTestCase {
             }
         }
         // User enters password
-        Current.shell.readSecureLine = { prompt in
+        Current.shell.readSecureLine = { prompt, _ in
             Current.logging.log(prompt)
             return "password"
         }
@@ -203,23 +204,62 @@ final class XcodesKitTests: XCTestCase {
             }
             .catch {
                 XCTFail($0.localizedDescription)
-                expectation.fulfill()
             }
 
         waitForExpectations(timeout: 1.0)
     }
-
-    func test_UninstallXcode_TrashesXcode() {
-        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
+    
+    func test_UninstallXcode() {
+        // There are installed Xcodes
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!
+        ]
+        Current.files.installedXcodes = { installedXcodes }
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-2.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-2.0.1.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        // The one that's going to be deleted is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-0.0.0.app/Contents/Developer", err: ""))
+        }
+        // Trashing succeeds
         var trashedItemAtURL: URL?
         Current.files.trashItem = { itemURL in
             trashedItemAtURL = itemURL
             return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
         }
-        Current.files.installedXcodes = { [installedXcode] }
+        // Switching succeeds
+        var selectedPaths: [String] = []
+        Current.shell.xcodeSelectSwitch = { password, path in
+            selectedPaths.append(path)
+            return Promise.value((status: 0, out: "", err: ""))
+        }
 
         installer.uninstallXcode("0.0.0")
-            .ensure { XCTAssertEqual(trashedItemAtURL, installedXcode.path.url) }
+            .ensure {
+                XCTAssertEqual(selectedPaths, ["/Applications/Xcode-2.0.1.app"])
+                XCTAssertEqual(trashedItemAtURL, installedXcodes[0].path.url)
+            }
             .cauterize()
     }
 
@@ -309,5 +349,174 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssertEqual(xcodes.count, 1)
         XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta+11M336W"))
+    }
+
+    func test_SelectPrint() {
+        var log = ""
+        Current.logging.log = { log.append($0 + "\n") }
+
+        Current.files.installedXcodes = { [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+                                           InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!] }
+
+        Current.shell.xcodeSelectPrintPath = { Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: "")) }
+
+        selectXcode(shouldPrint: true, pathOrVersion: "")
+            .cauterize()
+
+        XCTAssertEqual(log, """
+        /Applications/Xcode-2.0.0.app/Contents/Developer
+
+        """)
+    }
+
+    func test_SelectPath() {
+        var log = ""
+        Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.installedXcodes = { [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+                                           InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!] }
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-2.0.1.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        // It prints the expected paths
+        var xcodeSelectPrintPathCallCount = 0
+        Current.shell.xcodeSelectPrintPath = {
+            xcodeSelectPrintPathCallCount += 1
+            if xcodeSelectPrintPathCallCount == 1 {
+                return Promise.value((status: 0, out: "/Applications/Xcode-2.0.1.app/Contents/Developer", err: ""))
+            }
+            else {
+                return Promise.value((status: 0, out: "/Applications/Xcode-0.0.0.app/Contents/Developer", err: ""))
+            }
+        }
+        // Don't have superuser privileges the first time
+        var validateSudoAuthenticationCallCount = 0
+        Current.shell.validateSudoAuthentication = {
+            validateSudoAuthenticationCallCount += 1
+
+            if validateSudoAuthenticationCallCount == 1 {
+                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
+            }
+            else {
+                return Promise.value(Shell.processOutputMock)
+            }
+        }
+        // User enters password
+        Current.shell.readSecureLine = { prompt, _ in
+            Current.logging.log(prompt)
+            return "password"
+        }
+        // It successfully switches
+        Current.shell.xcodeSelectSwitch = { _, _ in
+            Promise.value((status: 0, out: "", err: ""))
+        }
+
+        selectXcode(shouldPrint: false, pathOrVersion: "/Applications/Xcode-0.0.0.app")
+            .cauterize()
+
+        XCTAssertEqual(log, """
+        xcodes requires superuser privileges to select an Xcode
+        macOS User Password: 
+        Selected /Applications/Xcode-0.0.0.app/Contents/Developer
+
+        """)
+    }
+
+    func test_SelectInteractively() {
+        var log = ""
+        Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.installedXcodes = { [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+                                           InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!] }
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
+                let url = URL(fileURLWithPath: "Stub-2.0.1.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        Current.files.fileExistsAtPath = { path in
+            if path == "" {
+                return false
+            }
+            return true
+        }
+        // It prints the expected paths
+        var xcodeSelectPrintPathCallCount = 0
+        Current.shell.xcodeSelectPrintPath = {
+            xcodeSelectPrintPathCallCount += 1
+            if xcodeSelectPrintPathCallCount == 1 {
+                return Promise.value((status: 0, out: "/Applications/Xcode-2.0.1.app/Contents/Developer", err: ""))
+            }
+            else {
+                return Promise.value((status: 0, out: "/Applications/Xcode-0.0.0.app/Contents/Developer", err: ""))
+            }
+        }
+        // User enters an index
+        Current.shell.readLine = { prompt in
+            Current.logging.log(prompt)
+            return "1"
+        }
+        // Don't have superuser privileges the first time
+        var validateSudoAuthenticationCallCount = 0
+        Current.shell.validateSudoAuthentication = {
+            validateSudoAuthenticationCallCount += 1
+
+            if validateSudoAuthenticationCallCount == 1 {
+                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
+            }
+            else {
+                return Promise.value(Shell.processOutputMock)
+            }
+        }
+        // User enters password
+        Current.shell.readSecureLine = { prompt, _ in
+            Current.logging.log(prompt)
+            return "password"
+        }
+        // It successfully switches
+        Current.shell.xcodeSelectSwitch = { _, _ in
+            Promise.value((status: 0, out: "", err: ""))
+        }
+
+        selectXcode(shouldPrint: false, pathOrVersion: "")
+            .cauterize()
+
+        XCTAssertEqual(log, """
+        Available Xcode versions:
+        1) 0.0
+        2) 2.0.1 (Selected)
+        Enter the number of the Xcode to select: 
+        xcodes requires superuser privileges to select an Xcode
+        macOS User Password: 
+        Selected /Applications/Xcode-0.0.0.app/Contents/Developer
+
+        """)
     }
 }

@@ -88,6 +88,7 @@ Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 - `install <version>`: Download and install a specific version of Xcode
 - `installed`: List the versions of Xcode that are installed
 - `list`: List all versions of Xcode that are available to install
+- `select`: Change the selected Xcode
 - `uninstall <version>`: Uninstall a specific version of Xcode
 - `update`: Update the list of available versions of Xcode
 - `version`: Print the version number of xcodes itself

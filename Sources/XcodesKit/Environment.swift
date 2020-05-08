@@ -26,7 +26,6 @@ public struct Shell {
     public var unxip: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, workingDirectory: $0.deletingLastPathComponent(), "--expand", "\($0.path)") }
     public var spctlAssess: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.spctl, "--assess", "--verbose", "--type", "execute", "\($0.path)") }
     public var codesignVerify: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.codesign, "-vv", "-d", "\($0.path)") }
-    public var validateSudoAuthentication: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, "-nv") }
     public var devToolsSecurityEnable: (String?) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.sbin.DevToolsSecurity, "-enable") }
     public var addStaffToDevelopersGroup: (String?) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.sbin.dseditgroup, "-o", "edit", "-t", "group", "-a", "staff", "_developer") }
     public var acceptXcodeLicense: (InstalledXcode, String?) -> Promise<ProcessOutput> = { Process.sudo(password: $1, $0.path.join("/Contents/Developer/usr/bin/xcodebuild"), "-license", "accept") }
@@ -36,17 +35,68 @@ public struct Shell {
     public var getUserCacheDir: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.getconf, "DARWIN_USER_CACHE_DIR") }
     public var touchInstallCheck: (String, String, String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin/"touch", "\($0)com.apple.dt.Xcode.InstallCheckCache_\($1)_\($2)") }
 
-    public var readLine: (String) -> String? = { _ in return nil }
+    public var validateSudoAuthentication: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, "-nv") }
+    public var authenticateSudoerIfNecessary: (@escaping () -> Promise<String>) -> Promise<String?> = { passwordInput in
+        firstly { () -> Promise<String?> in
+            Current.shell.validateSudoAuthentication().map { _ in return nil }
+        }
+        .recover { _ -> Promise<String?> in
+            return passwordInput().map(Optional.init)
+        }
+    }
+    public func authenticateSudoerIfNecessary(passwordInput: @escaping () -> Promise<String>) -> Promise<String?> {
+        authenticateSudoerIfNecessary(passwordInput)
+    }
+
+    public var xcodeSelectPrintPath: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcode-select"), "-p") }
+    public var xcodeSelectSwitch: (String?, String) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.bin.join("xcode-select"), "-s", $1) }
+    public func xcodeSelectSwitch(password: String?, path: String) -> Promise<ProcessOutput> {
+        xcodeSelectSwitch(password, path)
+    }
+
+    public var readLine: (String) -> String? = { prompt in
+        print(prompt, terminator: "")
+        return Swift.readLine()
+    }
     public func readLine(prompt: String) -> String? {
         readLine(prompt)
     }
 
-    public var readSecureLine: (String) -> String? = { _ in return nil }
-    public func readSecureLine(prompt: String) -> String? {
-        readSecureLine(prompt)
+    public var readSecureLine: (String, Int) -> String? = { prompt, maximumLength in
+        let buffer = UnsafeMutablePointer<Int8>.allocate(capacity: maximumLength)
+        buffer.initialize(repeating: 0, count: maximumLength)
+        defer {
+            buffer.deinitialize(count: maximumLength)
+            buffer.initialize(repeating: 0, count: maximumLength)
+            buffer.deinitialize(count: maximumLength)
+            buffer.deallocate()
+        }
+
+        guard let passwordData = readpassphrase(prompt, buffer, maximumLength, 0) else {
+            return nil
+        }
+
+        return String(validatingUTF8: passwordData)
+    }
+    /**
+     Like `readLine()`, but doesn't echo the user's input to the screen.
+
+     - Parameter prompt: Prompt printed on the line preceding user input
+     - Parameter maximumLength: The maximum length to read, in bytes
+
+     - Returns: The entered password, or nil if an error occurred.
+
+     Buffer is zeroed after use.
+
+     - SeeAlso: [readpassphrase man page](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/readpassphrase.3.html)
+     */
+    public func readSecureLine(prompt: String, maximumLength: Int = 8192) -> String? {
+        readSecureLine(prompt, maximumLength)
     }
 
-    public var env: (String) -> String? = { _ in nil }
+    public var env: (String) -> String? = { key in
+        ProcessInfo.processInfo.environment[key]
+    }
     public func env(_ key: String) -> String? {
         env(key)
     }
