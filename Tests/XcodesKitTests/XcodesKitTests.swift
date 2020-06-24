@@ -195,7 +195,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install("0.0.0", nil)
+        installer.install(.version("0.0.0"))
             .ensure {
                 let url = URL(fileURLWithPath: "LogOutput-FullHappyPath.txt", 
                               relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())

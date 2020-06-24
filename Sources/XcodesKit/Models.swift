@@ -43,6 +43,9 @@ public struct Xcode: Codable {
     public let version: Version
     public let url: URL
     public let filename: String
+    
+    var isPrerelease: Bool { version.prereleaseIdentifiers.isEmpty == false }
+    var isNotPrerelease: Bool { version.prereleaseIdentifiers.isEmpty == true }
 
     public init(version: Version, url: URL, filename: String) {
         self.version =  version

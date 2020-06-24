@@ -93,17 +93,32 @@ let update = Command(usage: "update",
 app.add(subCommand: update)
 
 let urlFlag = Flag(longName: "url", type: String.self, description: "Local path to Xcode .xip")
+let latestFlag = Flag(longName: "latest", value: false, description: "Update and then install the latest non-prerelease version available.")
+let latestPrereleaseFlag = Flag(longName: "latest-prerelease", value: false, description: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
 let install = Command(usage: "install <version>",
                       shortMessage: "Download and install a specific version of Xcode",
-                      flags: [urlFlag],
+                      flags: [urlFlag, latestFlag, latestPrereleaseFlag],
                       example: """
                                xcodes install 10.2.1
                                xcodes install 11 Beta 7
                                xcodes install 11.2 GM seed
                                xcodes install 9.0 --url ~/Archive/Xcode_9.xip
+                               xcodes install --latest-prerelease
                                """) { flags, args in
     let versionString = args.joined(separator: " ")
-    installer.install(versionString, flags.getString(name: "url"))
+
+    let installation: XcodeInstaller.InstallationType
+    if flags.getBool(name: "latest") == true {
+        installation = .latest
+    } else if flags.getBool(name: "latest-prerelease") == true {
+        installation = .latestPrerelease
+    } else if let url = flags.getString(name: "url"), let path = Path(url) {
+        installation = .url(versionString, path)
+    } else {
+        installation = .version(versionString)
+    }
+
+    installer.install(installation)
         .catch { error in
             switch error {
             case Process.PMKError.execution(let process, let standardOutput, let standardError):
