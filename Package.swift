@@ -12,7 +12,7 @@ let package = Package(
         .library(name: "AppleAPI", targets: ["AppleAPI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/nsomar/Guaka.git", .upToNextMinor(from: "0.4.0")),
+        .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "0.2.0")),
         .package(url: "https://github.com/mxcl/Path.swift.git", .upToNextMinor(from: "0.16.0")),
         .package(url: "https://github.com/mxcl/Version.git", .upToNextMinor(from: "1.0.3")),
         .package(url: "https://github.com/mxcl/PromiseKit.git", .upToNextMinor(from: "6.8.3")),
@@ -25,7 +25,7 @@ let package = Package(
         .target(
             name: "xcodes",
             dependencies: [
-                "Guaka", "XcodesKit"
+                .product(name: "ArgumentParser", package: "swift-argument-parser"), "XcodesKit"
             ]),
         .testTarget(
             name: "xcodesTests",
