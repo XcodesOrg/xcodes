@@ -25,7 +25,8 @@ func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Ap
 }
 
 struct GlobalOptions: ParsableArguments {
-    @Option(help: "The directory where your Xcodes are installed. Defaults to /Applications.")
+    @Option(help: "The directory where your Xcodes are installed. Defaults to /Applications.", 
+            completion: .directory)
     var directory: String?
 }
 
@@ -54,10 +55,12 @@ struct Xcodes: ParsableCommand {
         @OptionGroup
         var globals: GlobalOptions
         
-        @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.")
+        @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.", 
+                completion: .directory)
         var directory: String?
         
-        @Argument(help: "The version to download")
+        @Argument(help: "The version to download",
+                  completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []
         
         @Flag(help: "Update and then download the latest non-prerelease version available.")
@@ -66,7 +69,8 @@ struct Xcodes: ParsableCommand {
         @Flag(help: "Update and then download the latest prerelease version available, including GM seeds and GMs.")
         var latestPrerelease = false
         
-        @Option(help: "The path to an aria2 executable. Searches $PATH by default.")
+        @Option(help: "The path to an aria2 executable. Searches $PATH by default.", 
+                completion: .file())
         var aria2: String?
         
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
@@ -132,13 +136,17 @@ struct Xcodes: ParsableCommand {
         @OptionGroup
         var globals: GlobalOptions
         
-        @Option(help: "The directory to install Xcode into. Defaults to /Applications.")
+        @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
+                completion: .directory)
         var directory: String?
         
-        @Argument(help: "The version to install")
+        @Argument(help: "The version to install",
+                  completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []
         
-        @Option(name: .customLong("path"), help: "Local path to Xcode .xip")
+        @Option(name: .customLong("path"),
+                help: "Local path to Xcode .xip",
+                completion: .file(extensions: ["xip"]))
         var pathString: String?
         
         @Flag(help: "Update and then install the latest non-prerelease version available.")
@@ -147,7 +155,8 @@ struct Xcodes: ParsableCommand {
         @Flag(help: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
         var latestPrerelease = false
         
-        @Option(help: "The path to an aria2 executable. Searches $PATH by default.")
+        @Option(help: "The path to an aria2 executable. Searches $PATH by default.", 
+                completion: .file())
         var aria2: String?
         
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
@@ -261,7 +270,8 @@ struct Xcodes: ParsableCommand {
         @ArgumentParser.Flag(name: [.customShort("p"), .customLong("print-path")], help: "Print the path of the selected Xcode")
         var print: Bool = false
         
-        @Argument(help: "Version or path")
+        @Argument(help: "Version or path",
+                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var versionOrPath: [String] = []
         
         func run() {
@@ -286,8 +296,9 @@ struct Xcodes: ParsableCommand {
         
         @OptionGroup
         var globals: GlobalOptions
-        
-        @Argument(help: "The version to uninstall")
+
+        @Argument(help: "The version to uninstall",
+                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []
         
         func run() {
