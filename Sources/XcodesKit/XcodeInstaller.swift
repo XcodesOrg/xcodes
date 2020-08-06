@@ -139,7 +139,7 @@ public final class XcodeInstaller {
                 
                 return update()
                     .then { availableXcodes -> Promise<(Xcode, URL)> in
-                        guard let latestNonPrereleaseXcode = availableXcodes.filter(\.isNotPrerelease).sorted(\.version).last else {
+                        guard let latestNonPrereleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
                         Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.xcodeDescription)")
@@ -155,7 +155,12 @@ public final class XcodeInstaller {
                 
                 return update()
                     .then { availableXcodes -> Promise<(Xcode, URL)> in
-                        guard let latestPrereleaseXcode = availableXcodes.filter(\.isPrerelease).sorted(\.version).last else {
+                        guard let latestPrereleaseXcode = availableXcodes
+                            .filter({ $0.version.isPrerelease })
+                            .filter({ $0.releaseDate != nil })
+                            .sorted(by: { $0.releaseDate! < $1.releaseDate! })
+                            .last
+                        else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
                         Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.xcodeDescription)")
@@ -448,20 +453,25 @@ public final class XcodeInstaller {
     }
 
     public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode]) -> Promise<Void> {
-        var allXcodeVersions = xcodes.map { $0.version }
+        struct ReleasedVersion {
+            let version: Version
+            let releaseDate: Date?
+        }
+
+        var allXcodeVersions = xcodes.map { ReleasedVersion(version: $0.version, releaseDate: $0.releaseDate) }
         for installedXcode in installedXcodes {
             // If an installed version isn't listed online, add the installed version
-            if !allXcodeVersions.contains(where: { version in
-                version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version)
+            if !allXcodeVersions.contains(where: { releasedVersion in
+                releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version)
             }) {
-                allXcodeVersions.append(installedXcode.version)
+                allXcodeVersions.append(ReleasedVersion(version: installedXcode.version, releaseDate: nil))
             }
             // If an installed version is the same as one that's listed online which doesn't have build metadata, replace it with the installed version with build metadata
-            else if let index = allXcodeVersions.firstIndex(where: { version in
-                version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version) &&
-                version.buildMetadataIdentifiers.isEmpty
+            else if let index = allXcodeVersions.firstIndex(where: { releasedVersion in
+                releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version) &&
+                releasedVersion.version.buildMetadataIdentifiers.isEmpty
             }) {
-                allXcodeVersions[index] = installedXcode.version
+                allXcodeVersions[index] = ReleasedVersion(version: installedXcode.version, releaseDate: nil)
             }
         }
         
@@ -470,11 +480,17 @@ public final class XcodeInstaller {
                 let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
 
                 allXcodeVersions
-                    .sorted { $0 < $1 }
-                    .forEach { xcodeVersion in
-                        var output = xcodeVersion.xcodeDescription
-                        if installedXcodes.contains(where: { xcodeVersion.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
-                            if xcodeVersion == selectedInstalledXcodeVersion {
+                    .sorted { first, second -> Bool in
+                        // Sort prereleases by release date, otherwise sort by version
+                        if first.version.isPrerelease, second.version.isPrerelease, let firstDate = first.releaseDate, let secondDate = second.releaseDate {
+                            return firstDate < secondDate
+                        }
+                        return first.version < second.version
+                    }
+                    .forEach { releasedVersion in
+                        var output = releasedVersion.version.xcodeDescription
+                        if installedXcodes.contains(where: { releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
+                            if releasedVersion.version == selectedInstalledXcodeVersion {
                                 output += " (Installed, Selected)"
                             }
                             else {
