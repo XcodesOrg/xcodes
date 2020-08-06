@@ -170,7 +170,7 @@ public final class XcodeInstaller {
                 guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
-                let xcode = Xcode(version: version, url: path.url, filename: String(path.string.suffix(fromLast: "/")))
+                let xcode = Xcode(version: version, url: path.url, filename: String(path.string.suffix(fromLast: "/")), releaseDate: nil)
                 return Promise.value((xcode, path.url))
             case .version(let versionString):
                 guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {

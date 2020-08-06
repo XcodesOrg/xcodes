@@ -54,7 +54,9 @@ extension XcodeList {
             Current.network.dataTask(with: URLRequest.downloads)
         }
         .map { (data, response) -> [Xcode] in
-            let downloads = try JSONDecoder().decode(Downloads.self, from: data)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .formatted(.downloadsDateModified)
+            let downloads = try decoder.decode(Downloads.self, from: data)
             let xcodes = downloads
                 .downloads
                 .filter { $0.name.range(of: "^Xcode [0-9]", options: .regularExpression) != nil }
@@ -66,7 +68,7 @@ extension XcodeList {
                         let version = Version(xcodeVersion: download.name)
                     else { return nil }
 
-                    return Xcode(version: version, url: url, filename: String(xcodeFile.remotePath.suffix(fromLast: "/")))
+                    return Xcode(version: version, url: url, filename: String(xcodeFile.remotePath.suffix(fromLast: "/")), releaseDate: download.dateModified)
                 }
             return xcodes
         }
@@ -88,6 +90,7 @@ extension XcodeList {
         guard 
             let xcodeHeader = try document.select("h2:containsOwn(Xcode)").first(),
             let productBuildVersion = try xcodeHeader.parent()?.select("li:contains(Build)").text().replacingOccurrences(of: "Build", with: ""),
+            let releaseDateString = try xcodeHeader.parent()?.select("li:contains(Released)").text().replacingOccurrences(of: "Released", with: ""),
             let version = Version(xcodeVersion: try xcodeHeader.text(), buildMetadataIdentifier: productBuildVersion),
             let path = try document.select(".direct-download[href*=xip]").first()?.attr("href"),
             let url = URL(string: "https://developer.apple.com" + path)
@@ -95,6 +98,6 @@ extension XcodeList {
 
         let filename = String(path.suffix(fromLast: "/"))
 
-        return [Xcode(version: version, url: url, filename: filename)]
+        return [Xcode(version: version, url: url, filename: filename, releaseDate: DateFormatter.downloadsReleaseDate.date(from: releaseDateString))]
     }
 }
