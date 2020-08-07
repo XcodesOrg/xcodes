@@ -115,6 +115,41 @@ You can also use the Swift command line tools once you have Xcode installed:
 - Run tests: `swift test`
 </details>
 
+There's a Makefile to help build xcodes for distribution. We already do this for you in order to provide Developer ID-signed and notarized release builds via Homebrew (see [Installation](#installation)).
+
+<details>
+<summary>Releasing a new version of xcodes</summary>
+
+```sh
+# Bump the version number in Version.swift, commit the change, and tag it
+vim Sources/XcodesKit/Version.swift
+git add Sources/XcodesKit/Version.swift
+git commit -m "Bump version to $VERSION"
+git tag -asm "$VERSION" "$VERSION"
+
+# Clean first
+make clean
+
+# Make a release build of xcodes, sign it, and create a Homebrew bottle
+make bottle VERSION="$VERSION"
+
+# Notarize the release build
+# This can take a while
+make notarize \
+    USERNAME="user@example.com" \
+    PASSWORD="@keychain:ALTool Notarization" \
+    ASC_PROVIDER="YourAppStoreConnectTeamName"
+
+# Push the new version bump commit and tag
+git push --follow-tags
+
+# Edit the draft release created by Release Drafter to point at the new tag
+# Set the release title to the new version
+# Add the xcodes.zip and xcodes-$VERSION.mojave.tar.gz files to the release
+# Publish the release
+```
+</details>
+
 Notable design decisions are recorded in [DECISIONS.md](./DECISIONS.md). The Apple authentication flow is described in [Apple.paw](./Apple.paw), which will allow you to play with the API endpoints that are involved using the [Paw](https://paw.cloud) app.
 
 [`xcode-install`](https://github.com/xcpretty/xcode-install) and [fastlane/spaceship](https://github.com/fastlane/fastlane/tree/master/spaceship) both deserve credit for figuring out the hard parts of what makes this possible.
