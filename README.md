@@ -95,6 +95,26 @@ Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 
 ## Development
 
+You'll need Xcode 11 in order to build and run xcodes. 
+
+<details>
+<summary>Using Xcode</summary>
+Even though xcodes is a command-line app, lll of the normal functionality works in Xcode, like building, running, and running tests. You can even type text into Xcode's console when it prompts you for input like your Apple ID or 2FA code.
+
+When running xcodes from Xcode, if you want to run a particular command or pass some arguments, you can hold the option key to present a sheet with more options. This means you'd use <kbd>Option</kbd> + <kbd>Command</kbd> + <kbd>R</kbd> or hold <kbd>Option</kbd> while clicking the Run button. Here you can add, remove, and toggle arguments that will be passed to xcodes when it's launched.
+
+![](XcodeRunSheet.png)
+</details>
+
+<details>
+<summary>Using Swift command line tools</summary>
+You can also use the Swift command line tools once you have Xcode installed:
+
+- Build: `swift build`
+- Run: `swift run`, or commands like `swift run xcodes list`
+- Run tests: `swift test`
+</details>
+
 Notable design decisions are recorded in [DECISIONS.md](./DECISIONS.md). The Apple authentication flow is described in [Apple.paw](./Apple.paw), which will allow you to play with the API endpoints that are involved using the [Paw](https://paw.cloud) app.
 
 [`xcode-install`](https://github.com/xcpretty/xcode-install) and [fastlane/spaceship](https://github.com/fastlane/fastlane/tree/master/spaceship) both deserve credit for figuring out the hard parts of what makes this possible.
