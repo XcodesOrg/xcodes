@@ -29,15 +29,6 @@
         }
       },
       {
-        "package": "LegibleError",
-        "repositoryURL": "https://github.com/mxcl/LegibleError.git",
-        "state": {
-          "branch": null,
-          "revision": "c615c01e461e8a3495ba4ea75f5d671c76820105",
-          "version": "1.0.1"
-        }
-      },
-      {
         "package": "Path.swift",
         "repositoryURL": "https://github.com/mxcl/Path.swift.git",
         "state": {

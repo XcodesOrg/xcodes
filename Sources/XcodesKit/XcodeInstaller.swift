@@ -3,7 +3,6 @@ import PromiseKit
 import Path
 import AppleAPI
 import Version
-import LegibleError
 
 /// Downloads and installs Xcodes
 public final class XcodeInstaller {
@@ -204,7 +203,7 @@ public final class XcodeInstaller {
                 self.login(username, password: password)
             }
             .recover { error -> Promise<Void> in
-                Current.logging.log(error.legibleLocalizedDescription)
+                Current.logging.log(error.localizedDescription)
 
                 if case Client.Error.invalidUsernameOrPassword = error {
                     Current.logging.log("Try entering your password again")

@@ -18,7 +18,6 @@ let package = Package(
         .package(url: "https://github.com/mxcl/PromiseKit.git", .upToNextMinor(from: "6.8.3")),
         .package(name: "PMKFoundation", url: "https://github.com/PromiseKit/Foundation.git", .upToNextMinor(from: "3.3.1")),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", .upToNextMinor(from: "2.0.0")),
-        .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0"))
     ],
     targets: [
@@ -33,7 +32,7 @@ let package = Package(
         .target(
             name: "XcodesKit",
             dependencies: [
-                "AppleAPI", .product(name: "Path", package: "Path.swift"), "Version", "PromiseKit", "PMKFoundation", "SwiftSoup", "LegibleError", "KeychainAccess"
+                "AppleAPI", .product(name: "Path", package: "Path.swift"), "Version", "PromiseKit", "PMKFoundation", "SwiftSoup", "KeychainAccess"
             ]),
         .testTarget(
             name: "XcodesKitTests",

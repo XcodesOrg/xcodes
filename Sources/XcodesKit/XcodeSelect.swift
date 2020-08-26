@@ -54,7 +54,7 @@ public func selectXcodeInteractively(currentPath: String, shouldRetry: Bool) -> 
             }
             .recover { error throws -> Promise<ProcessOutput> in
                 guard case XcodeSelectError.invalidIndex = error else { throw error }
-                Current.logging.log("\(error.legibleLocalizedDescription)\n")
+                Current.logging.log("\(error.localizedDescription)\n")
                 return selectWithRetry(currentPath: currentPath)
             }
         }

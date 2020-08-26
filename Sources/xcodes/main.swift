@@ -3,7 +3,6 @@ import Guaka
 import Version
 import PromiseKit
 import XcodesKit
-import LegibleError
 import Path
 
 var configuration = Configuration()
@@ -27,7 +26,7 @@ let installed = Command(usage: "installed",
             exit(0)
         }
         .catch { error in
-            print(error.legibleLocalizedDescription)
+            print(error.localizedDescription)
             exit(1)
         }
 
@@ -48,7 +47,7 @@ let select = Command(usage: "select <version or path>",
                               """) { flags, args in
     selectXcode(shouldPrint: flags.getBool(name: "print-path") ?? false, pathOrVersion: args.joined(separator: " "))
         .catch { error in
-            print(error.legibleLocalizedDescription)
+            print(error.localizedDescription)
             exit(1)
         }
 
@@ -70,7 +69,7 @@ let list = Command(usage: "list",
         exit(0)
     }
     .catch { error in
-        print(error.legibleLocalizedDescription)
+        print(error.localizedDescription)
         exit(1)
     }
 
@@ -84,7 +83,7 @@ let update = Command(usage: "update",
         installer.updateAndPrint()
     }
     .catch { error in
-        print(error.legibleLocalizedDescription)
+        print(error.localizedDescription)
         exit(1)
     }
 
@@ -112,7 +111,7 @@ let install = Command(usage: "install <version>",
                     \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
                     """)
             default:
-                Current.logging.log(error.legibleLocalizedDescription)
+                Current.logging.log(error.localizedDescription)
             }
 
             exit(1)
@@ -128,7 +127,7 @@ let uninstall = Command(usage: "uninstall <version>",
         let versionString = args.joined(separator: " ")
     installer.uninstallXcode(versionString)
         .catch { error in
-            print(error.legibleLocalizedDescription)
+            print(error.localizedDescription)
             exit(1)
         }
 
