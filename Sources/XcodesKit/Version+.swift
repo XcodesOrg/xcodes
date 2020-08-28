@@ -45,4 +45,7 @@ public extension Version {
         }
         return base
     }
+
+    var isPrerelease: Bool { prereleaseIdentifiers.isEmpty == false }
+    var isNotPrerelease: Bool { prereleaseIdentifiers.isEmpty == true }
 }

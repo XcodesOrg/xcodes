@@ -50,7 +50,7 @@ final class XcodesKitTests: XCTestCase {
             return (Progress(), Promise(error: PMKError.invalidCallingConvention))
         }
 
-        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip")
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
         installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
@@ -68,7 +68,7 @@ final class XcodesKitTests: XCTestCase {
             return (Progress(), Promise.value((destination, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)))
         }
 
-        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip")
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
         installer.downloadOrUseExistingArchive(for: xcode, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
@@ -81,7 +81,7 @@ final class XcodesKitTests: XCTestCase {
     func test_InstallArchivedXcode_SecurityAssessmentFails_Throws() {
         Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
-        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"))
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment(xcode: installedXcode, output: "")) }
@@ -90,7 +90,7 @@ final class XcodesKitTests: XCTestCase {
     func test_InstallArchivedXcode_VerifySigningCertificateFails_Throws() {
         Current.shell.codesignVerify = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
-        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"))
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed(output: "")) }
     }
@@ -98,7 +98,7 @@ final class XcodesKitTests: XCTestCase {
     func test_InstallArchivedXcode_VerifySigningCertificateDoesntMatch_Throws() {
         Current.shell.codesignVerify = { _ in return Promise.value((0, "", "")) }
 
-        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"))
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.unexpectedCodeSigningIdentity(identifier: "", certificateAuthority: [])) }
     }
@@ -110,7 +110,7 @@ final class XcodesKitTests: XCTestCase {
             return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
         }
 
-        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock")
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
         installer.installArchivedXcode(xcode, at: xipURL)
             .ensure { XCTAssertEqual(trashedItemAtURL, xipURL) }
@@ -135,8 +135,10 @@ final class XcodesKitTests: XCTestCase {
         // It's an available release version
         Current.network.dataTask = { url in
             if url.pmkRequest.url! == URLRequest.downloads.url! {
-                let downloads = Downloads(downloads: [Download(name: "Xcode 0.0.0", files: [Download.File(remotePath: "https://apple.com/xcode.xip")])])
-                let downloadsData = try! JSONEncoder().encode(downloads)
+                let downloads = Downloads(downloads: [Download(name: "Xcode 0.0.0", files: [Download.File(remotePath: "https://apple.com/xcode.xip")], dateModified: Date())])
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+                let downloadsData = try! encoder.encode(downloads)
                 return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
             }
 
@@ -195,7 +197,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install("0.0.0", nil)
+        installer.install(.version("0.0.0"))
             .ensure {
                 let url = URL(fileURLWithPath: "LogOutput-FullHappyPath.txt", 
                               relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())

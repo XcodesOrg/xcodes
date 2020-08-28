@@ -43,11 +43,13 @@ public struct Xcode: Codable {
     public let version: Version
     public let url: URL
     public let filename: String
+    public let releaseDate: Date?
 
-    public init(version: Version, url: URL, filename: String) {
+    public init(version: Version, url: URL, filename: String, releaseDate: Date?) {
         self.version =  version
         self.url = url
         self.filename = filename
+        self.releaseDate = releaseDate
     }
 }
 
@@ -58,6 +60,7 @@ struct Downloads: Codable {
 public struct Download: Codable {
     public let name: String
     public let files: [File]
+    public let dateModified: Date
 
     public struct File: Codable {
         public let remotePath: String

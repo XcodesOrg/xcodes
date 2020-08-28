@@ -20,3 +20,9 @@ public extension NumberFormatter {
         return string(from: number as! NSNumber)
     }
 }
+
+extension Sequence {
+    func sorted<Value: Comparable>(_ keyPath: KeyPath<Element, Value>) -> [Element] {
+        sorted(by: { $0[keyPath: keyPath] < $1[keyPath: keyPath] })
+    }
+}
