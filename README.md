@@ -4,6 +4,8 @@ Manage the Xcodes installed on your Mac
 
 ![CI Status](https://github.com/RobotsAndPencils/xcodes/workflows/CI/badge.svg)
 
+![](Header.png)
+
 ## Installation
 
 ### Homebrew (Preferred)
