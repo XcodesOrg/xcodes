@@ -62,6 +62,7 @@ Install a specific version of Xcode using a command like one of these:
 xcodes install 10.2.1
 xcodes install 11 Beta 7
 xcodes install 11.2 GM seed
+xcodes install --latest
 ```
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
