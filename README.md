@@ -131,7 +131,9 @@ git tag -asm "$VERSION" "$VERSION"
 # Clean first
 make clean
 
-# Make a release build of xcodes, sign it, and create a Homebrew bottle
+# Make a release build of xcodes, sign it, and zip it
+make zip
+# Create a Homebrew bottle
 make bottle VERSION="$VERSION"
 
 # Notarize the release build
