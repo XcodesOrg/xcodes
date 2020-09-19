@@ -44,11 +44,11 @@ extension Files {
         moveItem: { _, _ in return },
         contentsAtPath: { path in
             if path.contains("Info.plist") {
-                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path.contains("version.plist") {
-                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else {

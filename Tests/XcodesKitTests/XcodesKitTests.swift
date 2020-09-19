@@ -199,8 +199,7 @@ final class XcodesKitTests: XCTestCase {
 
         installer.install(.version("0.0.0"))
             .ensure {
-                let url = URL(fileURLWithPath: "LogOutput-FullHappyPath.txt", 
-                              relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
                 expectation.fulfill()
             }
@@ -221,19 +220,19 @@ final class XcodesKitTests: XCTestCase {
         Current.files.installedXcodes = { installedXcodes }
         Current.files.contentsAtPath = { path in
             if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
-                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
-                let url = URL(fileURLWithPath: "Stub-2.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-2.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
-                let url = URL(fileURLWithPath: "Stub-2.0.1.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-2.0.1.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path.contains("version.plist") {
-                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else {
@@ -344,7 +343,7 @@ final class XcodesKitTests: XCTestCase {
     }
 
     func test_ParsePrereleaseXcodes() {
-        let url = URL(fileURLWithPath: "developer.apple.com-download-19-6-9.html", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+        let url = Bundle.module.url(forResource: "developer.apple.com-download-19-6-9", withExtension: "html", subdirectory: "Fixtures")!
         let data = try! Data(contentsOf: url)
 
         let xcodes = try! XcodeList().parsePrereleaseXcodes(from: data)
@@ -380,15 +379,15 @@ final class XcodesKitTests: XCTestCase {
                                            InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!] }
         Current.files.contentsAtPath = { path in
             if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
-                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
-                let url = URL(fileURLWithPath: "Stub-2.0.1.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-2.0.1.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path.contains("version.plist") {
-                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else {
@@ -448,15 +447,15 @@ final class XcodesKitTests: XCTestCase {
                                            InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!] }
         Current.files.contentsAtPath = { path in
             if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
-                let url = URL(fileURLWithPath: "Stub-0.0.0.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
-                let url = URL(fileURLWithPath: "Stub-2.0.1.Info.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub-2.0.1.Info", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else if path.contains("version.plist") {
-                let url = URL(fileURLWithPath: "Stub.version.plist", relativeTo: URL(fileURLWithPath: #file).deletingLastPathComponent())
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
                 return try? Data(contentsOf: url)
             }
             else {

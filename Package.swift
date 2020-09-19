@@ -40,6 +40,9 @@ let package = Package(
             name: "XcodesKitTests",
             dependencies: [
                 "XcodesKit", "Version"
+            ],
+            resources: [
+                .copy("Fixtures"),
             ]),
         .target(
             name: "AppleAPI",
