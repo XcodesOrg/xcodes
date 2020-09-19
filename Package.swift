@@ -19,7 +19,8 @@ let package = Package(
         .package(name: "PMKFoundation", url: "https://github.com/PromiseKit/Foundation.git", .upToNextMinor(from: "3.3.1")),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", .upToNextMinor(from: "2.0.0")),
         .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0"))
+        .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0")),
+        .package(url: "https://github.com/AliSoftware/OHHTTPStubs", .upToNextMinor(from: "9.0.0")),
     ],
     targets: [
         .target(
@@ -47,6 +48,9 @@ let package = Package(
             ]),
         .testTarget(
             name: "AppleAPITests",
-            dependencies: ["AppleAPI"]),
+            dependencies: ["AppleAPI", .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs")],
+            resources: [
+                .copy("Fixtures"),
+            ]),
     ]
 )

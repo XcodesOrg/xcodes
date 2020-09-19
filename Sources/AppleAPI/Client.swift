@@ -8,7 +8,7 @@ public class Client {
 
     public init() {}
 
-    public enum Error: Swift.Error, LocalizedError {
+    public enum Error: Swift.Error, LocalizedError, Equatable {
         case invalidSession
         case invalidUsernameOrPassword(username: String)
         case unexpectedSignInResponse(statusCode: Int, message: String?)
