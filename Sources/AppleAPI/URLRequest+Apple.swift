@@ -4,7 +4,8 @@ extension URL {
     static let itcServiceKey = URL(string: "https://appstoreconnect.apple.com/olympus/v1/app/config?hostname=itunesconnect.apple.com")!
     static let signIn = URL(string: "https://idmsa.apple.com/appleauth/auth/signin")!
     static let authOptions = URL(string: "https://idmsa.apple.com/appleauth/auth")!
-    static let submitSecurityCode = URL(string: "https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode")!
+    static let requestSecurityCode = URL(string: "https://idmsa.apple.com/appleauth/auth/verify/phone")!
+    static func submitSecurityCode(_ code: SecurityCode) -> URL { URL(string: "https://idmsa.apple.com/appleauth/auth/verify/\(code.urlPathComponent)/securitycode")! }
     static let trust = URL(string: "https://idmsa.apple.com/appleauth/auth/2sv/trust")!
     static let olympusSession = URL(string: "https://appstoreconnect.apple.com/olympus/v1/session")!
 }
@@ -41,25 +42,52 @@ extension URLRequest {
         request.allHTTPHeaderFields?["accept"] = "application/json"
         return request
     }
-
-    static func submitSecurityCode(serviceKey: String, sessionID: String, scnt: String, code: String) throws -> URLRequest {
-        struct SecurityCode: Encodable {
-            let code: String
-
-            enum CodingKeys: String, CodingKey {
-                case securityCode
+    
+    static func requestSecurityCode(serviceKey: String, sessionID: String, scnt: String, trustedPhoneID: Int) throws -> URLRequest {
+        struct Body: Encodable {
+            let phoneNumber: PhoneNumber
+            let mode = "sms"
+            
+            struct PhoneNumber: Encodable {
+                let id: Int
             }
-            enum SecurityCodeCodingKeys: String, CodingKey {
-                case code
-            }
-            func encode(to encoder: Encoder) throws {
-                var container = encoder.container(keyedBy: CodingKeys.self)
-                var securityCode = container.nestedContainer(keyedBy: SecurityCodeCodingKeys.self, forKey: .securityCode)
-                try securityCode.encode(code, forKey: .code)
+        }
+        
+        var request = URLRequest(url: .requestSecurityCode)
+        request.allHTTPHeaderFields = request.allHTTPHeaderFields ?? [:]
+        request.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        request.allHTTPHeaderFields?["X-Apple-ID-Session-Id"] = sessionID
+        request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
+        request.allHTTPHeaderFields?["scnt"] = scnt
+        request.allHTTPHeaderFields?["accept"] = "application/json"
+        request.httpMethod = "PUT"
+        request.httpBody = try JSONEncoder().encode(Body(phoneNumber: .init(id: trustedPhoneID)))
+        return request
+    }
+
+    static func submitSecurityCode(serviceKey: String, sessionID: String, scnt: String, code: SecurityCode) throws -> URLRequest {
+        struct DeviceSecurityCodeRequest: Encodable {
+            let securityCode: SecurityCode
+            
+            struct SecurityCode: Encodable {
+                let code: String
             }
         }
 
-        var request = URLRequest(url: .submitSecurityCode)
+        struct SMSSecurityCodeRequest: Encodable {
+            let securityCode: SecurityCode
+            let phoneNumber: PhoneNumber
+            let mode = "sms"
+            
+            struct SecurityCode: Encodable {
+                let code: String
+            }
+            struct PhoneNumber: Encodable {
+                let id: Int
+            }
+        }
+
+        var request = URLRequest(url: .submitSecurityCode(code))
         request.allHTTPHeaderFields = request.allHTTPHeaderFields ?? [:]
         request.allHTTPHeaderFields?["X-Apple-ID-Session-Id"] = sessionID
         request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
@@ -67,7 +95,12 @@ extension URLRequest {
         request.allHTTPHeaderFields?["Accept"] = "application/json"
         request.allHTTPHeaderFields?["Content-Type"] = "application/json"
         request.httpMethod = "POST"
-        request.httpBody = try JSONEncoder().encode(SecurityCode(code: code))
+        switch code {
+        case .device(let code):
+            request.httpBody = try JSONEncoder().encode(DeviceSecurityCodeRequest(securityCode: .init(code: code)))
+        case .sms(let code, let phoneNumberId):
+            request.httpBody = try JSONEncoder().encode(SMSSecurityCodeRequest(securityCode: .init(code: code), phoneNumber: .init(id: phoneNumberId)))
+        }
         return request
     }
 

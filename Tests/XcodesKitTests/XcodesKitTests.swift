@@ -119,7 +119,7 @@ final class XcodesKitTests: XCTestCase {
 
     func test_InstallLogging_FullHappyPath() {
         var log = ""
-        Current.logging.log = { log.append($0 + "\n") }
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
 
         // Don't have a valid session
         Current.network.validateSession = { Promise(error: AppleAPI.Client.Error.invalidSession) }
@@ -133,7 +133,7 @@ final class XcodesKitTests: XCTestCase {
             }
         }
         // It's an available release version
-        Current.network.dataTask = { url in
+        XcodesKit.Current.network.dataTask = { url in
             if url.pmkRequest.url! == URLRequest.downloads.url! {
                 let downloads = Downloads(downloads: [Download(name: "Xcode 0.0.0", files: [Download.File(remotePath: "https://apple.com/xcode.xip")], dateModified: Date())])
                 let encoder = JSONEncoder()
@@ -174,7 +174,7 @@ final class XcodesKitTests: XCTestCase {
         }
         // Don't have superuser privileges the first time
         var validateSudoAuthenticationCallCount = 0
-        Current.shell.validateSudoAuthentication = {
+        XcodesKit.Current.shell.validateSudoAuthentication = {
             validateSudoAuthenticationCallCount += 1
 
             if validateSudoAuthenticationCallCount == 1 {
@@ -185,13 +185,13 @@ final class XcodesKitTests: XCTestCase {
             }
         }
         // User enters password
-        Current.shell.readSecureLine = { prompt, _ in
-            Current.logging.log(prompt)
+        XcodesKit.Current.shell.readSecureLine = { prompt, _ in
+            XcodesKit.Current.logging.log(prompt)
             return "password"
         }
         // User enters something
-        Current.shell.readLine = { prompt in
-            Current.logging.log(prompt)
+        XcodesKit.Current.shell.readLine = { prompt in
+            XcodesKit.Current.logging.log(prompt)
             return "asdf"
         }
 
@@ -354,7 +354,7 @@ final class XcodesKitTests: XCTestCase {
 
     func test_SelectPrint() {
         var log = ""
-        Current.logging.log = { log.append($0 + "\n") }
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
 
         Current.files.installedXcodes = { [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
                                            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!] }
@@ -372,7 +372,7 @@ final class XcodesKitTests: XCTestCase {
 
     func test_SelectPath() {
         var log = ""
-        Current.logging.log = { log.append($0 + "\n") }
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
 
         // There are installed Xcodes
         Current.files.installedXcodes = { [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
@@ -419,7 +419,7 @@ final class XcodesKitTests: XCTestCase {
         }
         // User enters password
         Current.shell.readSecureLine = { prompt, _ in
-            Current.logging.log(prompt)
+            XcodesKit.Current.logging.log(prompt)
             return "password"
         }
         // It successfully switches
@@ -440,7 +440,7 @@ final class XcodesKitTests: XCTestCase {
 
     func test_SelectInteractively() {
         var log = ""
-        Current.logging.log = { log.append($0 + "\n") }
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
 
         // There are installed Xcodes
         Current.files.installedXcodes = { [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
@@ -480,8 +480,8 @@ final class XcodesKitTests: XCTestCase {
             }
         }
         // User enters an index
-        Current.shell.readLine = { prompt in
-            Current.logging.log(prompt)
+        XcodesKit.Current.shell.readLine = { prompt in
+            XcodesKit.Current.logging.log(prompt)
             return "1"
         }
         // Don't have superuser privileges the first time
@@ -498,7 +498,7 @@ final class XcodesKitTests: XCTestCase {
         }
         // User enters password
         Current.shell.readSecureLine = { prompt, _ in
-            Current.logging.log(prompt)
+            XcodesKit.Current.logging.log(prompt)
             return "password"
         }
         // It successfully switches

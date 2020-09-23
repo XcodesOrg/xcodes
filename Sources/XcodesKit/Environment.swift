@@ -160,12 +160,12 @@ private func installedXcodes() -> [InstalledXcode] {
 public struct Network {
     private static let client = AppleAPI.Client()
 
-    public var dataTask: (URLRequestConvertible) -> Promise<(data: Data, response: URLResponse)> = { client.session.dataTask(.promise, with: $0) }
+    public var dataTask: (URLRequestConvertible) -> Promise<(data: Data, response: URLResponse)> = { AppleAPI.Current.network.session.dataTask(.promise, with: $0) }
     public func dataTask(with convertible: URLRequestConvertible) -> Promise<(data: Data, response: URLResponse)> {
         dataTask(convertible)
     }
 
-    public var downloadTask: (URLRequestConvertible, URL, Data?) -> (Progress, Promise<(saveLocation: URL, response: URLResponse)>) = { client.session.downloadTask(with: $0, to: $1, resumingWith: $2) }
+    public var downloadTask: (URLRequestConvertible, URL, Data?) -> (Progress, Promise<(saveLocation: URL, response: URLResponse)>) = { AppleAPI.Current.network.session.downloadTask(with: $0, to: $1, resumingWith: $2) }
 
     public func downloadTask(with convertible: URLRequestConvertible, to saveLocation: URL, resumingWith resumeData: Data?) -> (progress: Progress, promise: Promise<(saveLocation: URL, response: URLResponse)>) {
         return downloadTask(convertible, saveLocation, resumeData)
@@ -173,7 +173,7 @@ public struct Network {
 
     public var validateSession: () -> Promise<Void> = client.validateSession
 
-    public var login: (String, String) -> Promise<Void> = client.login(accountName:password:)
+    public var login: (String, String) -> Promise<Void> = { client.login(accountName: $0, password: $1) }
     public func login(accountName: String, password: String) -> Promise<Void> {
         login(accountName, password)
     }
