@@ -8,4 +8,6 @@ jobs:
     - name: Run tests
       env: 
         DEVELOPER_DIR: /Applications/Xcode_12.app
-      run: swift test
+      # Normally would use `swift test` but there's a bug related to SPM package resources, so using xcodebuild as a workaround
+      # https://forums.swift.org/t/swift-5-3-spm-resources-in-tests-uses-wrong-bundle-path/37051/10
+      run: xcodebuild test -scheme xcodes
