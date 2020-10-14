@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.3
 import PackageDescription
 
 let package = Package(
@@ -19,7 +19,7 @@ let package = Package(
         .package(name: "PMKFoundation", url: "https://github.com/PromiseKit/Foundation.git", .upToNextMinor(from: "3.3.1")),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", .upToNextMinor(from: "2.0.0")),
         .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0"))
+        .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0")),
     ],
     targets: [
         .target(
@@ -39,6 +39,9 @@ let package = Package(
             name: "XcodesKitTests",
             dependencies: [
                 "XcodesKit", "Version"
+            ],
+            resources: [
+                .copy("Fixtures"),
             ]),
         .target(
             name: "AppleAPI",
@@ -47,6 +50,9 @@ let package = Package(
             ]),
         .testTarget(
             name: "AppleAPITests",
-            dependencies: ["AppleAPI"]),
+            dependencies: ["AppleAPI"],
+            resources: [
+                .copy("Fixtures"),
+            ]),
     ]
 )

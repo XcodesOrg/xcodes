@@ -1,0 +1,128 @@
+{
+  "user" : {
+    "fullName" : "Test User",
+    "firstName" : "Test",
+    "lastName" : "User",
+    "emailAddress" : "test@example.com",
+    "prsId" : "000000000"
+  },
+  "provider" : {
+    "providerId" : 00000,
+    "name" : "Test User",
+    "contentTypes" : [ "SOFTWARE" ],
+    "subType" : "INDIVIDUAL",
+    "pla" : [ {
+      "id" : "1BC01216-52D4-43DC-8555-195F4454C348",
+      "version" : "5014",
+      "types" : [ "contractContentTypeDisplay.iOSFreeApps", "contractContentTypeDisplay.MacOSXFreeApplications" ],
+      "contractCountryOfOrigins" : [ "CAN" ]
+    } ]
+  },
+  "theme" : "APPSTORE_CONNECT",
+  "availableProviders" : [ {
+    "providerId" : 000000,
+    "name" : "Test User",
+    "contentTypes" : [ "SOFTWARE" ],
+    "subType" : "INDIVIDUAL"
+  } ],
+  "backingType" : "ITC",
+  "backingTypes" : [ "ITC" ],
+  "roles" : [ "ADMIN", "LEGAL" ],
+  "unverifiedRoles" : [ ],
+  "featureFlags" : [ "showWwdrUserRoles", "adpRad", "apiKeys" ],
+  "agreeToTerms" : true,
+  "termsSignatures" : [ "ASC", "RAD" ],
+  "modules" : [ {
+    "key" : "Apps",
+    "name" : "ITC.HomePage.Apps.IconText",
+    "localizedName" : "My Apps",
+    "url" : "https://appstoreconnect.apple.com/apps",
+    "iconUrl" : "https://appstoreconnect.apple.com/static/img/ico_homepage/themed/apps/Apps@2x.d3ce493e56172e92aed6.png",
+    "down" : false,
+    "visible" : true,
+    "hasNotifications" : false
+  }, {
+    "key" : "AppAnalytics",
+    "name" : "ITC.HomePage.AppAnalytics.IconText",
+    "localizedName" : "App Analytics",
+    "url" : "https://analytics.itunes.apple.com/",
+    "iconUrl" : "https://appstoreconnect.apple.com/static/img/ico_homepage/themed/apps/AppAnalytics@2x.e19f711d943cb42d65b2.png",
+    "down" : false,
+    "visible" : true,
+    "hasNotifications" : false
+  }, {
+    "key" : "SalesTrends",
+    "name" : "ITC.HomePage.SalesTrends.IconText",
+    "localizedName" : "Sales and Trends",
+    "url" : "https://appstoreconnect.apple.com/trends",
+    "iconUrl" : "https://appstoreconnect.apple.com/static/img/ico_homepage/themed/apps/SalesTrends@2x.b1f802112426525d990a.png",
+    "down" : false,
+    "visible" : true,
+    "hasNotifications" : false
+  }, {
+    "key" : "FinancialReports",
+    "name" : "ITC.HomePage.FinancialReports.IconText",
+    "localizedName" : "Payments and Financial Reports",
+    "url" : "https://appstoreconnect.apple.com/itc/payments_and_financial_reports",
+    "iconUrl" : "https://appstoreconnect.apple.com/static/img/ico_homepage/themed/apps/FinancialReports@2x.a7b266a5136cc65c643b.png",
+    "down" : false,
+    "visible" : true,
+    "hasNotifications" : false
+  }, {
+    "key" : "Account",
+    "name" : "ITC.HomePage.Account.IconText",
+    "localizedName" : "Users and Access",
+    "url" : "https://appstoreconnect.apple.com/access/users",
+    "iconUrl" : "https://appstoreconnect.apple.com/static/img/ico_homepage/themed/apps/ManageUsers@2x.81511f3933fb2fb4b20d.png",
+    "down" : false,
+    "visible" : true,
+    "hasNotifications" : false
+  }, {
+    "key" : "ContractsTaxBanking",
+    "name" : "ITC.HomePage.ContractsTaxBanking.IconText",
+    "localizedName" : "Agreements, Tax, and Banking",
+    "url" : "https://appstoreconnect.apple.com/WebObjects/iTunesConnect.woa/da/jumpTo?page=contracts",
+    "iconUrl" : "https://appstoreconnect.apple.com/static/img/ico_homepage/themed/apps/ContractsTaxBanking@2x.74466eb8570dd797602e.png",
+    "down" : false,
+    "visible" : true,
+    "hasNotifications" : false
+  }, {
+    "key" : "Resources",
+    "name" : "ITC.HomePage.Resources.IconText",
+    "localizedName" : "Resources and Help",
+    "url" : "https://developer.apple.com/app-store-connect/",
+    "iconUrl" : "https://appstoreconnect.apple.com/static/img/ico_homepage/themed/apps/Resources@2x.3c8d0d8c08e876cf9470.png",
+    "down" : false,
+    "visible" : true,
+    "hasNotifications" : false
+  } ],
+  "helpLinks" : [ {
+    "key" : "AllAsc",
+    "url" : "https://help.apple.com/app-store-connect/",
+    "localizedText" : "App Store Connect Resources"
+  }, {
+    "key" : "Xcode",
+    "url" : "https://help.apple.com/xcode/mac/current/",
+    "localizedText" : "Xcode Help"
+  }, {
+    "key" : "SupportContact",
+    "url" : "https://developer.apple.com/support/",
+    "localizedText" : "Support and Contact"
+  } ],
+  "userProfile" : [ {
+    "key" : "signIn",
+    "url" : "https://appstoreconnect.apple.com/login",
+    "localizedText" : "Sign In"
+  }, {
+    "key" : "personalDetails",
+    "url" : "https://appstoreconnect.apple.com/access/users/07E3E586-44B1-48D3-BF8D-430F754F1BAA/settings",
+    "localizedText" : "Edit Profile"
+  }, {
+    "key" : "signOut",
+    "url" : "https://appstoreconnect.apple.com/logout",
+    "localizedText" : "Sign Out"
+  } ],
+  "pccDto" : null,
+  "publicUserId" : "07E3E586-44B1-48D3-BF8D-430F754F1BAA",
+  "ofacState" : null
+}
