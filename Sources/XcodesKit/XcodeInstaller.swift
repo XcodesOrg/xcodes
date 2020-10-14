@@ -526,7 +526,7 @@ public final class XcodeInstaller {
             Current.logging.log(InstallationStep.moving(destination: destination.path).description)
 
             let xcodeURL = source.deletingLastPathComponent().appendingPathComponent("Xcode.app")
-            let xcodeBetaURL = source.deletingLastPathComponent().appendingPathComponent("Xcode-Beta.app")
+            let xcodeBetaURL = source.deletingLastPathComponent().appendingPathComponent("Xcode-beta.app")
             if Current.files.fileExists(atPath: xcodeURL.path) {
                 try Current.files.moveItem(at: xcodeURL, to: destination)
             }
