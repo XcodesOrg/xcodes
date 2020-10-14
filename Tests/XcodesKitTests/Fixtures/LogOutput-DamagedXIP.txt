@@ -1,0 +1,118 @@
+Apple ID: 
+Apple ID Password: 
+
+(1/6) Found existing archive that will be used for installation at /Users/brandon/Library/Application Support/com.robotsandpencils.xcodes/Xcode-0.0.0.xip.
+(2/6) Unarchiving Xcode (This can take a while)
+The archive "Xcode-0.0.0.xip" is damaged and can't be expanded.
+Removing damaged XIP and re-attempting installation.
+
+
+[1A[K(1/6) Downloading Xcode 0.0.0: 1%
+[1A[K(1/6) Downloading Xcode 0.0.0: 2%
+[1A[K(1/6) Downloading Xcode 0.0.0: 3%
+[1A[K(1/6) Downloading Xcode 0.0.0: 4%
+[1A[K(1/6) Downloading Xcode 0.0.0: 5%
+[1A[K(1/6) Downloading Xcode 0.0.0: 6%
+[1A[K(1/6) Downloading Xcode 0.0.0: 7%
+[1A[K(1/6) Downloading Xcode 0.0.0: 8%
+[1A[K(1/6) Downloading Xcode 0.0.0: 9%
+[1A[K(1/6) Downloading Xcode 0.0.0: 10%
+[1A[K(1/6) Downloading Xcode 0.0.0: 11%
+[1A[K(1/6) Downloading Xcode 0.0.0: 12%
+[1A[K(1/6) Downloading Xcode 0.0.0: 13%
+[1A[K(1/6) Downloading Xcode 0.0.0: 14%
+[1A[K(1/6) Downloading Xcode 0.0.0: 15%
+[1A[K(1/6) Downloading Xcode 0.0.0: 16%
+[1A[K(1/6) Downloading Xcode 0.0.0: 17%
+[1A[K(1/6) Downloading Xcode 0.0.0: 18%
+[1A[K(1/6) Downloading Xcode 0.0.0: 19%
+[1A[K(1/6) Downloading Xcode 0.0.0: 20%
+[1A[K(1/6) Downloading Xcode 0.0.0: 21%
+[1A[K(1/6) Downloading Xcode 0.0.0: 22%
+[1A[K(1/6) Downloading Xcode 0.0.0: 23%
+[1A[K(1/6) Downloading Xcode 0.0.0: 24%
+[1A[K(1/6) Downloading Xcode 0.0.0: 25%
+[1A[K(1/6) Downloading Xcode 0.0.0: 26%
+[1A[K(1/6) Downloading Xcode 0.0.0: 27%
+[1A[K(1/6) Downloading Xcode 0.0.0: 28%
+[1A[K(1/6) Downloading Xcode 0.0.0: 29%
+[1A[K(1/6) Downloading Xcode 0.0.0: 30%
+[1A[K(1/6) Downloading Xcode 0.0.0: 31%
+[1A[K(1/6) Downloading Xcode 0.0.0: 32%
+[1A[K(1/6) Downloading Xcode 0.0.0: 33%
+[1A[K(1/6) Downloading Xcode 0.0.0: 34%
+[1A[K(1/6) Downloading Xcode 0.0.0: 35%
+[1A[K(1/6) Downloading Xcode 0.0.0: 36%
+[1A[K(1/6) Downloading Xcode 0.0.0: 37%
+[1A[K(1/6) Downloading Xcode 0.0.0: 38%
+[1A[K(1/6) Downloading Xcode 0.0.0: 39%
+[1A[K(1/6) Downloading Xcode 0.0.0: 40%
+[1A[K(1/6) Downloading Xcode 0.0.0: 41%
+[1A[K(1/6) Downloading Xcode 0.0.0: 42%
+[1A[K(1/6) Downloading Xcode 0.0.0: 43%
+[1A[K(1/6) Downloading Xcode 0.0.0: 44%
+[1A[K(1/6) Downloading Xcode 0.0.0: 45%
+[1A[K(1/6) Downloading Xcode 0.0.0: 46%
+[1A[K(1/6) Downloading Xcode 0.0.0: 47%
+[1A[K(1/6) Downloading Xcode 0.0.0: 48%
+[1A[K(1/6) Downloading Xcode 0.0.0: 49%
+[1A[K(1/6) Downloading Xcode 0.0.0: 50%
+[1A[K(1/6) Downloading Xcode 0.0.0: 51%
+[1A[K(1/6) Downloading Xcode 0.0.0: 52%
+[1A[K(1/6) Downloading Xcode 0.0.0: 53%
+[1A[K(1/6) Downloading Xcode 0.0.0: 54%
+[1A[K(1/6) Downloading Xcode 0.0.0: 55%
+[1A[K(1/6) Downloading Xcode 0.0.0: 56%
+[1A[K(1/6) Downloading Xcode 0.0.0: 57%
+[1A[K(1/6) Downloading Xcode 0.0.0: 58%
+[1A[K(1/6) Downloading Xcode 0.0.0: 59%
+[1A[K(1/6) Downloading Xcode 0.0.0: 60%
+[1A[K(1/6) Downloading Xcode 0.0.0: 61%
+[1A[K(1/6) Downloading Xcode 0.0.0: 62%
+[1A[K(1/6) Downloading Xcode 0.0.0: 63%
+[1A[K(1/6) Downloading Xcode 0.0.0: 64%
+[1A[K(1/6) Downloading Xcode 0.0.0: 65%
+[1A[K(1/6) Downloading Xcode 0.0.0: 66%
+[1A[K(1/6) Downloading Xcode 0.0.0: 67%
+[1A[K(1/6) Downloading Xcode 0.0.0: 68%
+[1A[K(1/6) Downloading Xcode 0.0.0: 69%
+[1A[K(1/6) Downloading Xcode 0.0.0: 70%
+[1A[K(1/6) Downloading Xcode 0.0.0: 71%
+[1A[K(1/6) Downloading Xcode 0.0.0: 72%
+[1A[K(1/6) Downloading Xcode 0.0.0: 73%
+[1A[K(1/6) Downloading Xcode 0.0.0: 74%
+[1A[K(1/6) Downloading Xcode 0.0.0: 75%
+[1A[K(1/6) Downloading Xcode 0.0.0: 76%
+[1A[K(1/6) Downloading Xcode 0.0.0: 77%
+[1A[K(1/6) Downloading Xcode 0.0.0: 78%
+[1A[K(1/6) Downloading Xcode 0.0.0: 79%
+[1A[K(1/6) Downloading Xcode 0.0.0: 80%
+[1A[K(1/6) Downloading Xcode 0.0.0: 81%
+[1A[K(1/6) Downloading Xcode 0.0.0: 82%
+[1A[K(1/6) Downloading Xcode 0.0.0: 83%
+[1A[K(1/6) Downloading Xcode 0.0.0: 84%
+[1A[K(1/6) Downloading Xcode 0.0.0: 85%
+[1A[K(1/6) Downloading Xcode 0.0.0: 86%
+[1A[K(1/6) Downloading Xcode 0.0.0: 87%
+[1A[K(1/6) Downloading Xcode 0.0.0: 88%
+[1A[K(1/6) Downloading Xcode 0.0.0: 89%
+[1A[K(1/6) Downloading Xcode 0.0.0: 90%
+[1A[K(1/6) Downloading Xcode 0.0.0: 91%
+[1A[K(1/6) Downloading Xcode 0.0.0: 92%
+[1A[K(1/6) Downloading Xcode 0.0.0: 93%
+[1A[K(1/6) Downloading Xcode 0.0.0: 94%
+[1A[K(1/6) Downloading Xcode 0.0.0: 95%
+[1A[K(1/6) Downloading Xcode 0.0.0: 96%
+[1A[K(1/6) Downloading Xcode 0.0.0: 97%
+[1A[K(1/6) Downloading Xcode 0.0.0: 98%
+[1A[K(1/6) Downloading Xcode 0.0.0: 99%
+[1A[K(1/6) Downloading Xcode 0.0.0: 100%
+(2/6) Unarchiving Xcode (This can take a while)
+(3/6) Moving Xcode to /Applications/Xcode-0.0.0.app
+(4/6) Moving Xcode archive Xcode-0.0.0.xip to the Trash
+(5/6) Checking security assessment and code signing
+(6/6) Finishing installation
+xcodes requires superuser privileges in order to finish installation.
+macOS User Password: 
+
+Xcode 0.0.0 has been installed to /Applications/Xcode-0.0.0.app

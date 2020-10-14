@@ -210,6 +210,122 @@ final class XcodesKitTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
     
+    func test_InstallLogging_DamagedXIP() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // Don't have a valid session
+        var validateSessionCallCount = 0
+        Current.network.validateSession = {
+            validateSessionCallCount += 1
+            
+            if validateSessionCallCount == 1 {
+                return Promise(error: AppleAPI.Client.Error.invalidSession)
+            } else {
+                return Promise.value(())
+            }
+        }
+        // It has been downloaded
+        var unxipCallCount = 0
+        Current.files.fileExistsAtPath = { path in
+            if path == (Path.xcodesApplicationSupport/"Xcode-0.0.0.xip").string {
+                if unxipCallCount == 1 {
+                    return false
+                } else {
+                    return true
+                }
+            }
+            else {
+                return true
+            }
+        }
+        // It's an available release version
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == URLRequest.downloads.url! {
+                let downloads = Downloads(downloads: [Download(name: "Xcode 0.0.0", files: [Download.File(remotePath: "https://apple.com/xcode.xip")], dateModified: Date())])
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+                let downloadsData = try! encoder.encode(downloads)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+
+            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+        }
+        // It downloads and updates progress
+        Current.network.downloadTask = { (url, saveLocation, _) -> (Progress, Promise<(saveLocation: URL, response: URLResponse)>) in
+            let progress = Progress(totalUnitCount: 100)
+            return (progress,
+                    Promise { resolver in
+                        // Need this to run after the Promise has returned to the caller. This makes the test async, requiring waiting for an expectation.
+                        DispatchQueue.main.async {
+                            for i in 0...100 {
+                                progress.completedUnitCount = Int64(i)
+                            }
+                            resolver.fulfill((saveLocation: saveLocation,
+                                              response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+                        }
+                    })
+        }
+        // It's a valid .app
+        Current.shell.codesignVerify = { _ in
+            return Promise.value(
+                ProcessOutput(
+                    status: 0,
+                    out: "",
+                    err: """
+                        TeamIdentifier=\(XcodeInstaller.XcodeTeamIdentifier)
+                        Authority=\(XcodeInstaller.XcodeCertificateAuthority[0])
+                        Authority=\(XcodeInstaller.XcodeCertificateAuthority[1])
+                        Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
+                        """))
+        }
+        // Don't have superuser privileges the first time
+        var validateSudoAuthenticationCallCount = 0
+        Current.shell.validateSudoAuthentication = {
+            validateSudoAuthenticationCallCount += 1
+
+            if validateSudoAuthenticationCallCount == 1 {
+                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
+            }
+            else {
+                return Promise.value(Shell.processOutputMock)
+            }
+        }
+        // User enters password
+        Current.shell.readSecureLine = { prompt, _ in
+            XcodesKit.Current.logging.log(prompt)
+            return "password"
+        }
+        // User enters something
+        XcodesKit.Current.shell.readLine = { prompt in
+            XcodesKit.Current.logging.log(prompt)
+            return "asdf"
+        }
+        Current.shell.unxip = { _ in 
+            unxipCallCount += 1
+            if unxipCallCount == 1 {
+                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: "The file \"Xcode-0.0.0.xip\" is damaged and can’t be expanded."))
+            } else {
+                return Promise.value(Shell.processOutputMock)
+            }
+        }
+
+        let expectation = self.expectation(description: "Finished")
+
+        installer.install(.version("0.0.0"))
+            .ensure {
+                let url = Bundle.module.url(forResource: "LogOutput-DamagedXIP", withExtension: "txt", subdirectory: "Fixtures")!
+                let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
+                XCTAssertEqual(log, expectedText)
+                expectation.fulfill()
+            }
+            .catch {
+                XCTFail($0.localizedDescription)
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+    
     func test_UninstallXcode() {
         // There are installed Xcodes
         let installedXcodes = [

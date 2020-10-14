@@ -11,6 +11,7 @@ public final class XcodeInstaller {
     static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
 
     public enum Error: LocalizedError, Equatable {
+        case damagedXIP(url: URL)
         case failedToMoveXcodeToApplications
         case failedSecurityAssessment(xcode: InstalledXcode, output: String)
         case codesignVerifyFailed(output: String)
@@ -27,6 +28,8 @@ public final class XcodeInstaller {
 
         public var errorDescription: String? {
             switch self {
+            case .damagedXIP(let url):
+                return "The archive \"\(url.lastPathComponent)\" is damaged and can't be expanded."
             case .failedToMoveXcodeToApplications:
                 return "Failed to move Xcode to the /Applications directory."
             case .failedSecurityAssessment(let xcode, let output):
@@ -132,6 +135,47 @@ public final class XcodeInstaller {
     }
 
     public func install(_ installationType: InstallationType) -> Promise<Void> {
+        return firstly { () -> Promise<InstalledXcode> in
+            return self.install(installationType, attemptNumber: 0)
+        }
+        .done { xcode in
+            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)")
+            Current.shell.exit(0)
+        }
+    }
+    
+    private func install(_ installationType: InstallationType, attemptNumber: Int) -> Promise<InstalledXcode> {
+        return firstly { () -> Promise<(Xcode, URL)> in
+            return self.getXcodeArchive(installationType)
+        }
+        .then { xcode, url -> Promise<InstalledXcode> in
+            return self.installArchivedXcode(xcode, at: url)
+        }
+        .recover { error -> Promise<InstalledXcode> in
+            switch error {
+            case XcodeInstaller.Error.damagedXIP(let damagedXIPURL):
+                guard attemptNumber < 1 else { throw error }
+
+                switch installationType {
+                case .url:
+                    // If the user provided the URL, don't try to recover and leave it up to them.
+                    throw error
+                default:
+                    // If the XIP was just downloaded, remove it and try to recover.
+                    return firstly { () -> Promise<InstalledXcode> in
+                        Current.logging.log(error.legibleLocalizedDescription)
+                        Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
+                        try Current.files.removeItem(at: damagedXIPURL)
+                        return self.install(installationType, attemptNumber: attemptNumber + 1)
+                    }
+                }
+            default:
+                throw error
+            }
+        }
+    }
+    
+    private func getXcodeArchive(_ installationType: InstallationType) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<(Xcode, URL)> in
             switch installationType {
             case .latest:
@@ -186,13 +230,6 @@ public final class XcodeInstaller {
                 }
                 return self.downloadXcode(version: version)
             }
-        }
-        .then { xcode, url -> Promise<InstalledXcode> in
-            return self.installArchivedXcode(xcode, at: url)
-        }
-        .done { xcode in
-            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)")
-            Current.shell.exit(0)
         }
     }
 
@@ -322,7 +359,7 @@ public final class XcodeInstaller {
         // Check to see if the archive is in the expected path in case it was downloaded but failed to install
         let expectedArchivePath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
         if Current.files.fileExistsAtPath(expectedArchivePath.string) {
-            Current.logging.log("Found existing archive that will be used for installation at \(expectedArchivePath).")
+            Current.logging.log("(1/6) Found existing archive that will be used for installation at \(expectedArchivePath).")
             return Promise.value(expectedArchivePath.url)
         }
         else {
@@ -521,6 +558,13 @@ public final class XcodeInstaller {
         return firstly { () -> Promise<ProcessOutput> in
             Current.logging.log(InstallationStep.unarchiving.description)
             return Current.shell.unxip(source)
+                .recover { (error) throws -> Promise<ProcessOutput> in
+                    if case Process.PMKError.execution(_, _, let standardError) = error,
+                       standardError?.contains("damaged and can’t be expanded") == true {
+                        throw Error.damagedXIP(url: source)
+                    }
+                    throw error
+                }
         }
         .map { output -> URL in
             Current.logging.log(InstallationStep.moving(destination: destination.path).description)
