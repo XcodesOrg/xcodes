@@ -6,13 +6,6 @@ import XcodesKit
 import LegibleError
 import Path
 
-var configuration = Configuration()
-try? configuration.load()
-let xcodeList = XcodeList()
-let installer = XcodeInstaller(configuration: configuration, xcodeList: xcodeList)
-
-migrateApplicationSupportFiles()
-
 func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Applications")) -> Path {
     let directory = possibleDirectory.flatMap(Path.init) ??
         ProcessInfo.processInfo.environment["XCODES_DIRECTORY"].flatMap(Path.init) ?? 
@@ -36,6 +29,18 @@ struct Xcodes: ParsableCommand {
         shouldDisplay: true,
         subcommands: [Download.self, Install.self, Installed.self, List.self, Select.self, Uninstall.self, Update.self, Version.self]
     )
+    
+    static var xcodesConfiguration = Configuration()
+    static let xcodeList = XcodeList()
+    static var installer: XcodeInstaller!
+
+    static func main() {
+        try? xcodesConfiguration.load()
+        installer = XcodeInstaller(configuration: xcodesConfiguration, xcodeList: xcodeList)
+        migrateApplicationSupportFiles()
+        
+        self.main(nil)
+    }
     
     struct Download: ParsableCommand {
         static var configuration = CommandConfiguration(
@@ -342,4 +347,5 @@ struct Xcodes: ParsableCommand {
     }
 }
 
+// @main doesn't work yet because of https://bugs.swift.org/browse/SR-12683
 Xcodes.main()
