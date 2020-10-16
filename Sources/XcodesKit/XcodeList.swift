@@ -61,13 +61,13 @@ extension XcodeList {
                 .downloads
                 .filter { $0.name.range(of: "^Xcode [0-9]", options: .regularExpression) != nil }
                 .compactMap { download -> Xcode? in
-                    let urlPrefix = "https://developer.apple.com/devcenter/download.action?path="
+                    let urlPrefix = URL(string: "https://download.developer.apple.com/")!
                     guard 
                         let xcodeFile = download.files.first(where: { $0.remotePath.hasSuffix("dmg") || $0.remotePath.hasSuffix("xip") }),
-                        let url = URL(string: urlPrefix + xcodeFile.remotePath),
                         let version = Version(xcodeVersion: download.name)
                     else { return nil }
 
+                    let url = urlPrefix.appendingPathComponent(xcodeFile.remotePath)
                     return Xcode(version: version, url: url, filename: String(xcodeFile.remotePath.suffix(fromLast: "/")), releaseDate: download.dateModified)
                 }
             return xcodes
