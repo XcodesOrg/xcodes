@@ -95,9 +95,16 @@ app.add(subCommand: update)
 let urlFlag = Flag(longName: "url", type: String.self, description: "Local path to Xcode .xip")
 let latestFlag = Flag(longName: "latest", value: false, description: "Update and then install the latest non-prerelease version available.")
 let latestPrereleaseFlag = Flag(longName: "latest-prerelease", value: false, description: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
+let aria2 = Flag(longName: "aria2", type: String.self, description: "The path to an aria2 executable. Defaults to /usr/local/bin/aria2c.")
+let noAria2 = Flag(longName: "no-aria2", value: false, description: "Don't use aria2 to download Xcode, even if its available.")
 let install = Command(usage: "install <version>",
                       shortMessage: "Download and install a specific version of Xcode",
-                      flags: [urlFlag, latestFlag, latestPrereleaseFlag],
+                      longMessage: """
+                      Download and install a specific version of Xcode
+
+                      By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either at /usr/local/bin/aria2c or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
+                      """,
+                      flags: [urlFlag, latestFlag, latestPrereleaseFlag, aria2, noAria2],
                       example: """
                                xcodes install 10.2.1
                                xcodes install 11 Beta 7
@@ -117,8 +124,14 @@ let install = Command(usage: "install <version>",
     } else {
         installation = .version(versionString)
     }
+    
+    var downloader = XcodeInstaller.Downloader.urlSession
+    let aria2Path = flags.getString(name: "aria2").flatMap(Path.init) ?? Path.root.usr.local.bin/"aria2c"
+    if aria2Path.exists, flags.getBool(name: "no-aria2") != true {
+        downloader = .aria2(aria2Path)
+    } 
 
-    installer.install(installation)
+    installer.install(installation, downloader: downloader)
         .catch { error in
             switch error {
             case Process.PMKError.execution(let process, let standardOutput, let standardError):
