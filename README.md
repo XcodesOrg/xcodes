@@ -86,6 +86,8 @@ macOS User Password:
 Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 ```
 
+If you have [aria2](https://aria2.github.io) installed (it's available in Homebrew, `brew install aria2`), then xcodes will default to use it for downloads. It uses up to 16 connections to download Xcode 3-5x faster than URLSession.
+
 ### Commands
 
 - `install <version>`: Download and install a specific version of Xcode

@@ -133,10 +133,15 @@ public final class XcodeInstaller {
         case latest
         case latestPrerelease
     }
+    
+    public enum Downloader {
+        case urlSession
+        case aria2(Path)
+    }
 
-    public func install(_ installationType: InstallationType) -> Promise<Void> {
+    public func install(_ installationType: InstallationType, downloader: Downloader) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
-            return self.install(installationType, attemptNumber: 0)
+            return self.install(installationType, downloader: downloader, attemptNumber: 0)
         }
         .done { xcode in
             Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)")
@@ -144,9 +149,9 @@ public final class XcodeInstaller {
         }
     }
     
-    private func install(_ installationType: InstallationType, attemptNumber: Int) -> Promise<InstalledXcode> {
+    private func install(_ installationType: InstallationType, downloader: Downloader, attemptNumber: Int) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<(Xcode, URL)> in
-            return self.getXcodeArchive(installationType)
+            return self.getXcodeArchive(installationType, downloader: downloader)
         }
         .then { xcode, url -> Promise<InstalledXcode> in
             return self.installArchivedXcode(xcode, at: url)
@@ -166,7 +171,7 @@ public final class XcodeInstaller {
                         Current.logging.log(error.legibleLocalizedDescription)
                         Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
                         try Current.files.removeItem(at: damagedXIPURL)
-                        return self.install(installationType, attemptNumber: attemptNumber + 1)
+                        return self.install(installationType, downloader: downloader, attemptNumber: attemptNumber + 1)
                     }
                 }
             default:
@@ -175,7 +180,7 @@ public final class XcodeInstaller {
         }
     }
     
-    private func getXcodeArchive(_ installationType: InstallationType) -> Promise<(Xcode, URL)> {
+    private func getXcodeArchive(_ installationType: InstallationType, downloader: Downloader) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<(Xcode, URL)> in
             switch installationType {
             case .latest:
@@ -192,7 +197,7 @@ public final class XcodeInstaller {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
 
-                        return self.downloadXcode(version: latestNonPrereleaseXcode.version)
+                        return self.downloadXcode(version: latestNonPrereleaseXcode.version, downloader: downloader)
                     }
             case .latestPrerelease:
                 Current.logging.log("Updating...")
@@ -213,7 +218,7 @@ public final class XcodeInstaller {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
                         
-                        return self.downloadXcode(version: latestPrereleaseXcode.version)
+                        return self.downloadXcode(version: latestPrereleaseXcode.version, downloader: downloader)
                     }
             case .url(let versionString, let path):
                 guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
@@ -228,7 +233,7 @@ public final class XcodeInstaller {
                 if let installedXcode = Current.files.installedXcodes().first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) {
                     throw Error.versionAlreadyInstalled(installedXcode)
                 }
-                return self.downloadXcode(version: version)
+                return self.downloadXcode(version: version, downloader: downloader)
             }
         }
     }
@@ -241,7 +246,7 @@ public final class XcodeInstaller {
         return version
     }
 
-    private func downloadXcode(version: Version) -> Promise<(Xcode, URL)> {
+    private func downloadXcode(version: Version, downloader: Downloader) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<Version> in
             loginIfNeeded().map { version }
         }
@@ -263,7 +268,7 @@ public final class XcodeInstaller {
             let formatter = NumberFormatter(numberStyle: .percent)
             var observation: NSKeyValueObservation?
 
-            let promise = self.downloadOrUseExistingArchive(for: xcode, progressChanged: { progress in
+            let promise = self.downloadOrUseExistingArchive(for: xcode, downloader: downloader, progressChanged: { progress in
                 observation?.invalidate()
                 observation = progress.observe(\.fractionCompleted) { progress, _ in
                     // These escape codes move up a line and then clear to the end
@@ -355,20 +360,55 @@ public final class XcodeInstaller {
         return nil
     }
 
-    public func downloadOrUseExistingArchive(for xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
+    public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         // Check to see if the archive is in the expected path in case it was downloaded but failed to install
         let expectedArchivePath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
-        if Current.files.fileExistsAtPath(expectedArchivePath.string) {
+        // aria2 downloads directly to the destination (instead of into /tmp first) so we need to make sure that the download isn't incomplete
+        let aria2DownloadMetadataPath = expectedArchivePath.parent/(expectedArchivePath.basename() + ".aria2")
+        var aria2DownloadIsIncomplete = false
+        if case .aria2 = downloader, aria2DownloadMetadataPath.exists {
+            aria2DownloadIsIncomplete = true
+        }
+        if Current.files.fileExistsAtPath(expectedArchivePath.string), aria2DownloadIsIncomplete == false {
             Current.logging.log("(1/6) Found existing archive that will be used for installation at \(expectedArchivePath).")
             return Promise.value(expectedArchivePath.url)
         }
         else {
-            return downloadXcode(xcode, progressChanged: progressChanged)
+            let destination = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
+            switch downloader {
+            case .aria2(let aria2Path):
+                return downloadXcodeWithAria2(
+                    xcode,
+                    to: destination,
+                    aria2Path: aria2Path,
+                    progressChanged: progressChanged
+                )
+            case .urlSession:
+                return downloadXcodeWithURLSession(
+                    xcode,
+                    to: destination,
+                    progressChanged: progressChanged
+                )
+            }
+        }
+    }
+    
+    public func downloadXcodeWithAria2(_ xcode: Xcode, to destination: Path, aria2Path: Path, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
+        let cookies = AppleAPI.Current.network.session.configuration.httpCookieStorage?.cookies(for: xcode.url) ?? []
+    
+        return attemptRetryableTask(maximumRetryCount: 3) {
+            let (progress, promise) = Current.shell.downloadWithAria2(
+                aria2Path, 
+                xcode.url,
+                destination,
+                cookies
+            )
+            progressChanged(progress)
+            return promise.map { _ in destination.url }
         }
     }
 
-    public func downloadXcode(_ xcode: Xcode, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
-        let destination = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
+    public func downloadXcodeWithURLSession(_ xcode: Xcode, to destination: Path, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         let resumeDataPath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).resumedata"
         let persistedResumeData = Current.files.contents(atPath: resumeDataPath.string)
         
@@ -690,21 +730,4 @@ private extension XcodeInstaller {
             Current.files.createFile(atPath: path.string, contents: resumeData)
         }
     }
-}
-
-/// Attempt and retry a task that fails with resume data up to `maximumRetryCount` times
-private func attemptResumableTask<T>(maximumRetryCount: Int = 3, delayBeforeRetry: DispatchTimeInterval = .seconds(2), _ body: @escaping (Data?) -> Promise<T>) -> Promise<T> {
-    var attempts = 0
-    func attempt(with resumeData: Data? = nil) -> Promise<T> {
-        attempts += 1
-        return body(resumeData).recover { error -> Promise<T> in
-            guard
-                attempts < maximumRetryCount,
-                let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
-            else { throw error }
-
-            return after(delayBeforeRetry).then(on: nil) { attempt(with: resumeData) }
-        }
-    }
-    return attempt()
 }
