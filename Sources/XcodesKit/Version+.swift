@@ -8,6 +8,12 @@ public extension Version {
                prereleaseIdentifiers == other.prereleaseIdentifiers
     }
 
+    func isEqualWithoutAllIdentifiers(to other: Version) -> Bool {
+        return major == other.major &&
+               minor == other.minor &&
+               patch == other.patch
+    }
+
     /// If release versions, don't compare build metadata because that's not provided in the /downloads/more list
     /// if beta versions, compare build metadata because it's available in versions.plist
     func isEquivalentForDeterminingIfInstalled(toInstalled installed: Version) -> Bool {
