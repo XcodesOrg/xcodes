@@ -21,21 +21,8 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String) -> Promise<Voi
             }
         }
 
-        // Look for the exact provided version first
         if let version = Version(xcodeVersion: pathOrVersion),
-           let installedXcode = Current.files.installedXcodes().first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) {
-            return selectXcodeAtPath(installedXcode.path.string)
-                .done { output in
-                    Current.logging.log("Selected \(output.out)")
-                    Current.shell.exit(0)
-                }
-        }
-        // If a short version is provided, look again for a match, ignore all
-        // identifiers this time. Ignore if there are more than one match.
-        else if let version = Version(xcodeVersion: pathOrVersion),
-            version.prereleaseIdentifiers.isEmpty && version.buildMetadataIdentifiers.isEmpty,
-            Current.files.installedXcodes().filter({ $0.version.isEqualWithoutAllIdentifiers(to: version) }).count == 1 {
-            let installedXcode = Current.files.installedXcodes().first(where: { $0.version.isEqualWithoutAllIdentifiers(to: version) })!
+           let installedXcode = Current.files.installedXcodes().first(withVersion: version) {
             return selectXcodeAtPath(installedXcode.path.string)
                 .done { output in
                     Current.logging.log("Selected \(output.out)")
