@@ -6,6 +6,11 @@ public struct InstalledXcode: Equatable {
     public let path: Path
     /// Composed of the bundle short version from Info.plist and the product build version from version.plist
     public let version: Version
+    
+    init(path: Path, version: Version) {
+        self.path = path
+        self.version = version
+    }
 
     public init?(path: Path) {
         self.path = path
@@ -39,7 +44,7 @@ public struct InstalledXcode: Equatable {
     }
 }
 
-public struct Xcode: Codable {
+public struct Xcode: Codable, Equatable {
     public let version: Version
     public let url: URL
     public let filename: String

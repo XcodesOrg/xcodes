@@ -259,7 +259,7 @@ public final class XcodeInstaller {
             }
         }
         .then { version -> Promise<(Xcode, URL)> in
-            guard let xcode = self.xcodeList.availableXcodes.first(where: { version.isEqualWithoutBuildMetadataIdentifiers(to: $0.version) }) else {
+            guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
                 throw Error.unavailableVersion(version)
             }
 
@@ -479,7 +479,7 @@ public final class XcodeInstaller {
                 throw Error.invalidVersion(versionString)
             }
 
-            guard let installedXcode = Current.files.installedXcodes().first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) else {
+            guard let installedXcode = Current.files.installedXcodes().first(withVersion: version) else {
                 throw Error.versionNotInstalled(version)
             }
 
