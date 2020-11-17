@@ -54,6 +54,19 @@ public struct Shell {
         xcodeSelectSwitch(password, path)
     }
     
+    /// Returns the path of an executable within the directories in the PATH environment variable.
+    public var findExecutable: (_ executableName: String) -> Path? = { executableName in
+        guard let path = ProcessInfo.processInfo.environment["PATH"] else { return nil }
+
+        for directory in path.components(separatedBy: ":") {
+            if let executable = Path(directory)?.join(executableName), executable.isExecutable {
+                return executable
+            }
+        }
+        
+        return nil
+    }
+    
     public var downloadWithAria2: (Path, URL, Path, [HTTPCookie]) -> (Progress, Promise<Void>) = { aria2Path, url, destination, cookies in
         let process = Process()
         process.executableURL = aria2Path.url

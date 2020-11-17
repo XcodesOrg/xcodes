@@ -126,8 +126,9 @@ let install = Command(usage: "install <version>",
     }
     
     var downloader = XcodeInstaller.Downloader.urlSession
-    let aria2Path = flags.getString(name: "aria2").flatMap(Path.init) ?? Path.root.usr.local.bin/"aria2c"
-    if aria2Path.exists, flags.getBool(name: "no-aria2") != true {
+    if let aria2Path = flags.getString(name: "aria2").flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
+       aria2Path.exists, 
+       flags.getBool(name: "no-aria2") != true {
         downloader = .aria2(aria2Path)
     } 
 
