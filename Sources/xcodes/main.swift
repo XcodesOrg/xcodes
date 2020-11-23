@@ -92,7 +92,7 @@ let update = Command(usage: "update",
 }
 app.add(subCommand: update)
 
-let urlFlag = Flag(longName: "url", type: String.self, description: "Local path to Xcode .xip")
+let pathFlag = Flag(longName: "path", type: String.self, description: "Local path to Xcode .xip")
 let latestFlag = Flag(longName: "latest", value: false, description: "Update and then install the latest non-prerelease version available.")
 let latestPrereleaseFlag = Flag(longName: "latest-prerelease", value: false, description: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
 let aria2 = Flag(longName: "aria2", type: String.self, description: "The path to an aria2 executable. Defaults to /usr/local/bin/aria2c.")
@@ -104,12 +104,12 @@ let install = Command(usage: "install <version>",
 
                       By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either at /usr/local/bin/aria2c or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
                       """,
-                      flags: [urlFlag, latestFlag, latestPrereleaseFlag, aria2, noAria2],
+                      flags: [pathFlag, latestFlag, latestPrereleaseFlag, aria2, noAria2],
                       example: """
                                xcodes install 10.2.1
                                xcodes install 11 Beta 7
                                xcodes install 11.2 GM seed
-                               xcodes install 9.0 --url ~/Archive/Xcode_9.xip
+                               xcodes install 9.0 --path ~/Archive/Xcode_9.xip
                                xcodes install --latest-prerelease
                                """) { flags, args in
     let versionString = args.joined(separator: " ")
@@ -119,7 +119,7 @@ let install = Command(usage: "install <version>",
         installation = .latest
     } else if flags.getBool(name: "latest-prerelease") == true {
         installation = .latestPrerelease
-    } else if let url = flags.getString(name: "url"), let path = Path(url) {
+    } else if let url = flags.getString(name: "path"), let path = Path(url) {
         installation = .url(versionString, path)
     } else {
         installation = .version(versionString)
