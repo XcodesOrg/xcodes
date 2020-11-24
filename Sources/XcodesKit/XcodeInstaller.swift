@@ -129,7 +129,7 @@ public final class XcodeInstaller {
     
     public enum InstallationType {
         case version(String)
-        case url(String, Path)
+        case path(String, Path)
         case latest
         case latestPrerelease
     }
@@ -162,8 +162,8 @@ public final class XcodeInstaller {
                 guard attemptNumber < 1 else { throw error }
 
                 switch installationType {
-                case .url:
-                    // If the user provided the URL, don't try to recover and leave it up to them.
+                case .path:
+                    // If the user provided the path, don't try to recover and leave it up to them.
                     throw error
                 default:
                     // If the XIP was just downloaded, remove it and try to recover.
@@ -220,7 +220,7 @@ public final class XcodeInstaller {
                         
                         return self.downloadXcode(version: latestPrereleaseXcode.version, downloader: downloader)
                     }
-            case .url(let versionString, let path):
+            case .path(let versionString, let path):
                 guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
