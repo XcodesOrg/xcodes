@@ -119,8 +119,8 @@ let install = Command(usage: "install <version>",
         installation = .latest
     } else if flags.getBool(name: "latest-prerelease") == true {
         installation = .latestPrerelease
-    } else if let url = flags.getString(name: "path"), let path = Path(url) {
-        installation = .url(versionString, path)
+    } else if let pathString = flags.getString(name: "path"), let path = Path(pathString) {
+        installation = .path(versionString, path)
     } else {
         installation = .version(versionString)
     }
