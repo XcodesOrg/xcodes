@@ -163,7 +163,7 @@ public final class XcodeInstaller {
 
                 switch installationType {
                 case .path:
-                    // If the user provided the URL, don't try to recover and leave it up to them.
+                    // If the user provided the path, don't try to recover and leave it up to them.
                     throw error
                 default:
                     // If the XIP was just downloaded, remove it and try to recover.
