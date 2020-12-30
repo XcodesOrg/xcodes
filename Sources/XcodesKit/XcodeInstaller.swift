@@ -282,14 +282,15 @@ public final class XcodeInstaller {
         }
     }
 
-    func loginIfNeeded(withUsername existingUsername: String? = nil) -> Promise<Void> {
+    func loginIfNeeded(withUsername existingUsername: String? = nil, retry: Bool = false) -> Promise<Void> {
         return firstly { () -> Promise<Void> in
             return Current.network.validateSession()
         }
         .recover { error -> Promise<Void> in
+
             guard
                 let username = existingUsername ?? self.findUsername() ?? Current.shell.readLine(prompt: "Apple ID: "),
-                let password = self.findPassword(withUsername: username) ?? Current.shell.readSecureLine(prompt: "Apple ID Password: ")
+                let password = (!retry ? self.findPassword(withUsername: username) : nil) ?? Current.shell.readSecureLine(prompt: "Apple ID Password [\(username)]: ")
             else { throw Error.missingUsernameOrPassword }
 
             return firstly { () -> Promise<Void> in
@@ -300,7 +301,7 @@ public final class XcodeInstaller {
 
                 if case Client.Error.invalidUsernameOrPassword = error {
                     Current.logging.log("Try entering your password again")
-                    return self.loginIfNeeded(withUsername: username)
+                    return self.loginIfNeeded(withUsername: username, retry: true)
                 }
                 else {
                     return Promise(error: error)
