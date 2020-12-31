@@ -13,16 +13,34 @@ let installer = XcodeInstaller(configuration: configuration, xcodeList: xcodeLis
 
 migrateApplicationSupportFiles()
 
+let globalDirectoryFlag = Flag(
+    longName: "directory", 
+    type: String.self, 
+    description: "The directory where your Xcodes are installed. Defaults to /Applications.", 
+    inheritable: true
+)
+func getDirectory(flags: Flags) -> Path {
+    let directory = flags.getString(name: "directory").flatMap(Path.init) ??
+        ProcessInfo.processInfo.environment["XCODES_DIRECTORY"].flatMap(Path.init) ??
+        Path.root.join("Applications")
+    guard directory.isDirectory else {
+        Current.logging.log("Directory argument must be a directory, but was provided \(directory.string).")
+        exit(1)
+    }
+    return directory
+}
+
 // This is awkward, but Guaka wants a root command in order to add subcommands,
 // but then seems to want it to behave like a normal command even though it'll only ever print the help.
 // But it doesn't even print the help without the user providing the --help flag,
 // so we need to tell it to do this explicitly
 var app: Command!
-app = Command(usage: "xcodes") { _, _ in print(GuakaConfig.helpGenerator.init(command: app).helpMessage) }
+app = Command(usage: "xcodes", flags: [globalDirectoryFlag]) { _, _ in print(GuakaConfig.helpGenerator.init(command: app).helpMessage) }
 
 let installed = Command(usage: "installed",
-                        shortMessage: "List the versions of Xcode that are installed") { _, _ in
-    installer.printInstalledXcodes()
+                        shortMessage: "List the versions of Xcode that are installed") { flags, _ in
+    let directory = getDirectory(flags: flags)
+    installer.printInstalledXcodes(directory: directory)
         .done {
             exit(0)
         }
@@ -46,7 +64,9 @@ let select = Command(usage: "select <version or path>",
                               xcodes select /Applications/Xcode-11.4.0.app
                               xcodes select -p
                               """) { flags, args in
-    selectXcode(shouldPrint: flags.getBool(name: "print-path") ?? false, pathOrVersion: args.joined(separator: " "))
+    let directory = getDirectory(flags: flags)
+
+    selectXcode(shouldPrint: flags.getBool(name: "print-path") ?? false, pathOrVersion: args.joined(separator: " "), directory: directory)
         .catch { error in
             print(error.legibleLocalizedDescription)
             exit(1)
@@ -57,13 +77,15 @@ let select = Command(usage: "select <version or path>",
 app.add(subCommand: select)
 
 let list = Command(usage: "list",
-                   shortMessage: "List all versions of Xcode that are available to install") { _, _ in
+                   shortMessage: "List all versions of Xcode that are available to install") { flags, _ in
+    let directory = getDirectory(flags: flags)
+    
     firstly { () -> Promise<Void> in
         if xcodeList.shouldUpdate {
-            return installer.updateAndPrint()
+            return installer.updateAndPrint(directory: directory)
         }
         else {
-            return installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes())
+            return installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
         }
     }
     .done {
@@ -79,9 +101,11 @@ let list = Command(usage: "list",
 app.add(subCommand: list)
 
 let update = Command(usage: "update",
-                     shortMessage: "Update the list of available versions of Xcode") { _, _ in
+                     shortMessage: "Update the list of available versions of Xcode") { flags, _ in
+    let directory = getDirectory(flags: flags)
+
     firstly {
-        installer.updateAndPrint()
+        installer.updateAndPrint(directory: directory)
     }
     .catch { error in
         print(error.legibleLocalizedDescription)
@@ -95,6 +119,7 @@ app.add(subCommand: update)
 let installPathFlag = Flag(longName: "path", type: String.self, description: "Local path to Xcode .xip")
 let installLatestFlag = Flag(longName: "latest", value: false, description: "Update and then install the latest non-prerelease version available.")
 let installLatestPrereleaseFlag = Flag(longName: "latest-prerelease", value: false, description: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
+let directory = Flag(longName: "directory", type: String.self, description: "The directory to install Xcode into. Defaults to /Applications.")
 let aria2 = Flag(longName: "aria2", type: String.self, description: "The path to an aria2 executable. Defaults to /usr/local/bin/aria2c.")
 let noAria2 = Flag(longName: "no-aria2", value: false, description: "Don't use aria2 to download Xcode, even if its available.")
 
@@ -105,13 +130,14 @@ let install = Command(usage: "install <version>",
 
                       By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either somewhere in PATH or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
                       """,
-                      flags: [installPathFlag, installLatestFlag, installLatestPrereleaseFlag, aria2, noAria2],
+                      flags: [installPathFlag, installLatestFlag, installLatestPrereleaseFlag, directory, aria2, noAria2],
                       example: """
                                xcodes install 10.2.1
                                xcodes install 11 Beta 7
                                xcodes install 11.2 GM seed
                                xcodes install 9.0 --path ~/Archive/Xcode_9.xip
                                xcodes install --latest-prerelease
+                               xcodes install --latest --directory "/Volumes/Bag Of Holding/"
                                """) { flags, args in
     let versionString = args.joined(separator: " ")
 
@@ -133,7 +159,9 @@ let install = Command(usage: "install <version>",
         downloader = .aria2(aria2Path)
     }
 
-    installer.install(installation, downloader: downloader)
+    let destination = getDirectory(flags: flags)
+
+    installer.install(installation, downloader: downloader, destination: destination)
         .catch { error in
             switch error {
             case Process.PMKError.execution(let process, let standardOutput, let standardError):
@@ -211,9 +239,12 @@ app.add(subCommand: download)
 
 let uninstall = Command(usage: "uninstall <version>",
                         shortMessage: "Uninstall a specific version of Xcode",
-                        example: "xcodes uninstall 10.2.1") { _, args in
-        let versionString = args.joined(separator: " ")
-    installer.uninstallXcode(versionString)
+                        example: "xcodes uninstall 10.2.1") { flags, args in
+    let versionString = args.joined(separator: " ")
+
+    let directory = getDirectory(flags: flags)
+
+    installer.uninstallXcode(versionString, directory: directory)
         .catch { error in
             print(error.legibleLocalizedDescription)
             exit(1)

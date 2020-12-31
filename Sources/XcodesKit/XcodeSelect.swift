@@ -3,7 +3,7 @@ import PromiseKit
 import Path
 import Version
 
-public func selectXcode(shouldPrint: Bool, pathOrVersion: String) -> Promise<Void> {
+public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Path) -> Promise<Void> {
     firstly { () -> Promise<ProcessOutput> in
         Current.shell.xcodeSelectPrintPath()
     }
@@ -22,7 +22,7 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String) -> Promise<Voi
         }
 
         if let version = Version(xcodeVersion: pathOrVersion),
-           let installedXcode = Current.files.installedXcodes().first(withVersion: version) {
+           let installedXcode = Current.files.installedXcodes(directory).first(withVersion: version) {
             return selectXcodeAtPath(installedXcode.path.string)
                 .done { output in
                     Current.logging.log("Selected \(output.out)")
@@ -36,7 +36,7 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String) -> Promise<Voi
                     Current.shell.exit(0)
                 }
                 .recover { _ in
-                    try selectXcodeInteractively(currentPath: output.out)
+                    try selectXcodeInteractively(currentPath: output.out, directory: directory)
                         .done { output in
                             Current.logging.log("Selected \(output.out)")
                             Current.shell.exit(0)
@@ -46,11 +46,11 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String) -> Promise<Voi
     }
 }
 
-public func selectXcodeInteractively(currentPath: String, shouldRetry: Bool) -> Promise<ProcessOutput> {
+public func selectXcodeInteractively(currentPath: String, directory: Path, shouldRetry: Bool) -> Promise<ProcessOutput> {
     if shouldRetry {
         func selectWithRetry(currentPath: String) -> Promise<ProcessOutput> {
             return firstly {
-                try selectXcodeInteractively(currentPath: currentPath)
+                try selectXcodeInteractively(currentPath: currentPath, directory: directory)
             }
             .recover { error throws -> Promise<ProcessOutput> in
                 guard case XcodeSelectError.invalidIndex = error else { throw error }
@@ -63,13 +63,13 @@ public func selectXcodeInteractively(currentPath: String, shouldRetry: Bool) -> 
     }
     else {
         return firstly {
-            try selectXcodeInteractively(currentPath: currentPath)
+            try selectXcodeInteractively(currentPath: currentPath, directory: directory)
         }
     }
 }
 
-public func selectXcodeInteractively(currentPath: String) throws -> Promise<ProcessOutput> {
-    let sortedInstalledXcodes = Current.files.installedXcodes().sorted { $0.version < $1.version }
+public func selectXcodeInteractively(currentPath: String, directory: Path) throws -> Promise<ProcessOutput> {
+    let sortedInstalledXcodes = Current.files.installedXcodes(directory).sorted { $0.version < $1.version }
 
     Current.logging.log("Available Xcode versions:")
 
