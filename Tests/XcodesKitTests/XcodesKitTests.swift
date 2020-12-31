@@ -51,7 +51,7 @@ final class XcodesKitTests: XCTestCase {
         }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
-        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, progressChanged: { _ in })
+        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
@@ -69,7 +69,7 @@ final class XcodesKitTests: XCTestCase {
         }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
-        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, progressChanged: { _ in })
+        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
