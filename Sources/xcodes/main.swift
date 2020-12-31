@@ -92,74 +92,121 @@ let update = Command(usage: "update",
 }
 app.add(subCommand: update)
 
-func downloadCommand(shouldInstall: Bool) -> Command {
-    let pathFlag = Flag(longName: "path", type: String.self, description: "Local path to Xcode .xip")
-    let latestFlag = Flag(longName: "latest", value: false, description: "Update and then install the latest non-prerelease version available.")
-    let latestPrereleaseFlag = Flag(longName: "latest-prerelease", value: false, description: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
-    let aria2 = Flag(longName: "aria2", type: String.self, description: "The path to an aria2 executable. Defaults to /usr/local/bin/aria2c.")
-    let noAria2 = Flag(longName: "no-aria2", value: false, description: "Don't use aria2 to download Xcode, even if its available.")
-    let commandName = shouldInstall ? "install" : "download"
-    let commandInstruction = shouldInstall ? "Download and install" : "Download"
-    return Command(usage: "\(commandName) <version>",
-                          shortMessage: "\(commandInstruction) a specific version of Xcode",
-                          longMessage: """
-                          \(commandInstruction) a specific version of Xcode
+let installPathFlag = Flag(longName: "path", type: String.self, description: "Local path to Xcode .xip")
+let installLatestFlag = Flag(longName: "latest", value: false, description: "Update and then install the latest non-prerelease version available.")
+let installLatestPrereleaseFlag = Flag(longName: "latest-prerelease", value: false, description: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
+let aria2 = Flag(longName: "aria2", type: String.self, description: "The path to an aria2 executable. Defaults to /usr/local/bin/aria2c.")
+let noAria2 = Flag(longName: "no-aria2", value: false, description: "Don't use aria2 to download Xcode, even if its available.")
 
-                          By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either at /usr/local/bin/aria2c or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
-                          """,
-                          flags: [pathFlag, latestFlag, latestPrereleaseFlag, aria2, noAria2],
-                          example: """
-                                   xcodes \(commandName) 10.2.1
-                                   xcodes \(commandName) 11 Beta 7
-                                   xcodes \(commandName) 11.2 GM seed
-                                   xcodes \(commandName) 9.0 --path ~/Archive/Xcode_9.xip
-                                   xcodes \(commandName) --latest-prerelease
-                                   """) { flags, args in
-        let versionString = args.joined(separator: " ")
+let install = Command(usage: "install <version>",
+                      shortMessage: "Download and install a specific version of Xcode",
+                      longMessage: """
+                      Download and install a specific version of Xcode
 
-        let pathFlag = flags.getString(name: "path")
-        let searchPath: Path? = (pathFlag != nil) ? Path(pathFlag!) : nil
-        let installation: XcodeInstaller.InstallationType
-        if flags.getBool(name: "latest") == true {
-            installation = .latest
-        } else if flags.getBool(name: "latest-prerelease") == true {
-            installation = .latestPrerelease
-        } else if let path = searchPath {
-            installation = .path(versionString, path)
-        } else {
-            installation = .version(versionString)
-        }
-        
-        var downloader = XcodeInstaller.Downloader.urlSession(searchPath)
-        if let aria2Path = flags.getString(name: "aria2").flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
-           aria2Path.exists, 
-           flags.getBool(name: "no-aria2") != true {
-            downloader = .aria2(aria2Path, searchPath)
-        }
+                      By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either at /usr/local/bin/aria2c or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
+                      """,
+                      flags: [installPathFlag, installLatestFlag, installLatestPrereleaseFlag, aria2, noAria2],
+                      example: """
+                               xcodes install 10.2.1
+                               xcodes install 11 Beta 7
+                               xcodes install 11.2 GM seed
+                               xcodes install 9.0 --path ~/Archive/Xcode_9.xip
+                               xcodes install --latest-prerelease
+                               """) { flags, args in
+    let versionString = args.joined(separator: " ")
 
-        installer.install(installation, downloader: downloader, shouldInstall: shouldInstall)
-            .catch { error in
-                switch error {
-                case Process.PMKError.execution(let process, let standardOutput, let standardError):
-                    Current.logging.log("""
-                        Failed executing: `\(process)` (\(process.terminationStatus))
-                        \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
-                        """)
-                default:
-                    Current.logging.log(error.legibleLocalizedDescription)
-                }
+    let installation: XcodeInstaller.InstallationType
+    if flags.getBool(name: "latest") == true {
+        installation = .latest
+    } else if flags.getBool(name: "latest-prerelease") == true {
+        installation = .latestPrerelease
+    } else if let pathString = flags.getString(name: "path"), let path = Path(pathString) {
+        installation = .path(versionString, path)
+    } else {
+        installation = .version(versionString)
+    }
+    
+    var downloader = XcodeInstaller.Downloader.urlSession
+    if let aria2Path = flags.getString(name: "aria2").flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
+       aria2Path.exists, 
+       flags.getBool(name: "no-aria2") != true {
+        downloader = .aria2(aria2Path)
+    }
 
-                exit(1)
+    installer.install(installation, downloader: downloader)
+        .catch { error in
+            switch error {
+            case Process.PMKError.execution(let process, let standardOutput, let standardError):
+                Current.logging.log("""
+                    Failed executing: `\(process)` (\(process.terminationStatus))
+                    \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
+                    """)
+            default:
+                Current.logging.log(error.legibleLocalizedDescription)
             }
 
-        RunLoop.current.run()
-    }
-}
+            exit(1)
+        }
 
-let install = downloadCommand(shouldInstall: true)
+    RunLoop.current.run()
+}
 app.add(subCommand: install)
 
-let download = downloadCommand(shouldInstall: false)
+let downloadDirectoryFlag = Flag(longName: "directory", type: String.self, description: "Directory to download .xip to. Defaults to ~/Downloads.")
+let downloadLatestFlag = Flag(longName: "latest", value: false, description: "Update and then download the latest non-prerelease version available.")
+let downloadLatestPrereleaseFlag = Flag(longName: "latest-prerelease", value: false, description: "Update and then download the latest prerelease version available, including GM seeds and GMs.")
+let download = Command(usage: "download <version>",
+                       shortMessage: "Download a specific version of Xcode",
+                       longMessage: """
+                       Download a specific version of Xcode
+
+                       By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either at /usr/local/bin/aria2c or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
+                       """,
+                       flags: [downloadDirectoryFlag, downloadLatestFlag, downloadLatestPrereleaseFlag, aria2, noAria2],
+                       example: """
+                                xcodes download 10.2.1
+                                xcodes download 11 Beta 7
+                                xcodes download 11.2 GM seed
+                                xcodes download 9.0 --directory ~/Archive
+                                xcodes download --latest-prerelease
+                                """) { flags, args in
+     let versionString = args.joined(separator: " ")
+
+     let installation: XcodeInstaller.InstallationType
+     // Deliberately not using InstallationType.path here as it doesn't make sense to download an Xcode from a .xip that's already on disk
+     if flags.getBool(name: "latest") == true {
+         installation = .latest
+     } else if flags.getBool(name: "latest-prerelease") == true {
+         installation = .latestPrerelease
+     } else {
+         installation = .version(versionString)
+     }
+
+     var downloader = XcodeInstaller.Downloader.urlSession
+     if let aria2Path = flags.getString(name: "aria2").flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
+        aria2Path.exists,
+        flags.getBool(name: "no-aria2") != true {
+         downloader = .aria2(aria2Path)
+     }
+
+     let directory = flags.getString(name: "directory").flatMap(Path.init)
+     installer.download(installation, downloader: downloader, destinationDirectory: directory ?? Path.home.join("Downloads"))
+         .catch { error in
+             switch error {
+             case Process.PMKError.execution(let process, let standardOutput, let standardError):
+                 Current.logging.log("""
+                     Failed executing: `\(process)` (\(process.terminationStatus))
+                     \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
+                     """)
+             default:
+                 Current.logging.log(error.legibleLocalizedDescription)
+             }
+
+             exit(1)
+         }
+
+     RunLoop.current.run()
+}
 app.add(subCommand: download)
 
 let uninstall = Command(usage: "uninstall <version>",

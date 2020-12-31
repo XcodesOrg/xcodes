@@ -51,7 +51,7 @@ final class XcodesKitTests: XCTestCase {
         }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
-        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession(nil), shouldInstall: true, progressChanged: { _ in })
+        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
@@ -69,7 +69,7 @@ final class XcodesKitTests: XCTestCase {
         }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
-        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession(nil), shouldInstall: true, progressChanged: { _ in })
+        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
@@ -197,7 +197,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), downloader: .urlSession(nil))
+        installer.install(.version("0.0.0"), downloader: .urlSession)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -310,7 +310,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), downloader: .urlSession(nil))
+        installer.install(.version("0.0.0"), downloader: .urlSession)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-IncorrectSavedPassword", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -428,7 +428,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), downloader: .urlSession(nil))
+        installer.install(.version("0.0.0"), downloader: .urlSession)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-DamagedXIP", withExtension: "txt", subdirectory: "Fixtures")!
                 let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
