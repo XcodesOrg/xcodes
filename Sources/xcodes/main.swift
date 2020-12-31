@@ -103,7 +103,7 @@ let install = Command(usage: "install <version>",
                       longMessage: """
                       Download and install a specific version of Xcode
 
-                      By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either at /usr/local/bin/aria2c or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
+                      By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either somewhere in PATH or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
                       """,
                       flags: [installPathFlag, installLatestFlag, installLatestPrereleaseFlag, aria2, noAria2],
                       example: """
@@ -160,7 +160,7 @@ let download = Command(usage: "download <version>",
                        longMessage: """
                        Download a specific version of Xcode
 
-                       By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either at /usr/local/bin/aria2c or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
+                       By default, xcodes will use a URLSession to download the specified version. If aria2 (https://aria2.github.io, available in Homebrew) is installed, either somewhere in PATH or at the path specified by the --aria2 flag, then it will be used instead. aria2 will use up to 16 connections to download Xcode 3-5x faster. If you have aria2 installed and would prefer to not use it, you can use the --no-aria2 flag.
                        """,
                        flags: [downloadDirectoryFlag, downloadLatestFlag, downloadLatestPrereleaseFlag, aria2, noAria2],
                        example: """
