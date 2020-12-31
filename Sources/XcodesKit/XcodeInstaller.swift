@@ -282,16 +282,32 @@ public final class XcodeInstaller {
         }
     }
 
-    func loginIfNeeded(withUsername existingUsername: String? = nil, retry: Bool = false) -> Promise<Void> {
+    func loginIfNeeded(withUsername providedUsername: String? = nil, shouldPromptForPassword: Bool = false) -> Promise<Void> {
         return firstly { () -> Promise<Void> in
             return Current.network.validateSession()
         }
+        // Don't have a valid session, so we'll need to log in
         .recover { error -> Promise<Void> in
-
-            guard
-                let username = existingUsername ?? self.findUsername() ?? Current.shell.readLine(prompt: "Apple ID: "),
-                let password = (!retry ? self.findPassword(withUsername: username) : nil) ?? Current.shell.readSecureLine(prompt: "Apple ID Password [\(username)]: ")
-            else { throw Error.missingUsernameOrPassword }
+            var possibleUsername = providedUsername ?? self.findUsername()
+            var hasPromptedForUsername = false
+            if possibleUsername == nil {
+                possibleUsername = Current.shell.readLine(prompt: "Apple ID: ")
+                hasPromptedForUsername = true
+            }
+            guard let username = possibleUsername else { throw Error.missingUsernameOrPassword } 
+            
+            let passwordPrompt: String 
+            if hasPromptedForUsername {
+                passwordPrompt = "Apple ID Password: "
+            } else {
+                // If the user wasn't prompted for their username, also explain which Apple ID password they need to enter
+                passwordPrompt = "Apple ID Password (\(username)): " 
+            }
+            var possiblePassword = self.findPassword(withUsername: username)
+            if possiblePassword == nil || shouldPromptForPassword {
+                possiblePassword = Current.shell.readSecureLine(prompt: passwordPrompt)
+            }
+            guard let password = possiblePassword else { throw Error.missingUsernameOrPassword }
 
             return firstly { () -> Promise<Void> in
                 self.login(username, password: password)
@@ -301,7 +317,8 @@ public final class XcodeInstaller {
 
                 if case Client.Error.invalidUsernameOrPassword = error {
                     Current.logging.log("Try entering your password again")
-                    return self.loginIfNeeded(withUsername: username, retry: true)
+                    // Prompt for the password next time to avoid being stuck in a loop of using an incorrect XCODES_PASSWORD environment variable
+                    return self.loginIfNeeded(withUsername: username, shouldPromptForPassword: true)
                 }
                 else {
                     return Promise(error: error)
