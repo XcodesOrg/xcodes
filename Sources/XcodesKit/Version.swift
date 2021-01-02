@@ -1,3 +1,3 @@
 import Version
 
-public let version = Version("0.14.0")!
+public let version = Version("0.15.0")!
