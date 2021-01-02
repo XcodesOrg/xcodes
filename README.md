@@ -64,7 +64,9 @@ Install a specific version of Xcode using a command like one of these:
 xcodes install 10.2.1
 xcodes install 11 Beta 7
 xcodes install 11.2 GM seed
-xcodes install --latest
+xcodes install 9.0 --path ~/Archive/Xcode_9.xip
+xcodes install --latest-prerelease
+xcodes install --latest --directory "/Volumes/Bag Of Holding/"
 ```
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
@@ -87,6 +89,8 @@ Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 ```
 
 If you have [aria2](https://aria2.github.io) installed (it's available in Homebrew, `brew install aria2`), then xcodes will default to use it for downloads. It uses up to 16 connections to download Xcode 3-5x faster than URLSession.
+
+Xcode will be installed to /Applications by default, but you can provide the path to a different directory with the `--directory` option or the `XCODES_DIRECTORY` environment variable. All of the xcodes commands support this option, like `select` and `uninstall`, so you can manage Xcode versions that aren't in /Applications. xcodes supports having all of your Xcode versions installed in _one_ directory, wherever that may be.
 
 ### Commands
 

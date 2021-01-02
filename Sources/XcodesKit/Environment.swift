@@ -238,8 +238,8 @@ public struct Files {
 
     public var installedXcodes = XcodesKit.installedXcodes
 }
-private func installedXcodes() -> [InstalledXcode] {
-    ((try? Path.root.join("Applications").ls()) ?? [])
+private func installedXcodes(directory: Path) -> [InstalledXcode] {
+    ((try? directory.ls()) ?? [])
         .filter { $0.isAppBundle && $0.infoPlist?.bundleID == "com.apple.dt.Xcode" }
         .map { $0.path }
         .compactMap(InstalledXcode.init)
