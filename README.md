@@ -94,6 +94,7 @@ Xcode will be installed to /Applications by default, but you can provide the pat
 
 ### Commands
 
+- `download <version>`: Download a specific version of Xcode
 - `install <version>`: Download and install a specific version of Xcode
 - `installed`: List the versions of Xcode that are installed
 - `list`: List all versions of Xcode that are available to install
