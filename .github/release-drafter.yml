@@ -1,4 +1,6 @@
 template: |
+  If you installed xcodes with homebrew you can upgrade with `brew upgrade robotsandpencils/made/xcodes`.
+
   ## Changes
 
   $CHANGES
