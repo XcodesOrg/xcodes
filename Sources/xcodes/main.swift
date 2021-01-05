@@ -57,10 +57,6 @@ struct Xcodes: ParsableCommand {
                         """
         )
         
-        @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.", 
-                completion: .directory)
-        var directory: String?
-        
         @Argument(help: "The version to download",
                   completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []
@@ -77,6 +73,10 @@ struct Xcodes: ParsableCommand {
         
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
         var noAria2: Bool = false
+        
+        @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.", 
+                completion: .directory)
+        var directory: String?
         
         func run() {
             let versionString = version.joined(separator: " ")
@@ -135,10 +135,6 @@ struct Xcodes: ParsableCommand {
                         """
         )
         
-        @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
-                completion: .directory)
-        var directory: String?
-        
         @Argument(help: "The version to install",
                   completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []
@@ -160,6 +156,10 @@ struct Xcodes: ParsableCommand {
         
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
         var noAria2: Bool = false
+        
+        @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
+                completion: .directory)
+        var directory: String?
         
         func run() {
             let versionString = version.joined(separator: " ")
@@ -263,15 +263,15 @@ struct Xcodes: ParsableCommand {
                         """
         )
         
-        @OptionGroup
-        var globalDirectory: GlobalDirectoryOption
-        
         @ArgumentParser.Flag(name: [.customShort("p"), .customLong("print-path")], help: "Print the path of the selected Xcode")
         var print: Bool = false
         
         @Argument(help: "Version or path",
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var versionOrPath: [String] = []
+        
+        @OptionGroup
+        var globalDirectory: GlobalDirectoryOption
         
         func run() {
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
@@ -292,13 +292,13 @@ struct Xcodes: ParsableCommand {
                           xcodes uninstall 10.2.1
                         """
         )
-        
-        @OptionGroup
-        var globalDirectory: GlobalDirectoryOption
 
         @Argument(help: "The version to uninstall",
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []
+        
+        @OptionGroup
+        var globalDirectory: GlobalDirectoryOption
         
         func run() {
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
