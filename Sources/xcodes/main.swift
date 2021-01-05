@@ -17,7 +17,7 @@ func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Ap
     return directory
 }
 
-struct GlobalOptions: ParsableArguments {
+struct GlobalDirectoryOption: ParsableArguments {
     @Option(help: "The directory where your Xcodes are installed. Defaults to /Applications.", 
             completion: .directory)
     var directory: String?
@@ -56,9 +56,6 @@ struct Xcodes: ParsableCommand {
                           xcodes download --latest-prerelease
                         """
         )
-        
-        @OptionGroup
-        var globals: GlobalOptions
         
         @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.", 
                 completion: .directory)
@@ -138,9 +135,6 @@ struct Xcodes: ParsableCommand {
                         """
         )
         
-        @OptionGroup
-        var globals: GlobalOptions
-        
         @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
                 completion: .directory)
         var directory: String?
@@ -216,10 +210,10 @@ struct Xcodes: ParsableCommand {
         )
         
         @OptionGroup
-        var globals: GlobalOptions
+        var globalDirectory: GlobalDirectoryOption
         
         func run() {
-            let directory = getDirectory(possibleDirectory: globals.directory)
+            let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             installer.printInstalledXcodes(directory: directory)
                 .done { Installed.exit() }
@@ -235,10 +229,10 @@ struct Xcodes: ParsableCommand {
         )
         
         @OptionGroup
-        var globals: GlobalOptions
+        var globalDirectory: GlobalDirectoryOption
         
         func run() {
-            let directory = getDirectory(possibleDirectory: globals.directory)
+            let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             firstly { () -> Promise<Void> in
                 if xcodeList.shouldUpdate {
@@ -270,7 +264,7 @@ struct Xcodes: ParsableCommand {
         )
         
         @OptionGroup
-        var globals: GlobalOptions
+        var globalDirectory: GlobalDirectoryOption
         
         @ArgumentParser.Flag(name: [.customShort("p"), .customLong("print-path")], help: "Print the path of the selected Xcode")
         var print: Bool = false
@@ -280,7 +274,7 @@ struct Xcodes: ParsableCommand {
         var versionOrPath: [String] = []
         
         func run() {
-            let directory = getDirectory(possibleDirectory: globals.directory)
+            let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             selectXcode(shouldPrint: print, pathOrVersion: versionOrPath.joined(separator: " "), directory: directory)
                 .done { Select.exit() }
@@ -300,14 +294,14 @@ struct Xcodes: ParsableCommand {
         )
         
         @OptionGroup
-        var globals: GlobalOptions
+        var globalDirectory: GlobalDirectoryOption
 
         @Argument(help: "The version to uninstall",
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []
         
         func run() {
-            let directory = getDirectory(possibleDirectory: globals.directory)
+            let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
             installer.uninstallXcode(version.joined(separator: " "), directory: directory)
                 .done { Uninstall.exit() }
@@ -323,10 +317,10 @@ struct Xcodes: ParsableCommand {
         )
         
         @OptionGroup
-        var globals: GlobalOptions
+        var globalDirectory: GlobalDirectoryOption
         
         func run() {
-            let directory = getDirectory(possibleDirectory: globals.directory)
+            let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             installer.updateAndPrint(directory: directory)
                 .done { Update.exit() }
