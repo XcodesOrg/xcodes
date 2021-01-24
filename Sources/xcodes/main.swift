@@ -5,13 +5,14 @@ import PromiseKit
 import XcodesKit
 import LegibleError
 import Path
+import Rainbow
 
 func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Applications")) -> Path {
     let directory = possibleDirectory.flatMap(Path.init) ??
         ProcessInfo.processInfo.environment["XCODES_DIRECTORY"].flatMap(Path.init) ?? 
         `default`
     guard directory.isDirectory else {
-        Current.logging.log("Directory argument must be a directory, but was provided \(directory.string).")
+        Current.logging.log("Directory argument must be a directory, but was provided \(directory.string).".red)
         exit(1)
     }
     return directory
@@ -35,6 +36,19 @@ struct GlobalDataSourceOption: ParsableArguments {
         )
     )
     var dataSource: DataSource = .xcodeReleases
+}
+
+struct GlobalColorOption: ParsableArguments {
+    @Flag(
+        inversion: .prefixedNo,
+        help: ArgumentHelp(
+            "Determines whether output should be colored.",
+            discussion: """
+                xcodes will also disable colored output if its not running in an interactive terminal, if the NO_COLOR environment variable is set, or if the TERM environment variable is set to "dumb". 
+                """
+        )
+    )
+    var color: Bool = true
 }
 
 struct Xcodes: ParsableCommand {
@@ -94,8 +108,13 @@ struct Xcodes: ParsableCommand {
         
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
+
+        @OptionGroup
+        var globalColor: GlobalColorOption
         
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             let versionString = version.joined(separator: " ")
             
             let installation: XcodeInstaller.InstallationType
@@ -124,9 +143,9 @@ struct Xcodes: ParsableCommand {
                         Current.logging.log("""
                             Failed executing: `\(process)` (\(process.terminationStatus))
                             \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
-                            """)
+                            """.red)
                     default:
-                        Current.logging.log(error.legibleLocalizedDescription)
+                        Current.logging.log(error.legibleLocalizedDescription.red)
                     }
                     
                     Install.exit(withError: ExitCode.failure)
@@ -180,8 +199,13 @@ struct Xcodes: ParsableCommand {
         
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
+
+        @OptionGroup
+        var globalColor: GlobalColorOption
         
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             let versionString = version.joined(separator: " ")
             
             let installation: XcodeInstaller.InstallationType
@@ -212,9 +236,9 @@ struct Xcodes: ParsableCommand {
                         Current.logging.log("""
                             Failed executing: `\(process)` (\(process.terminationStatus))
                             \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
-                            """)
+                            """.red)
                     default:
-                        Current.logging.log(error.legibleLocalizedDescription)
+                        Current.logging.log(error.legibleLocalizedDescription.red)
                     }
                     
                     Install.exit(withError: ExitCode.failure)
@@ -232,7 +256,12 @@ struct Xcodes: ParsableCommand {
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
         
+        @OptionGroup
+        var globalColor: GlobalColorOption
+        
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             installer.printInstalledXcodes(directory: directory)
@@ -253,8 +282,13 @@ struct Xcodes: ParsableCommand {
         
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
+
+        @OptionGroup
+        var globalColor: GlobalColorOption
         
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             firstly { () -> Promise<Void> in
@@ -296,7 +330,12 @@ struct Xcodes: ParsableCommand {
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
         
+        @OptionGroup
+        var globalColor: GlobalColorOption
+        
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             selectXcode(shouldPrint: print, pathOrVersion: versionOrPath.joined(separator: " "), directory: directory)
@@ -326,7 +365,12 @@ struct Xcodes: ParsableCommand {
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
         
+        @OptionGroup
+        var globalColor: GlobalColorOption
+        
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
             installer.uninstallXcode(version.joined(separator: " "), directory: directory)
@@ -347,8 +391,13 @@ struct Xcodes: ParsableCommand {
         
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
+
+        @OptionGroup
+        var globalColor: GlobalColorOption
         
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
@@ -364,7 +413,12 @@ struct Xcodes: ParsableCommand {
             abstract: "Print the version number of xcodes itself"
         )
         
+        @OptionGroup
+        var globalColor: GlobalColorOption
+        
         func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+
             Current.logging.log(XcodesKit.version.description)
         }
     }

@@ -4,6 +4,7 @@ import Path
 import AppleAPI
 import Version
 import LegibleError
+import Rainbow
 
 /// Downloads and installs Xcodes
 public final class XcodeInstaller {
@@ -155,7 +156,7 @@ public final class XcodeInstaller {
             return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0)
         }
         .done { xcode in
-            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)")
+            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
             Current.shell.exit(0)
         }
     }
@@ -179,7 +180,7 @@ public final class XcodeInstaller {
                 default:
                     // If the XIP was just downloaded, remove it and try to recover.
                     return firstly { () -> Promise<InstalledXcode> in
-                        Current.logging.log(error.legibleLocalizedDescription)
+                        Current.logging.log(error.legibleLocalizedDescription.red)
                         Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
                         try Current.files.removeItem(at: damagedXIPURL)
                         return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1)
@@ -201,7 +202,7 @@ public final class XcodeInstaller {
             return (xcode, destination)
         }
         .done { (xcode, url) in
-            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been downloaded to \(url.path)")
+            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been downloaded to \(url.path)".green)
             Current.shell.exit(0)
         }
     }
@@ -347,7 +348,7 @@ public final class XcodeInstaller {
                 self.login(username, password: password)
             }
             .recover { error -> Promise<Void> in
-                Current.logging.log(error.legibleLocalizedDescription)
+                Current.logging.log(error.legibleLocalizedDescription.red)
 
                 if case Client.Error.invalidUsernameOrPassword = error {
                     Current.logging.log("Try entering your password again")
@@ -562,7 +563,7 @@ public final class XcodeInstaller {
                 }
         }
         .done { (installedXcode, trashURL) in
-            Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)")
+            Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)".green)
             Current.shell.exit(0)
         }
     }
@@ -625,10 +626,10 @@ public final class XcodeInstaller {
                         var output = releasedVersion.version.appleDescriptionWithBuildIdentifier
                         if installedXcodes.contains(where: { releasedVersion.version.isEquivalent(to: $0.version) }) {
                             if releasedVersion.version == selectedInstalledXcodeVersion {
-                                output += " (Installed, Selected)"
+                                output += " (\("Installed".blue), \("Selected".green))"
                             }
                             else {
-                                output += " (Installed)"
+                                output += " (\("Installed".blue))"
                             }
                         }
                         Current.logging.log(output)
@@ -641,13 +642,13 @@ public final class XcodeInstaller {
             .done { pathOutput in
                 let installedXcodes = Current.files.installedXcodes(directory)
                     .sorted { $0.version < $1.version }
+                let selectedString = "(Selected)"
                 
                 let lines = installedXcodes.map { installedXcode -> String in
                     var line = installedXcode.version.appleDescriptionWithBuildIdentifier
                     
-                    let selectedString = " (Selected)" 
                     if pathOutput.out.hasPrefix(installedXcode.path.string) {
-                        line += selectedString
+                        line += " " + selectedString
                     }
                     
                     return line
@@ -660,6 +661,8 @@ public final class XcodeInstaller {
                     var line = lines[index]
                     let widthOfFirstColumnInThisRow = line.count
                     let spaceBetweenFirstAndSecondColumns = maxWidthOfFirstColumn - widthOfFirstColumnInThisRow
+                    
+                    line = line.replacingOccurrences(of: selectedString, with: selectedString.green)
                     
                     // If outputting to an interactive terminal, align the columns so they're easier for a human to read
                     // Otherwise, separate columns by a tab character so it's easier for a computer to split up
