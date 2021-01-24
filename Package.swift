@@ -21,6 +21,7 @@ let package = Package(
         .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0")),
         .package(name: "XcodeReleases", url: "https://github.com/xcodereleases/data", .revision("b47228c688b608e34b3b84079ab6052a24c7a981")),
+        .package(url: "https://github.com/onevcat/Rainbow.git", .upToNextMinor(from: "3.2.0")),
     ],
     targets: [
         .target(
@@ -46,6 +47,7 @@ let package = Package(
                 "SwiftSoup",
                 "Version", 
                 .product(name: "XCModel", package: "XcodeReleases"),
+                "Rainbow",
             ]),
         .testTarget(
             name: "XcodesKitTests",
@@ -60,7 +62,8 @@ let package = Package(
             name: "AppleAPI",
             dependencies: [
                 "PromiseKit",
-                "PMKFoundation"
+                "PMKFoundation",
+                "Rainbow",
             ]),
         .testTarget(
             name: "AppleAPITests",
