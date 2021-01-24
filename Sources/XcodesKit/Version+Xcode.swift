@@ -38,21 +38,31 @@ public extension Version {
         self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers, buildMetadataIdentifiers: [buildMetadataIdentifier].compactMap { $0 })
     }
 
-    var xcodeDescription: String {
+    /// The intent here is to match Apple's marketing version
+    ///
+    /// Only show the patch number if it's not 0
+    /// Format prerelease identifiers
+    /// Don't include build identifiers
+    var appleDescription: String {
         var base = "\(major).\(minor)"
         if patch != 0 {
             base += ".\(patch)"
         }
         if !prereleaseIdentifiers.isEmpty {
             base += " " + prereleaseIdentifiers
-                .map { $0.replacingOccurrences(of: "-", with: " ").capitalized.replacingOccurrences(of: "Gm", with: "GM") }
+                .map { identifier in
+                    identifier
+                        .replacingOccurrences(of: "-", with: " ")
+                        .capitalized
+                        .replacingOccurrences(of: "Gm", with: "GM")
+                        .replacingOccurrences(of: "Rc", with: "RC")
+                }
                 .joined(separator: " ")
-
-            if !buildMetadataIdentifiers.isEmpty {
-                base += " (\(buildMetadataIdentifiers.joined(separator: " ")))"
-            }
         }
         return base
+    }
+    var appleDescriptionWithBuildIdentifier: String {
+        [appleDescription, buildMetadataIdentifiersDisplay].filter { !$0.isEmpty }.joined(separator: " ")
     }
 }
 

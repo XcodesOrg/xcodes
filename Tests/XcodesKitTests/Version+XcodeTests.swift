@@ -18,14 +18,14 @@ class VersionXcodeTests: XCTestCase {
         XCTAssertEqual(Version(xcodeVersion: "Xcode 10.2 GM seed 2"), Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed", "2"]))
     }
 
-    func test_XcodeDescription() {
-        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0).xcodeDescription,                                          "10.2")
-        XCTAssertEqual(Version(major: 10, minor: 2, patch: 1).xcodeDescription,                                          "10.2.1")
-        XCTAssertEqual(Version(major: 11, minor: 0, patch: 0, prereleaseIdentifiers: ["beta"]).xcodeDescription,         "11.0 Beta")
-        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["beta", "4"]).xcodeDescription,    "10.2 Beta 4")
-        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm"]).xcodeDescription,           "10.2 GM")
-        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed"]).xcodeDescription,      "10.2 GM Seed")
-        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed", "1"]).xcodeDescription, "10.2 GM Seed 1")
+    func test_AppleDescription() {
+        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0).appleDescription,                                          "10.2")
+        XCTAssertEqual(Version(major: 10, minor: 2, patch: 1).appleDescription,                                          "10.2.1")
+        XCTAssertEqual(Version(major: 11, minor: 0, patch: 0, prereleaseIdentifiers: ["beta"]).appleDescription,         "11.0 Beta")
+        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["beta", "4"]).appleDescription,    "10.2 Beta 4")
+        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm"]).appleDescription,           "10.2 GM")
+        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed"]).appleDescription,      "10.2 GM Seed")
+        XCTAssertEqual(Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed", "1"]).appleDescription, "10.2 GM Seed 1")
     }
 
     func test_Equivalence() {

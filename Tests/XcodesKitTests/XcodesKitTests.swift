@@ -897,8 +897,8 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssertEqual(log, """
         Available Xcode versions:
-        1) 0.0
-        2) 2.0.1 (Selected)
+        1) 0.0 (ABC123)
+        2) 2.0.1 (ABC123) (Selected)
         Enter the number of the Xcode to select: 
         xcodes requires superuser privileges to select an Xcode
         macOS User Password: 

@@ -58,7 +58,7 @@ public final class XcodeInstaller {
             case .missingSudoerPassword:
                 return "Missing password. Please try again."
             case let .unavailableVersion(version):
-                return "Could not find version \(version.xcodeDescription)."
+                return "Could not find version \(version.appleDescription)."
             case .noNonPrereleaseVersionAvailable:
                 return "No non-prerelease versions available."
             case .noPrereleaseVersionAvailable:
@@ -66,11 +66,11 @@ public final class XcodeInstaller {
             case .missingUsernameOrPassword:
                 return "Missing username or a password. Please try again."
             case let .versionAlreadyInstalled(installedXcode):
-                return "\(installedXcode.version.xcodeDescription) is already installed at \(installedXcode.path)"
+                return "\(installedXcode.version.appleDescription) is already installed at \(installedXcode.path)"
             case let .invalidVersion(version):
                 return "\(version) is not a valid version number."
             case let .versionNotInstalled(version):
-                return "\(version.xcodeDescription) is not installed."
+                return "\(version.appleDescription) is not installed."
             }
         }
     }
@@ -217,7 +217,7 @@ public final class XcodeInstaller {
                         guard let latestNonPrereleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
-                        Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.xcodeDescription)")
+                        Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.appleDescription)")
                         
                         if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: latestNonPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
@@ -238,7 +238,7 @@ public final class XcodeInstaller {
                         else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
-                        Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.xcodeDescription)")
+                        Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.appleDescription)")
                         
                         if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: latestPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
@@ -554,7 +554,7 @@ public final class XcodeInstaller {
                 }
         }
         .done { (installedXcode, trashURL) in
-            Current.logging.log("Xcode \(installedXcode.version.xcodeDescription) moved to Trash: \(trashURL.path)")
+            Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)")
             Current.shell.exit(0)
         }
     }
@@ -614,7 +614,7 @@ public final class XcodeInstaller {
                         return first.version < second.version
                     }
                     .forEach { releasedVersion in
-                        var output = releasedVersion.version.xcodeDescription
+                        var output = releasedVersion.version.appleDescriptionWithBuildIdentifier
                         if installedXcodes.contains(where: { releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
                             if releasedVersion.version == selectedInstalledXcodeVersion {
                                 output += " (Installed, Selected)"
@@ -634,7 +634,7 @@ public final class XcodeInstaller {
                 Current.files.installedXcodes(directory)
                     .sorted { $0.version < $1.version }
                     .forEach { installedXcode in
-                        var output = installedXcode.version.xcodeDescription
+                        var output = installedXcode.version.appleDescriptionWithBuildIdentifier
                         if pathOutput.out.hasPrefix(installedXcode.path.string) {
                             output += " (Selected)"
                         }
