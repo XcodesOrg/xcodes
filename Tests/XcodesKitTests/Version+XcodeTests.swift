@@ -29,17 +29,8 @@ class VersionXcodeTests: XCTestCase {
     }
 
     func test_Equivalence() {
-        XCTAssertTrue(Version("10.2.1")!.isEquivalentForDeterminingIfInstalled(toInstalled: Version("10.2.1+abcdef")!))
-        XCTAssertFalse(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(toInstalled: Version("10.2.1-beta+abcdef")!))
-        XCTAssertTrue(Version("10.2.1-beta+qwerty")!.isEquivalentForDeterminingIfInstalled(toInstalled: Version("10.2.1-beta+QWERTY")!))
-    }
-
-    func test_XcodeVersionEquivalence() {
-        XCTAssertTrue(Version("12.0.0-beta")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12")!))
-        XCTAssertTrue(Version("12.0.0-beta")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12.0")!))
-        XCTAssertTrue(Version("12.0.0-beta")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12.0.0")!))
-        XCTAssertTrue(Version("12.0.0-beta+qwerty")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12")!))
-        XCTAssertTrue(Version("12.0.0-beta+qwerty")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12.0")!))
-        XCTAssertTrue(Version("12.0.0-beta+qwerty")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12.0.0")!))
+        XCTAssertTrue(Version("10.2.1")!.isEquivalent(to: Version("10.2.1+abcdef")!))
+        XCTAssertFalse(Version("10.2.1-beta+qwerty")!.isEquivalent(to: Version("10.2.1-beta+abcdef")!))
+        XCTAssertTrue(Version("10.2.1-beta+qwerty")!.isEquivalent(to: Version("10.2.1-beta+QWERTY")!))
     }
 }

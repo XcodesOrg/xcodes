@@ -219,7 +219,7 @@ public final class XcodeInstaller {
                         }
                         Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.appleDescription)")
                         
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: latestNonPrereleaseXcode.version) }) {
+                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestNonPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
 
@@ -240,7 +240,7 @@ public final class XcodeInstaller {
                         }
                         Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.appleDescription)")
                         
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: latestPrereleaseXcode.version) }) {
+                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
                         
@@ -256,7 +256,7 @@ public final class XcodeInstaller {
                 guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
-                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) {
+                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
                     throw Error.versionAlreadyInstalled(installedXcode)
                 }
                 return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
@@ -588,13 +588,13 @@ public final class XcodeInstaller {
         for installedXcode in installedXcodes {
             // If an installed version isn't listed online, add the installed version
             if !allXcodeVersions.contains(where: { releasedVersion in
-                releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version)
+                releasedVersion.version.isEquivalent(to: installedXcode.version)
             }) {
                 allXcodeVersions.append(ReleasedVersion(version: installedXcode.version, releaseDate: nil))
             }
             // If an installed version is the same as one that's listed online which doesn't have build metadata, replace it with the installed version with build metadata
             else if let index = allXcodeVersions.firstIndex(where: { releasedVersion in
-                releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version) &&
+                releasedVersion.version.isEquivalent(to: installedXcode.version) &&
                 releasedVersion.version.buildMetadataIdentifiers.isEmpty
             }) {
                 allXcodeVersions[index] = ReleasedVersion(version: installedXcode.version, releaseDate: nil)
@@ -615,7 +615,7 @@ public final class XcodeInstaller {
                     }
                     .forEach { releasedVersion in
                         var output = releasedVersion.version.appleDescriptionWithBuildIdentifier
-                        if installedXcodes.contains(where: { releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
+                        if installedXcodes.contains(where: { releasedVersion.version.isEquivalent(to: $0.version) }) {
                             if releasedVersion.version == selectedInstalledXcodeVersion {
                                 output += " (Installed, Selected)"
                             }

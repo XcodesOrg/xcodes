@@ -16,8 +16,8 @@ public extension Version {
      */
     init?(xcodeVersion: String, buildMetadataIdentifier: String? = nil) {
         let nsrange = NSRange(xcodeVersion.startIndex..<xcodeVersion.endIndex, in: xcodeVersion)
-        // https://regex101.com/r/dLLvsz/1
-        let pattern = "^(Xcode )?(?<major>\\d+)\\.?(?<minor>\\d?)\\.?(?<patch>\\d?) ?(?<prereleaseType>[a-zA-Z ]+)? ?(?<prereleaseVersion>\\d?)"
+        // https://regex101.com/r/K7530Z/1
+        let pattern = "^(Xcode )?(?<major>\\d+)\\.?(?<minor>\\d*)\\.?(?<patch>\\d*) ?(?<prereleaseType>[a-zA-Z ]+)? ?(?<prereleaseVersion>\\d*)"
 
         guard
             let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
