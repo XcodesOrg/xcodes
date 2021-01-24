@@ -197,7 +197,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -290,7 +290,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), downloader: .urlSession, destination: Path.home.join("Xcode"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.home.join("Xcode"))
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-AlternativeDirectory", withExtension: "txt", subdirectory: "Fixtures")!
                 let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
@@ -404,7 +404,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-IncorrectSavedPassword", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -522,7 +522,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-DamagedXIP", withExtension: "txt", subdirectory: "Fixtures")!
                 let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
