@@ -1,6 +1,8 @@
 # xcodes
 
-Manage the Xcodes installed on your Mac
+The best command-line tool to install and switch between multiple versions of Xcode.
+
+_If you're looking for an app version of `xcodes`, try [Xcodes.app](https://github.com/RobotsAndPencils/XcodesApp)._
 
 ![CI Status](https://github.com/RobotsAndPencils/xcodes/workflows/CI/badge.svg)
 
