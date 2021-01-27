@@ -283,16 +283,19 @@ struct Xcodes: ParsableCommand {
             RunLoop.current.run()
         }
     }
-    
+        
     struct Uninstall: ParsableCommand {
         static var configuration = CommandConfiguration(
-            abstract: "Uninstall a specific version of Xcode",
+            abstract: "Uninstall a version of Xcode",
             discussion: """
+                        Run without any arguments to interactively select from a list.
+
                         EXAMPLES:
-                          xcodes uninstall 10.2.1
+                          xcodes uninstall
+                          xcodes uninstall 11.4.0
                         """
         )
-
+        
         @Argument(help: "The version to uninstall",
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
         var version: [String] = []

@@ -589,6 +589,60 @@ final class XcodesKitTests: XCTestCase {
             }
             .cauterize()
     }
+    
+    func test_UninstallInteractively() {
+        
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+        
+        // There are installed Xcodes
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!, version: Version(0, 0, 0)),
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!, version: Version(2, 0, 1)),
+        ]
+        Current.files.installedXcodes = { _ in installedXcodes }
+        
+        // It prints the expected paths
+        var xcodeSelectPrintPathCallCount = 0
+        Current.shell.xcodeSelectPrintPath = {
+            xcodeSelectPrintPathCallCount += 1
+            if xcodeSelectPrintPathCallCount == 1 {
+                return Promise.value((status: 0, out: "/Applications/Xcode-2.0.1.app/Contents/Developer", err: ""))
+            }
+            else {
+                return Promise.value((status: 0, out: "/Applications/Xcode-0.0.0.app/Contents/Developer", err: ""))
+            }
+        }
+
+        // User enters an index
+        XcodesKit.Current.shell.readLine = { prompt in
+            XcodesKit.Current.logging.log(prompt)
+            return "1"
+        }
+        
+        // Trashing succeeds
+        var trashedItemAtURL: URL?
+        Current.files.trashItem = { itemURL in
+            trashedItemAtURL = itemURL
+            return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
+        }
+
+        installer.uninstallXcode("999", directory: Path.root.join("Applications"))
+            .ensure {
+                XCTAssertEqual(trashedItemAtURL, installedXcodes[0].path.url)
+            }
+            .cauterize()
+        
+        XCTAssertEqual(log, """
+        999.0 is not installed.
+        Available Xcode versions:
+        1) 0.0
+        2) 2.0.1
+        Enter the number of the Xcode to select: 
+        Xcode 0.0 moved to Trash: \(try Current.files.trashItem(XCTUnwrap(trashedItemAtURL)).path)
+
+        """)
+    }
 
     func test_VerifySecurityAssessment_Fails() {
         Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }

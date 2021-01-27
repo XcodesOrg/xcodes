@@ -522,19 +522,20 @@ public final class XcodeInstaller {
     }
 
     public func uninstallXcode(_ versionString: String, directory: Path) -> Promise<Void> {
-        return firstly { () -> Promise<(InstalledXcode, URL)> in
+        return firstly { () -> Promise<InstalledXcode> in
             guard let version = Version(xcodeVersion: versionString) else {
-                throw Error.invalidVersion(versionString)
+                Current.logging.log(Error.invalidVersion(versionString).legibleLocalizedDescription)
+                return chooseFromInstalledXcodesInteractively(currentPath: "", directory: directory)
             }
 
             guard let installedXcode = Current.files.installedXcodes(directory).first(withVersion: version) else {
-                throw Error.versionNotInstalled(version)
+                Current.logging.log(Error.versionNotInstalled(version).legibleLocalizedDescription)
+                return chooseFromInstalledXcodesInteractively(currentPath: "", directory: directory)
             }
 
-            return Promise<URL> { seal in
-                seal.fulfill(try Current.files.trashItem(at: installedXcode.path.url))
-            }.map { (installedXcode, $0) }
+            return Promise.value(installedXcode)
         }
+        .map { ($0, try Current.files.trashItem(at: $0.path.url)) }
         .then { (installedXcode, trashURL) -> Promise<(InstalledXcode, URL)> in
             // If we just uninstalled the selected Xcode, try to select the latest installed version so things don't accidentally break
             Current.shell.xcodeSelectPrintPath()
