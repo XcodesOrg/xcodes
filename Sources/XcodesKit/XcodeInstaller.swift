@@ -284,6 +284,14 @@ public final class XcodeInstaller {
                 return Promise.value(version)
             }
         }
+        .then { version -> Promise<Version> in
+            // This request would've already been made if the Apple data source were being used.
+            // That's not the case for the Xcode Releases data source.
+            // We need the cookies from its response in order to download Xcodes though,
+            // so perform it here first just to be sure.
+            Current.network.dataTask(with: URLRequest.downloads)
+                .map { _ in version }
+        }
         .then { version -> Promise<(Xcode, URL)> in
             guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
                 throw Error.unavailableVersion(version)
