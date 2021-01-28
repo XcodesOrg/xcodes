@@ -36,7 +36,7 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
                     Current.shell.exit(0)
                 }
                 .recover { _ in
-                    try selectXcodeInteractively(currentPath: output.out, directory: directory)
+                    selectXcodeInteractively(currentPath: output.out, directory: directory)
                         .done { output in
                             Current.logging.log("Selected \(output.out)")
                             Current.shell.exit(0)
@@ -50,7 +50,7 @@ public func selectXcodeInteractively(currentPath: String, directory: Path, shoul
     if shouldRetry {
         func selectWithRetry(currentPath: String) -> Promise<ProcessOutput> {
             return firstly {
-                try selectXcodeInteractively(currentPath: currentPath, directory: directory)
+                selectXcodeInteractively(currentPath: currentPath, directory: directory)
             }
             .recover { error throws -> Promise<ProcessOutput> in
                 guard case XcodeSelectError.invalidIndex = error else { throw error }
@@ -63,12 +63,12 @@ public func selectXcodeInteractively(currentPath: String, directory: Path, shoul
     }
     else {
         return firstly {
-            try selectXcodeInteractively(currentPath: currentPath, directory: directory)
+            selectXcodeInteractively(currentPath: currentPath, directory: directory)
         }
     }
 }
 
-public func selectXcodeInteractively(currentPath: String, directory: Path) throws -> Promise<ProcessOutput> {
+public func chooseFromInstalledXcodesInteractively(currentPath: String, directory: Path) -> Promise<InstalledXcode> {
     let sortedInstalledXcodes = Current.files.installedXcodes(directory).sorted { $0.version < $1.version }
 
     Current.logging.log("Available Xcode versions:")
@@ -89,10 +89,17 @@ public func selectXcodeInteractively(currentPath: String, directory: Path) throw
         let selectionNumber = Int(selectionNumberString),
         sortedInstalledXcodes.indices.contains(selectionNumber - 1)
     else {
-        throw XcodeSelectError.invalidIndex(min: 1, max: sortedInstalledXcodes.count, given: possibleSelectionNumberString)
+        let error = XcodeSelectError.invalidIndex(min: 1, max: sortedInstalledXcodes.count, given: possibleSelectionNumberString)
+        return Promise(error: error)
     }
 
-    return selectXcodeAtPath(sortedInstalledXcodes[selectionNumber - 1].path.string)
+    return Promise.value(sortedInstalledXcodes[selectionNumber - 1]) 
+}
+
+public func selectXcodeInteractively(currentPath: String, directory: Path) -> Promise<ProcessOutput> {
+    return chooseFromInstalledXcodesInteractively(currentPath: currentPath, directory: directory)
+        .map(\.path.string)
+        .then(selectXcodeAtPath)
 }
 
 public func selectXcodeAtPath(_ pathString: String) -> Promise<ProcessOutput> {

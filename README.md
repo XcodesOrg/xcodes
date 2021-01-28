@@ -101,7 +101,7 @@ Xcode will be installed to /Applications by default, but you can provide the pat
 - `installed`: List the versions of Xcode that are installed
 - `list`: List all versions of Xcode that are available to install
 - `select`: Change the selected Xcode
-- `uninstall <version>`: Uninstall a specific version of Xcode
+- `uninstall`: Uninstall a specific version of Xcode
 - `update`: Update the list of available versions of Xcode
 - `version`: Print the version number of xcodes itself
 
