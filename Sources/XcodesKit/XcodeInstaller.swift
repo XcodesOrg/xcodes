@@ -637,6 +637,7 @@ public final class XcodeInstaller {
                         if pathOutput.out.hasPrefix(installedXcode.path.string) {
                             output += " (Selected)"
                         }
+                        output += "\t\(installedXcode.path.string)"
                         Current.logging.log(output)
                     }
             }
