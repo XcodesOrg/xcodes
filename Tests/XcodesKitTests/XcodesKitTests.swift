@@ -639,7 +639,7 @@ final class XcodesKitTests: XCTestCase {
         1) 0.0
         2) 2.0.1
         Enter the number of the Xcode to select: 
-        Xcode 0.0 moved to Trash: \(try Current.files.trashItem(XCTUnwrap(trashedItemAtURL)).path)
+        Xcode 0.0 moved to Trash: \(NSHomeDirectory())/.Trash/Xcode-0.0.0.app
 
         """)
     }
