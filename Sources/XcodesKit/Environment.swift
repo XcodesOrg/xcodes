@@ -190,6 +190,8 @@ public struct Shell {
     }
 
     public var exit: (Int32) -> Void = { Darwin.exit($0) }
+    
+    public var isatty: () -> Bool = { Foundation.isatty(fileno(stdout)) != 0 }
 }
 
 public struct Files {

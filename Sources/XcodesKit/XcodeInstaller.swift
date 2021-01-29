@@ -639,16 +639,34 @@ public final class XcodeInstaller {
     public func printInstalledXcodes(directory: Path) -> Promise<Void> {
         Current.shell.xcodeSelectPrintPath()
             .done { pathOutput in
-                Current.files.installedXcodes(directory)
+                let installedXcodes = Current.files.installedXcodes(directory)
                     .sorted { $0.version < $1.version }
-                    .forEach { installedXcode in
-                        var output = installedXcode.version.appleDescriptionWithBuildIdentifier
-                        if pathOutput.out.hasPrefix(installedXcode.path.string) {
-                            output += " (Selected)"
-                        }
-                        output += "\t\(installedXcode.path.string)"
-                        Current.logging.log(output)
+                
+                // Add one so there's always at least one space between columns
+                let maxWidthOfFirstColumn = (installedXcodes.map(\.version.appleDescriptionWithBuildIdentifier.count).max() ?? 0) + 1
+
+                for installedXcode in installedXcodes {
+                    let widthOfFirstColumnInThisRow = installedXcode.version.appleDescriptionWithBuildIdentifier.count
+                    var spaceBetweenFirstAndSecondColumns = maxWidthOfFirstColumn - widthOfFirstColumnInThisRow
+
+                    var output = installedXcode.version.appleDescriptionWithBuildIdentifier
+                    let selectedString = " (Selected)" 
+                    if pathOutput.out.hasPrefix(installedXcode.path.string) {
+                        output += selectedString
+                        spaceBetweenFirstAndSecondColumns -= selectedString.count
                     }
+                    
+                    // If outputting to an interactive terminal, align the columns so they're easier for a human to read
+                    // Otherwise, separate columns by a tab character so it's easier for a computer to split up
+                    if Current.shell.isatty() {
+                        output += Array(repeating: " ", count: max(spaceBetweenFirstAndSecondColumns, 0))
+                        output += "\(installedXcode.path.string)"
+                    } else {
+                        output += "\t\(installedXcode.path.string)"
+                    }
+                    
+                    Current.logging.log(output)
+                }
             }
     }
 
