@@ -58,7 +58,7 @@ public final class XcodeInstaller {
             case .missingSudoerPassword:
                 return "Missing password. Please try again."
             case let .unavailableVersion(version):
-                return "Could not find version \(version.xcodeDescription)."
+                return "Could not find version \(version.appleDescription)."
             case .noNonPrereleaseVersionAvailable:
                 return "No non-prerelease versions available."
             case .noPrereleaseVersionAvailable:
@@ -66,11 +66,11 @@ public final class XcodeInstaller {
             case .missingUsernameOrPassword:
                 return "Missing username or a password. Please try again."
             case let .versionAlreadyInstalled(installedXcode):
-                return "\(installedXcode.version.xcodeDescription) is already installed at \(installedXcode.path)"
+                return "\(installedXcode.version.appleDescription) is already installed at \(installedXcode.path)"
             case let .invalidVersion(version):
                 return "\(version) is not a valid version number."
             case let .versionNotInstalled(version):
-                return "\(version.xcodeDescription) is not installed."
+                return "\(version.appleDescription) is not installed."
             }
         }
     }
@@ -150,9 +150,9 @@ public final class XcodeInstaller {
         case aria2(Path)
     }
 
-    public func install(_ installationType: InstallationType, downloader: Downloader, destination: Path) -> Promise<Void> {
+    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
-            return self.install(installationType, downloader: downloader, destination: destination, attemptNumber: 0)
+            return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0)
         }
         .done { xcode in
             Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)")
@@ -160,9 +160,9 @@ public final class XcodeInstaller {
         }
     }
     
-    private func install(_ installationType: InstallationType, downloader: Downloader, destination: Path, attemptNumber: Int) -> Promise<InstalledXcode> {
+    private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<(Xcode, URL)> in
-            return self.getXcodeArchive(installationType, downloader: downloader, destination: destination, willInstall: true)
+            return self.getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
         }
         .then { xcode, url -> Promise<InstalledXcode> in
             return self.installArchivedXcode(xcode, at: url, to: destination)
@@ -182,7 +182,7 @@ public final class XcodeInstaller {
                         Current.logging.log(error.legibleLocalizedDescription)
                         Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
                         try Current.files.removeItem(at: damagedXIPURL)
-                        return self.install(installationType, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1)
+                        return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1)
                     }
                 }
             default:
@@ -191,9 +191,9 @@ public final class XcodeInstaller {
         }
     }
     
-    public func download(_ installation: InstallationType, downloader: Downloader, destinationDirectory: Path) -> Promise<Void> {
+    public func download(_ installation: InstallationType, dataSource: DataSource, downloader: Downloader, destinationDirectory: Path) -> Promise<Void> {
         return firstly { () -> Promise<(Xcode, URL)> in
-            return self.getXcodeArchive(installation, downloader: downloader, destination: destinationDirectory, willInstall: false)
+            return self.getXcodeArchive(installation, dataSource: dataSource, downloader: downloader, destination: destinationDirectory, willInstall: false)
         }
         .map { (xcode, url) -> (Xcode, URL) in
             let destination = destinationDirectory.url.appendingPathComponent(url.lastPathComponent)
@@ -206,29 +206,29 @@ public final class XcodeInstaller {
         }
     }
 
-    private func getXcodeArchive(_ installationType: InstallationType, downloader: Downloader, destination: Path, willInstall: Bool) -> Promise<(Xcode, URL)> {
+    private func getXcodeArchive(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, willInstall: Bool) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<(Xcode, URL)> in
             switch installationType {
             case .latest:
                 Current.logging.log("Updating...")
                 
-                return update()
+                return update(dataSource: dataSource)
                     .then { availableXcodes -> Promise<(Xcode, URL)> in
                         guard let latestNonPrereleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
-                        Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.xcodeDescription)")
+                        Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.appleDescription)")
                         
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: latestNonPrereleaseXcode.version) }) {
+                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestNonPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
 
-                        return self.downloadXcode(version: latestNonPrereleaseXcode.version, downloader: downloader, willInstall: willInstall)
+                        return self.downloadXcode(version: latestNonPrereleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
                     }
             case .latestPrerelease:
                 Current.logging.log("Updating...")
                 
-                return update()
+                return update(dataSource: dataSource)
                     .then { availableXcodes -> Promise<(Xcode, URL)> in
                         guard let latestPrereleaseXcode = availableXcodes
                             .filter({ $0.version.isPrerelease })
@@ -238,13 +238,13 @@ public final class XcodeInstaller {
                         else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
-                        Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.xcodeDescription)")
+                        Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.appleDescription)")
                         
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: latestPrereleaseXcode.version) }) {
+                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
                         
-                        return self.downloadXcode(version: latestPrereleaseXcode.version, downloader: downloader, willInstall: willInstall)
+                        return self.downloadXcode(version: latestPrereleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
                     }
             case .path(let versionString, let path):
                 guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
@@ -256,10 +256,10 @@ public final class XcodeInstaller {
                 guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
-                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: version) }) {
+                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
                     throw Error.versionAlreadyInstalled(installedXcode)
                 }
-                return self.downloadXcode(version: version, downloader: downloader, willInstall: willInstall)
+                return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
             }
         }
     }
@@ -272,17 +272,25 @@ public final class XcodeInstaller {
         return version
     }
 
-    private func downloadXcode(version: Version, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
+    private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<Version> in
             loginIfNeeded().map { version }
         }
         .then { version -> Promise<Version> in
             if self.xcodeList.shouldUpdate {
-                return self.xcodeList.update().map { _ in version }
+                return self.xcodeList.update(dataSource: dataSource).map { _ in version }
             }
             else {
                 return Promise.value(version)
             }
+        }
+        .then { version -> Promise<Version> in
+            // This request would've already been made if the Apple data source were being used.
+            // That's not the case for the Xcode Releases data source.
+            // We need the cookies from its response in order to download Xcodes though,
+            // so perform it here first just to be sure.
+            Current.network.dataTask(with: URLRequest.downloads)
+                .map { _ in version }
         }
         .then { version -> Promise<(Xcode, URL)> in
             guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
@@ -554,22 +562,22 @@ public final class XcodeInstaller {
                 }
         }
         .done { (installedXcode, trashURL) in
-            Current.logging.log("Xcode \(installedXcode.version.xcodeDescription) moved to Trash: \(trashURL.path)")
+            Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)")
             Current.shell.exit(0)
         }
     }
 
-    func update() -> Promise<[Xcode]> {
+    func update(dataSource: DataSource) -> Promise<[Xcode]> {
         return firstly { () -> Promise<Void> in
             loginIfNeeded()
         }
         .then { () -> Promise<[Xcode]> in
-            self.xcodeList.update()
+            self.xcodeList.update(dataSource: dataSource)
         }
     }
 
-    public func updateAndPrint(directory: Path) -> Promise<Void> {
-        update()
+    public func updateAndPrint(dataSource: DataSource, directory: Path) -> Promise<Void> {
+        update(dataSource: dataSource)
             .then { xcodes -> Promise<Void> in
                 self.printAvailableXcodes(xcodes, installed: Current.files.installedXcodes(directory))
             }
@@ -588,13 +596,13 @@ public final class XcodeInstaller {
         for installedXcode in installedXcodes {
             // If an installed version isn't listed online, add the installed version
             if !allXcodeVersions.contains(where: { releasedVersion in
-                releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version)
+                releasedVersion.version.isEquivalent(to: installedXcode.version)
             }) {
                 allXcodeVersions.append(ReleasedVersion(version: installedXcode.version, releaseDate: nil))
             }
             // If an installed version is the same as one that's listed online which doesn't have build metadata, replace it with the installed version with build metadata
             else if let index = allXcodeVersions.firstIndex(where: { releasedVersion in
-                releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: installedXcode.version) &&
+                releasedVersion.version.isEquivalent(to: installedXcode.version) &&
                 releasedVersion.version.buildMetadataIdentifiers.isEmpty
             }) {
                 allXcodeVersions[index] = ReleasedVersion(version: installedXcode.version, releaseDate: nil)
@@ -614,8 +622,8 @@ public final class XcodeInstaller {
                         return first.version < second.version
                     }
                     .forEach { releasedVersion in
-                        var output = releasedVersion.version.xcodeDescription
-                        if installedXcodes.contains(where: { releasedVersion.version.isEquivalentForDeterminingIfInstalled(toInstalled: $0.version) }) {
+                        var output = releasedVersion.version.appleDescriptionWithBuildIdentifier
+                        if installedXcodes.contains(where: { releasedVersion.version.isEquivalent(to: $0.version) }) {
                             if releasedVersion.version == selectedInstalledXcodeVersion {
                                 output += " (Installed, Selected)"
                             }
@@ -634,7 +642,7 @@ public final class XcodeInstaller {
                 Current.files.installedXcodes(directory)
                     .sorted { $0.version < $1.version }
                     .forEach { installedXcode in
-                        var output = installedXcode.version.xcodeDescription
+                        var output = installedXcode.version.appleDescriptionWithBuildIdentifier
                         if pathOutput.out.hasPrefix(installedXcode.path.string) {
                             output += " (Selected)"
                         }

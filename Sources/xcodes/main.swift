@@ -23,6 +23,20 @@ struct GlobalDirectoryOption: ParsableArguments {
     var directory: String?
 }
 
+struct GlobalDataSourceOption: ParsableArguments {
+    @Option(
+        help: ArgumentParser.ArgumentHelp(
+            "The data source for available Xcode versions.",
+            discussion: """
+                The Apple data source ("apple") scrapes the Apple Developer website. It will always show the latest releases that are available, but is more fragile.
+
+                Xcode Releases ("xcodeReleases") is an unofficial list of Xcode releases. It's provided as well-formed data, contains extra information that is not readily available from Apple, and is less likely to break if Apple redesigns their developer website.
+                """
+        )
+    )
+    var dataSource: DataSource = .xcodeReleases
+}
+
 struct Xcodes: ParsableCommand {
     static var configuration = CommandConfiguration(
         abstract: "Manage the Xcodes installed on your Mac",
@@ -58,7 +72,7 @@ struct Xcodes: ParsableCommand {
         )
         
         @Argument(help: "The version to download",
-                  completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
+                  completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
         
         @Flag(help: "Update and then download the latest non-prerelease version available.")
@@ -77,6 +91,9 @@ struct Xcodes: ParsableCommand {
         @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.", 
                 completion: .directory)
         var directory: String?
+        
+        @OptionGroup
+        var globalDataSource: GlobalDataSourceOption
         
         func run() {
             let versionString = version.joined(separator: " ")
@@ -100,7 +117,7 @@ struct Xcodes: ParsableCommand {
             
             let destination = getDirectory(possibleDirectory: directory, default: Path.home.join("Downloads"))
 
-            installer.download(installation, downloader: downloader, destinationDirectory: destination)
+            installer.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
                     switch error {
                     case Process.PMKError.execution(let process, let standardOutput, let standardError):
@@ -136,7 +153,7 @@ struct Xcodes: ParsableCommand {
         )
         
         @Argument(help: "The version to install",
-                  completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
+                  completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
         
         @Option(name: .customLong("path"),
@@ -161,6 +178,9 @@ struct Xcodes: ParsableCommand {
                 completion: .directory)
         var directory: String?
         
+        @OptionGroup
+        var globalDataSource: GlobalDataSourceOption
+        
         func run() {
             let versionString = version.joined(separator: " ")
             
@@ -184,7 +204,7 @@ struct Xcodes: ParsableCommand {
             
             let destination = getDirectory(possibleDirectory: directory)
             
-            installer.install(installation, downloader: downloader, destination: destination)
+            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination)
                 .done { Install.exit() }
                 .catch { error in
                     switch error {
@@ -231,12 +251,15 @@ struct Xcodes: ParsableCommand {
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
         
+        @OptionGroup
+        var globalDataSource: GlobalDataSourceOption
+        
         func run() {
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             firstly { () -> Promise<Void> in
                 if xcodeList.shouldUpdate {
-                    return installer.updateAndPrint(directory: directory)
+                    return installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 }
                 else {
                     return installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
@@ -267,7 +290,7 @@ struct Xcodes: ParsableCommand {
         var print: Bool = false
         
         @Argument(help: "Version or path",
-                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
+                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var versionOrPath: [String] = []
         
         @OptionGroup
@@ -297,7 +320,7 @@ struct Xcodes: ParsableCommand {
         )
         
         @Argument(help: "The version to uninstall",
-                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.xcodeDescription } })
+                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
         
         @OptionGroup
@@ -322,10 +345,13 @@ struct Xcodes: ParsableCommand {
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
         
+        @OptionGroup
+        var globalDataSource: GlobalDataSourceOption
+        
         func run() {
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
-            installer.updateAndPrint(directory: directory)
+            installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 .done { Update.exit() }
                 .catch { error in Update.exit(withLegibleError: error) }
             

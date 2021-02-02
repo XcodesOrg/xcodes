@@ -2,6 +2,15 @@
   "object": {
     "pins": [
       {
+        "package": "XcodeReleases",
+        "repositoryURL": "https://github.com/xcodereleases/data",
+        "state": {
+          "branch": null,
+          "revision": "b47228c688b608e34b3b84079ab6052a24c7a981",
+          "version": null
+        }
+      },
+      {
         "package": "PMKFoundation",
         "repositoryURL": "https://github.com/PromiseKit/Foundation.git",
         "state": {
@@ -51,8 +60,8 @@
         "repositoryURL": "https://github.com/apple/swift-argument-parser",
         "state": {
           "branch": null,
-          "revision": "92646c0cdbaca076c8d3d0207891785b3379cbff",
-          "version": "0.3.1"
+          "revision": "9564d61b08a5335ae0a36f789a7d71493eacadfc",
+          "version": "0.3.2"
         }
       },
       {

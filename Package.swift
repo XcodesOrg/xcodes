@@ -20,25 +20,38 @@ let package = Package(
         .package(url: "https://github.com/scinfu/SwiftSoup.git", .upToNextMinor(from: "2.0.0")),
         .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0")),
+        .package(name: "XcodeReleases", url: "https://github.com/xcodereleases/data", .revision("b47228c688b608e34b3b84079ab6052a24c7a981")),
     ],
     targets: [
         .target(
             name: "xcodes",
             dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"), "XcodesKit"
+                .product(name: "ArgumentParser", package: "swift-argument-parser"), 
+                "XcodesKit"
             ]),
         .testTarget(
             name: "xcodesTests",
-            dependencies: ["xcodes"]),
+            dependencies: [
+                "xcodes"
+            ]),
         .target(
             name: "XcodesKit",
             dependencies: [
-                "AppleAPI", .product(name: "Path", package: "Path.swift"), "Version", "PromiseKit", "PMKFoundation", "SwiftSoup", "LegibleError", "KeychainAccess"
+                "AppleAPI", 
+                "KeychainAccess",
+                "LegibleError",
+                .product(name: "Path", package: "Path.swift"), 
+                "PromiseKit", 
+                "PMKFoundation", 
+                "SwiftSoup",
+                "Version", 
+                .product(name: "XCModel", package: "XcodeReleases"),
             ]),
         .testTarget(
             name: "XcodesKitTests",
             dependencies: [
-                "XcodesKit", "Version"
+                "XcodesKit",
+                "Version"
             ],
             resources: [
                 .copy("Fixtures"),
@@ -46,11 +59,14 @@ let package = Package(
         .target(
             name: "AppleAPI",
             dependencies: [
-                "PromiseKit", "PMKFoundation"
+                "PromiseKit",
+                "PMKFoundation"
             ]),
         .testTarget(
             name: "AppleAPITests",
-            dependencies: ["AppleAPI"],
+            dependencies: [
+                "AppleAPI"
+            ],
             resources: [
                 .copy("Fixtures"),
             ]),

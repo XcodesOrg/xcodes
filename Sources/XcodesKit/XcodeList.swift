@@ -3,6 +3,7 @@ import Path
 import Version
 import PromiseKit
 import SwiftSoup
+import XCModel
 
 /// Provides lists of available and installed Xcodes
 public final class XcodeList {
@@ -16,20 +17,30 @@ public final class XcodeList {
         return availableXcodes.isEmpty
     }
 
-    public func update() -> Promise<[Xcode]> {
-        return when(fulfilled: releasedXcodes(), prereleaseXcodes())
-            .map { releasedXcodes, prereleaseXcodes in
-                // Starting with Xcode 11 beta 6, developer.apple.com/download and developer.apple.com/download/more both list some pre-release versions of Xcode.
-                // Previously pre-release versions only appeared on developer.apple.com/download.
-                // /download/more doesn't include build numbers, so we trust that if the version number and prerelease identifiers are the same that they're the same build.
-                // If an Xcode version is listed on both sites then prefer the one on /download because the build metadata is used to compare against installed Xcodes.
-                let xcodes = releasedXcodes.filter { releasedXcode in
-                    prereleaseXcodes.contains { $0.version.isEqualWithoutBuildMetadataIdentifiers(to: releasedXcode.version) } == false
-                } + prereleaseXcodes
-                self.availableXcodes = xcodes
-                try? self.cacheAvailableXcodes(xcodes)
-                return xcodes
-            }
+    public func update(dataSource: DataSource) -> Promise<[Xcode]> {
+        switch dataSource {
+        case .apple:
+            return when(fulfilled: releasedXcodes(), prereleaseXcodes())
+                .map { releasedXcodes, prereleaseXcodes in
+                    // Starting with Xcode 11 beta 6, developer.apple.com/download and developer.apple.com/download/more both list some pre-release versions of Xcode.
+                    // Previously pre-release versions only appeared on developer.apple.com/download.
+                    // /download/more doesn't include build numbers, so we trust that if the version number and prerelease identifiers are the same that they're the same build.
+                    // If an Xcode version is listed on both sites then prefer the one on /download because the build metadata is used to compare against installed Xcodes.
+                    let xcodes = releasedXcodes.filter { releasedXcode in
+                        prereleaseXcodes.contains { $0.version.isEquivalent(to: releasedXcode.version) } == false
+                    } + prereleaseXcodes
+                    self.availableXcodes = xcodes
+                    try? self.cacheAvailableXcodes(xcodes)
+                    return xcodes
+                }
+        case .xcodeReleases:
+            return xcodeReleases()
+                .map { xcodes in
+                    self.availableXcodes = xcodes
+                    try? self.cacheAvailableXcodes(xcodes)
+                    return xcodes
+                }
+        }
     }
 }
 
@@ -49,6 +60,8 @@ extension XcodeList {
 }
 
 extension XcodeList {
+    // MARK: - Apple
+
     private func releasedXcodes() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             Current.network.dataTask(with: URLRequest.downloads)
@@ -100,4 +113,63 @@ extension XcodeList {
 
         return [Xcode(version: version, url: url, filename: filename, releaseDate: DateFormatter.downloadsReleaseDate.date(from: releaseDateString))]
     }
+}
+
+extension XcodeList {
+    // MARK: - XcodeReleases
+    
+    private func xcodeReleases() -> Promise<[Xcode]> {
+        return firstly { () -> Promise<(data: Data, response: URLResponse)> in
+            Current.network.dataTask(with: URLRequest(url: URL(string: "https://xcodereleases.com/data.json")!))
+        }
+        .map { (data, response) in
+            let decoder = JSONDecoder()
+            let xcReleasesXcodes = try decoder.decode([XCModel.Xcode].self, from: data)
+            let xcodes = xcReleasesXcodes.compactMap { xcReleasesXcode -> Xcode? in
+                guard
+                    let downloadURL = xcReleasesXcode.links?.download?.url,
+                    let version = Version(xcReleasesXcode: xcReleasesXcode)
+                else { return nil }
+                
+                let releaseDate = Calendar(identifier: .gregorian).date(from: DateComponents(
+                    year: xcReleasesXcode.date.year,
+                    month: xcReleasesXcode.date.month,
+                    day: xcReleasesXcode.date.day
+                ))
+                
+                return Xcode(
+                    version: version,
+                    url: downloadURL,
+                    filename: String(downloadURL.path.suffix(fromLast: "/")),
+                    releaseDate: releaseDate
+                )
+            }
+            return xcodes
+        }
+        .map(filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers)
+    }
+    
+    /// Xcode Releases may have multiple releases with the same build metadata when a build doesn't change between candidate and final releases.
+    /// For example, 12.3 RC and 12.3 are both build 12C33
+    /// We don't care about that difference, so only keep the final release (GM or Release, in XCModel terms).
+    /// The downside of this is that a user could technically have both releases installed, and so they won't both be shown in the list, but I think most users wouldn't do this.
+    func filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers(_ xcodes: [Xcode]) -> [Xcode] {
+        var filteredXcodes: [Xcode] = []
+        for xcode in xcodes {
+            if xcode.version.buildMetadataIdentifiers.isEmpty {
+                filteredXcodes.append(xcode)
+                continue
+            }
+            
+            let xcodesWithSameBuildMetadataIdentifiers = xcodes
+                .filter({ $0.version.buildMetadataIdentifiers == xcode.version.buildMetadataIdentifiers })
+            if xcodesWithSameBuildMetadataIdentifiers.count > 1,
+               xcode.version.prereleaseIdentifiers.isEmpty || xcode.version.prereleaseIdentifiers == ["GM"] {
+                filteredXcodes.append(xcode)
+            } else if xcodesWithSameBuildMetadataIdentifiers.count == 1 {
+                filteredXcodes.append(xcode)
+            }
+        }
+        return filteredXcodes
+    } 
 }

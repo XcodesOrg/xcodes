@@ -76,7 +76,7 @@ public func chooseFromInstalledXcodesInteractively(currentPath: String, director
     sortedInstalledXcodes
         .enumerated()
         .forEach { index, installedXcode in
-            var output = "\(index + 1)) \(installedXcode.version.xcodeDescription)"
+            var output = "\(index + 1)) \(installedXcode.version.appleDescriptionWithBuildIdentifier)"
             if currentPath.hasPrefix(installedXcode.path.string) {
                 output += " (Selected)"
             }
