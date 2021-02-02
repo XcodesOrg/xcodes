@@ -642,30 +642,35 @@ public final class XcodeInstaller {
                 let installedXcodes = Current.files.installedXcodes(directory)
                     .sorted { $0.version < $1.version }
                 
-                // Add one so there's always at least one space between columns
-                let maxWidthOfFirstColumn = (installedXcodes.map(\.version.appleDescriptionWithBuildIdentifier.count).max() ?? 0) + 1
-
-                for installedXcode in installedXcodes {
-                    let widthOfFirstColumnInThisRow = installedXcode.version.appleDescriptionWithBuildIdentifier.count
-                    var spaceBetweenFirstAndSecondColumns = maxWidthOfFirstColumn - widthOfFirstColumnInThisRow
-
-                    var output = installedXcode.version.appleDescriptionWithBuildIdentifier
+                let lines = installedXcodes.map { installedXcode -> String in
+                    var line = installedXcode.version.appleDescriptionWithBuildIdentifier
+                    
                     let selectedString = " (Selected)" 
                     if pathOutput.out.hasPrefix(installedXcode.path.string) {
-                        output += selectedString
-                        spaceBetweenFirstAndSecondColumns -= selectedString.count
+                        line += selectedString
                     }
+                    
+                    return line
+                }
+                
+                // Add one so there's always at least one space between columns
+                let maxWidthOfFirstColumn = (lines.map(\.count).max() ?? 0) + 1
+
+                for (index, installedXcode) in installedXcodes.enumerated() {
+                    var line = lines[index]
+                    let widthOfFirstColumnInThisRow = line.count
+                    let spaceBetweenFirstAndSecondColumns = maxWidthOfFirstColumn - widthOfFirstColumnInThisRow
                     
                     // If outputting to an interactive terminal, align the columns so they're easier for a human to read
                     // Otherwise, separate columns by a tab character so it's easier for a computer to split up
                     if Current.shell.isatty() {
-                        output += Array(repeating: " ", count: max(spaceBetweenFirstAndSecondColumns, 0))
-                        output += "\(installedXcode.path.string)"
+                        line += Array(repeating: " ", count: max(spaceBetweenFirstAndSecondColumns, 0))
+                        line += "\(installedXcode.path.string)"
                     } else {
-                        output += "\t\(installedXcode.path.string)"
+                        line += "\t\(installedXcode.path.string)"
                     }
                     
-                    Current.logging.log(output)
+                    Current.logging.log(line)
                 }
             }
     }

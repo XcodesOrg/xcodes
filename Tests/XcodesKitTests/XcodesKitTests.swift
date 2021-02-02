@@ -942,7 +942,7 @@ final class XcodesKitTests: XCTestCase {
         
         // One is selected
         Current.shell.xcodeSelectPrintPath = {
-            Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: ""))
+            Promise.value((status: 0, out: "/Applications/Xcode-2.0.1-Release.Candidate.app/Contents/Developer", err: ""))
         }
         
         // Standard output is an interactive terminal
@@ -954,9 +954,9 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(
             log,
             """
-            0.0 (ABC123)                     /Applications/Xcode-0.0.0.app
-            2.0 (ABC123) (Selected)          /Applications/Xcode-2.0.0.app
-            2.0.1 Release Candidate (ABC123) /Applications/Xcode-2.0.1-Release.Candidate.app
+            0.0 (ABC123)                                /Applications/Xcode-0.0.0.app
+            2.0 (ABC123)                                /Applications/Xcode-2.0.0.app
+            2.0.1 Release Candidate (ABC123) (Selected) /Applications/Xcode-2.0.1-Release.Candidate.app
 
             """
         )
