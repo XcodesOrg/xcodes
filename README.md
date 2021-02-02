@@ -176,6 +176,8 @@ git push --follow-tags
 # Set the release title to the new version
 # Add the xcodes.zip and xcodes-$VERSION.mojave.tar.gz files to the release
 # Publish the release
+
+# Update the Homebrew Bottle: https://github.com/RobotsAndPencils/homebrew-made/blob/master/Formula/xcodes.rb
 ```
 </details>
 
