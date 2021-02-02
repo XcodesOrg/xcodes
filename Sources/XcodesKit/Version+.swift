@@ -8,15 +8,11 @@ public extension Version {
     func isEquivalent(to other: Version) -> Bool {
         // If we don't have build metadata identifiers for both Versions, compare major, minor, patch and prerelease identifiers.
         if buildMetadataIdentifiers.isEmpty || other.buildMetadataIdentifiers.isEmpty {
-            return major == other.major &&
-                   minor == other.minor &&
-                   patch == other.patch &&
+            return isEqualWithoutAllIdentifiers(to: other) &&
                    prereleaseIdentifiers.map { $0.lowercased() } == other.prereleaseIdentifiers.map { $0.lowercased() }
         // If we have build metadata identifiers for both, we can ignore the prerelease identifiers.
         } else {
-            return major == other.major &&
-                   minor == other.minor &&
-                   patch == other.patch && 
+            return isEqualWithoutAllIdentifiers(to: other) && 
                    buildMetadataIdentifiers.map { $0.lowercased() } == other.buildMetadataIdentifiers.map { $0.lowercased() }
         }
     }
