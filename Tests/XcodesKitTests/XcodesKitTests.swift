@@ -906,4 +906,115 @@ final class XcodesKitTests: XCTestCase {
 
         """)
     }
+    
+    func test_Installed_InteractiveTerminal() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1-Release.Candidate.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.1.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.1-Release.Candidate.app")!)!
+        ]
+        Current.files.installedXcodes = { _ in installedXcodes }
+        
+        // One is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: ""))
+        }
+        
+        // Standard output is an interactive terminal
+        Current.shell.isatty = { true }
+
+        installer.printInstalledXcodes(directory: Path.root/"Applications")
+            .cauterize()
+        
+        XCTAssertEqual(
+            log,
+            """
+            0.0 (ABC123)                     /Applications/Xcode-0.0.0.app
+            2.0 (ABC123) (Selected)          /Applications/Xcode-2.0.0.app
+            2.0.1 Release Candidate (ABC123) /Applications/Xcode-2.0.1-Release.Candidate.app
+
+            """
+        )
+    }
+    
+    func test_Installed_NonInteractiveTerminal() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1-Release.Candidate.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.1.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.1-Release.Candidate.app")!)!
+        ]
+        Current.files.installedXcodes = { _ in installedXcodes }
+        
+        // One is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: ""))
+        }
+        
+        // Standard output is not an interactive terminal
+        Current.shell.isatty = { false }
+
+        installer.printInstalledXcodes(directory: Path.root/"Applications")
+            .cauterize()
+        
+        XCTAssertEqual(
+            log,
+            """
+            0.0 (ABC123)\t/Applications/Xcode-0.0.0.app
+            2.0 (ABC123) (Selected)\t/Applications/Xcode-2.0.0.app
+            2.0.1 Release Candidate (ABC123)\t/Applications/Xcode-2.0.1-Release.Candidate.app
+
+            """
+        )
+    }
+
 }

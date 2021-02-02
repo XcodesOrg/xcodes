@@ -34,7 +34,8 @@ extension Shell {
         readLine: { _ in return nil },
         readSecureLine: { _, _ in return nil },
         env: { _ in nil },
-        exit: { _ in }
+        exit: { _ in },
+        isatty: { true }
     )
 }
 
