@@ -108,5 +108,5 @@ Apple ID Password:
 (6/6) Finishing installation
 xcodes requires superuser privileges in order to finish installation.
 macOS User Password: 
-[32m
-Xcode 0.0.0 has been installed to /Applications/Xcode-0.0.0.app[0m
+
+Xcode 0.0.0 has been installed to /Applications/Xcode-0.0.0.app

@@ -1,6 +1,7 @@
 import Foundation
 import PromiseKit
 import PMKFoundation
+import Rainbow
 
 public class Client {
     private static let authTypes = ["sa", "hsa", "non-sa", "hsa2"]
@@ -105,12 +106,12 @@ public class Client {
         .then { authOptions -> Promise<Void> in
             switch authOptions.kind {
             case .twoStep:
-                Current.logging.log("Received a response from Apple that indicates this account has two-step authentication enabled. xcodes currently only supports the newer two-factor authentication, though. Please consider upgrading to two-factor authentication, or open an issue on GitHub explaining why this isn't an option for you here: https://github.com/RobotsAndPencils/xcodes/issues/new")
+                Current.logging.log("Received a response from Apple that indicates this account has two-step authentication enabled. xcodes currently only supports the newer two-factor authentication, though. Please consider upgrading to two-factor authentication, or open an issue on GitHub explaining why this isn't an option for you here: https://github.com/RobotsAndPencils/xcodes/issues/new".yellow)
                 return Promise.value(())
             case .twoFactor:
                 return self.handleTwoFactor(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt, authOptions: authOptions)
             case .unknown:
-                Current.logging.log("Received a response from Apple that indicates this account has two-step or two-factor authentication enabled, but xcodes is unsure how to handle this response:")
+                Current.logging.log("Received a response from Apple that indicates this account has two-step or two-factor authentication enabled, but xcodes is unsure how to handle this response:".red)
                 String(data: data, encoding: .utf8).map { Current.logging.log($0) }
                 return Promise.value(())
             }
@@ -182,7 +183,7 @@ public class Client {
         }
         .recover { error throws -> Promise<AuthOptionsResponse.TrustedPhoneNumber> in
             guard case Error.invalidPhoneNumberIndex = error else { throw error }
-            Current.logging.log("\(error.localizedDescription)\n")
+            Current.logging.log("\(error.localizedDescription)\n".red)
             return self.selectPhoneNumberInteractively(from: trustedPhoneNumbers)
         }
     }

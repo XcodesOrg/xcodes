@@ -2,6 +2,7 @@ import Foundation
 import PromiseKit
 import Path
 import Version
+import Rainbow
 
 public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Path) -> Promise<Void> {
     firstly { () -> Promise<ProcessOutput> in
@@ -25,20 +26,20 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
            let installedXcode = Current.files.installedXcodes(directory).first(withVersion: version) {
             return selectXcodeAtPath(installedXcode.path.string)
                 .done { output in
-                    Current.logging.log("Selected \(output.out)")
+                    Current.logging.log("Selected \(output.out)".green)
                     Current.shell.exit(0)
                 }
         }
         else {
             return selectXcodeAtPath(pathOrVersion)
                 .done { output in
-                    Current.logging.log("Selected \(output.out)")
+                    Current.logging.log("Selected \(output.out)".green)
                     Current.shell.exit(0)
                 }
                 .recover { _ in
                     selectXcodeInteractively(currentPath: output.out, directory: directory)
                         .done { output in
-                            Current.logging.log("Selected \(output.out)")
+                            Current.logging.log("Selected \(output.out)".green)
                             Current.shell.exit(0)
                         }
                 }
@@ -54,7 +55,7 @@ public func selectXcodeInteractively(currentPath: String, directory: Path, shoul
             }
             .recover { error throws -> Promise<ProcessOutput> in
                 guard case XcodeSelectError.invalidIndex = error else { throw error }
-                Current.logging.log("\(error.legibleLocalizedDescription)\n")
+                Current.logging.log("\(error.legibleLocalizedDescription)\n".red)
                 return selectWithRetry(currentPath: currentPath)
             }
         }
@@ -78,7 +79,7 @@ public func chooseFromInstalledXcodesInteractively(currentPath: String, director
         .forEach { index, installedXcode in
             var output = "\(index + 1)) \(installedXcode.version.appleDescriptionWithBuildIdentifier)"
             if currentPath.hasPrefix(installedXcode.path.string) {
-                output += " (Selected)"
+                output += " (\("Selected".green))"
             }
             Current.logging.log(output)
         }
