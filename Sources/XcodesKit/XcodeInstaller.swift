@@ -78,7 +78,7 @@ public final class XcodeInstaller {
 
     /// A numbered step
     enum InstallationStep: CustomStringConvertible {
-        case downloading(version: String, progress: String, willInstall: Bool)
+        case downloading(version: String, progress: String?, willInstall: Bool)
         case unarchiving
         case moving(destination: String)
         case trashingArchive(archiveName: String)
@@ -97,7 +97,11 @@ public final class XcodeInstaller {
         var message: String {
             switch self {
             case .downloading(let version, let progress, _):
-                return "Downloading Xcode \(version): \(progress)"
+                if let progress = progress {
+                    return "Downloading Xcode \(version): \(progress)"
+                } else {
+                    return "Downloading Xcode \(version)"
+                }
             case .unarchiving:
                 return "Unarchiving Xcode (This can take a while)"
             case .moving(let destination):
@@ -298,14 +302,20 @@ public final class XcodeInstaller {
                 throw Error.unavailableVersion(version)
             }
 
-            // Move to the next line
-            Current.logging.log("")
+            if Current.shell.isatty() {
+                // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
+                Current.logging.log("")
+            } else {
+                Current.logging.log("\(InstallationStep.downloading(version: xcode.version.description, progress: nil, willInstall: willInstall))")
+            }
             let formatter = NumberFormatter(numberStyle: .percent)
             var observation: NSKeyValueObservation?
 
             let promise = self.downloadOrUseExistingArchive(for: xcode, downloader: downloader, willInstall: willInstall, progressChanged: { progress in
                 observation?.invalidate()
                 observation = progress.observe(\.fractionCompleted) { progress, _ in
+                    guard Current.shell.isatty() else { return }
+
                     // These escape codes move up a line and then clear to the end
                     Current.logging.log("\u{1B}[1A\u{1B}[K\(InstallationStep.downloading(version: xcode.version.description, progress: formatter.string(from: progress.fractionCompleted)!, willInstall: willInstall))")
                 }
