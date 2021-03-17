@@ -399,6 +399,25 @@ public final class XcodeInstaller {
             }
         }
     }
+    
+    public func logout() -> Promise<Void> {
+        guard let username = findUsername() else { return Promise<Void>(error: Client.Error.notAuthenticated) }
+        
+        return Promise { seal in
+            // Remove cookies in the shared URLSession
+            AppleAPI.Current.network.session.reset {
+                seal.fulfill(())
+            }
+        }
+        .done {
+            // Remove all keychain items
+            try Current.keychain.remove(username)
+
+            // Set `defaultUsername` in Configuration to nil
+            self.configuration.defaultUsername = nil
+            try self.configuration.save()
+        }
+    }
 
     let xcodesUsername = "XCODES_USERNAME"
     let xcodesPassword = "XCODES_PASSWORD"
