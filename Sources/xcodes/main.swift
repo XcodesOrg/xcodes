@@ -55,7 +55,7 @@ struct Xcodes: ParsableCommand {
     static var configuration = CommandConfiguration(
         abstract: "Manage the Xcodes installed on your Mac",
         shouldDisplay: true,
-        subcommands: [Download.self, Install.self, Installed.self, List.self, Select.self, Uninstall.self, Update.self, Version.self]
+        subcommands: [Download.self, Install.self, Installed.self, List.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
     )
     
     static var xcodesConfiguration = Configuration()
@@ -420,6 +420,31 @@ struct Xcodes: ParsableCommand {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             Current.logging.log(XcodesKit.version.description)
+        }
+    }
+    
+    struct Signout: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            abstract: "Clears the stored username and password"
+        )
+        
+        @OptionGroup
+        var globalColor: GlobalColorOption
+        
+        func run() {
+            Rainbow.enabled = Rainbow.enabled && globalColor.color
+            
+            installer.logout()
+                .done {
+                    Current.logging.log("Successfully signed out".green)
+                    Signout.exit()
+                }
+                .recover { error in
+                    Current.logging.log(error.legibleLocalizedDescription)
+                    Signout.exit()
+                }
+            
+            RunLoop.current.run()
         }
     }
 }

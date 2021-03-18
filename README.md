@@ -104,6 +104,7 @@ Xcode will be installed to /Applications by default, but you can provide the pat
 - `uninstall`: Uninstall a specific version of Xcode
 - `update`: Update the list of available versions of Xcode
 - `version`: Print the version number of xcodes itself
+- `signout`: Clears the stored username and password
 
 ### Shell Completion Scripts
 

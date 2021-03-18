@@ -1212,5 +1212,47 @@ final class XcodesKitTests: XCTestCase {
             """
         )
     }
+    
+    func test_Signout_WithExistingSession() {
+        var keychainDidRemove = false
+        Current.keychain.remove = { _ in
+            keychainDidRemove = true
+        }
+        
+        var customConfig = Configuration()
+        customConfig.defaultUsername = "test@example.com"
+        let customInstaller = XcodeInstaller(configuration: customConfig, xcodeList: XcodeList())
+        
+        let expectation = self.expectation(description: "Signout complete")
+        
+        customInstaller.logout()
+            .ensure { expectation.fulfill() }
+            .catch {
+                XCTFail($0.localizedDescription)
+            }
+        
+        waitForExpectations(timeout: 1.0)
+        
+        XCTAssertTrue(keychainDidRemove)
+    }
+    
+    func test_Signout_WithoutExistingSession() {
+        var customConfig = Configuration()
+        customConfig.defaultUsername = nil
+        let customInstaller = XcodeInstaller(configuration: customConfig, xcodeList: XcodeList())
+        
+        var capturedError: Error?
+        
+        let expectation = self.expectation(description: "Signout complete")
+        
+        customInstaller.logout()
+            .ensure { expectation.fulfill() }
+            .catch { error in
+                capturedError = error
+            }
+        waitForExpectations(timeout: 1.0)
+        
+        XCTAssertEqual(capturedError as? Client.Error, Client.Error.notAuthenticated)
+    }
 
 }

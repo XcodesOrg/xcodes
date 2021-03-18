@@ -16,6 +16,7 @@ public class Client {
         case unexpectedSignInResponse(statusCode: Int, message: String?)
         case appleIDAndPrivacyAcknowledgementRequired
         case noTrustedPhoneNumbers
+        case notAuthenticated
 
         public var errorDescription: String? {
             switch self {
@@ -27,6 +28,8 @@ public class Client {
                 return "Not a valid phone number index. Expecting a whole number between \(min)-\(max), but was given \(given ?? "nothing")."
             case .noTrustedPhoneNumbers:
                 return "Your account doesn't have any trusted phone numbers, but they're required for two-factor authentication. See https://support.apple.com/en-ca/HT204915."
+            case .notAuthenticated:
+                return "You are already signed out"
             default:
                 return String(describing: self)
             }
