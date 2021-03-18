@@ -29,7 +29,7 @@ public class Client {
             case .noTrustedPhoneNumbers:
                 return "Your account doesn't have any trusted phone numbers, but they're required for two-factor authentication. See https://support.apple.com/en-ca/HT204915."
             case .notAuthenticated:
-                return "No authenticated session found"
+                return "You are already signed out"
             default:
                 return String(describing: self)
             }

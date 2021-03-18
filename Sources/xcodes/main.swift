@@ -439,7 +439,10 @@ struct Xcodes: ParsableCommand {
                     Current.logging.log("Successfully signed out".green)
                     Signout.exit()
                 }
-                .recover { error in Signout.exit(withLegibleError: error) }
+                .recover { error in
+                    Current.logging.log(error.legibleLocalizedDescription)
+                    Signout.exit()
+                }
             
             RunLoop.current.run()
         }
