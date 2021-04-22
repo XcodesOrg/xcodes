@@ -300,7 +300,7 @@ struct Xcodes: ParsableCommand {
                 }
             }
             .done { List.exit() }
-            .catch { error in List.exit(withLegibleError: ExitCode.failure) }
+            .catch { error in List.exit(withLegibleError: error) }
             
             RunLoop.current.run()
         }
@@ -375,7 +375,7 @@ struct Xcodes: ParsableCommand {
 
             installer.uninstallXcode(version.joined(separator: " "), directory: directory)
                 .done { Uninstall.exit() }
-                .catch { error in Uninstall.exit(withLegibleError: ExitCode.failure) }
+                .catch { error in Uninstall.exit(withLegibleError: error) }
             
             RunLoop.current.run()
         }
