@@ -16,6 +16,7 @@ class VersionXcodeTests: XCTestCase {
         XCTAssertEqual(Version(xcodeVersion: "Xcode 10.2 GM seed"),   Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed"]))
         XCTAssertEqual(Version(xcodeVersion: "Xcode 10.2 GM seed 1"), Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed", "1"]))
         XCTAssertEqual(Version(xcodeVersion: "Xcode 10.2 GM seed 2"), Version(major: 10, minor: 2, patch: 0, prereleaseIdentifiers: ["gm-seed", "2"]))
+        XCTAssertEqual(Version(xcodeVersion: "Xcode 13.2 Release Candidate"), Version(major: 13, minor: 2, patch: 0, prereleaseIdentifiers: ["release", "candidate"]))
     }
 
     func test_AppleDescription() {
