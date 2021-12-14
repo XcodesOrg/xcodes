@@ -13,6 +13,7 @@ public extension Version {
      10.2 GM
      10.2
      10.2.1
+     13.2 Release Candidate
      */
     init?(xcodeVersion: String, buildMetadataIdentifier: String? = nil) {
         let nsrange = NSRange(xcodeVersion.startIndex..<xcodeVersion.endIndex, in: xcodeVersion)
@@ -30,8 +31,24 @@ public extension Version {
 
         let minor = Int(minorString) ?? 0
         let patch = Int(patchString) ?? 0
-        let prereleaseIdentifiers = [match.groupNamed("prereleaseType", in: xcodeVersion), 
-                                     match.groupNamed("prereleaseVersion", in: xcodeVersion)]
+        let prereleaseType: [String] = match.groupNamed("prereleaseType", in: xcodeVersion)?.trimmingCharacters(in: .whitespaces).split(separator: " ").compactMap { $0.lowercased().trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "-") }.filter { !$0.isEmpty } ?? []
+
+        var optionalPrereleaseIdentifiers: [String?] = []
+        prereleaseType.forEach { type in
+            if type == "seed" {
+                let lastIndex = optionalPrereleaseIdentifiers.endIndex - 1
+                if optionalPrereleaseIdentifiers.indices.contains(lastIndex),
+                    let lastItem = optionalPrereleaseIdentifiers[lastIndex] {
+
+                    optionalPrereleaseIdentifiers[lastIndex] = "\(lastItem)-seed"
+                }
+            } else {
+                optionalPrereleaseIdentifiers.append(type)
+            }
+        }
+        optionalPrereleaseIdentifiers.append(match.groupNamed("prereleaseVersion", in: xcodeVersion))
+
+        let prereleaseIdentifiers = optionalPrereleaseIdentifiers
                                         .compactMap { $0?.lowercased().trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "-") }
                                         .filter { !$0.isEmpty }
 
