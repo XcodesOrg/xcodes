@@ -35,7 +35,16 @@ public extension Version {
 
         var optionalPrereleaseIdentifiers: [String?] = []
         prereleaseType.forEach { type in
-            optionalPrereleaseIdentifiers.append(type)
+            if type == "seed" {
+                let lastIndex = optionalPrereleaseIdentifiers.endIndex - 1
+                if optionalPrereleaseIdentifiers.indices.contains(lastIndex),
+                    let lastItem = optionalPrereleaseIdentifiers[lastIndex] {
+
+                    optionalPrereleaseIdentifiers[lastIndex] = "\(lastItem)-seed"
+                }
+            } else {
+                optionalPrereleaseIdentifiers.append(type)
+            }
         }
         optionalPrereleaseIdentifiers.append(match.groupNamed("prereleaseVersion", in: xcodeVersion))
 
