@@ -23,6 +23,8 @@ xcodes: $(SOURCES)
 		-Xswiftc -Onone \
 		--disable-sandbox \
 		--build-path "$(BUILDDIR)" \
+		--arch arm64 \
+		--arch x86_64 \
 
 .PHONY: sign
 sign: xcodes
