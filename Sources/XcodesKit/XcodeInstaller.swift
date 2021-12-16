@@ -78,7 +78,7 @@ public final class XcodeInstaller {
 
     /// A numbered step
     enum InstallationStep: CustomStringConvertible {
-        case downloading(version: String, progress: String?, willInstall: Bool)
+        case downloading(version: String, progress: Progress?, willInstall: Bool)
         case unarchiving
         case moving(destination: String)
         case trashingArchive(archiveName: String)
@@ -98,7 +98,11 @@ public final class XcodeInstaller {
             switch self {
             case .downloading(let version, let progress, _):
                 if let progress = progress {
-                    return "Downloading Xcode \(version): \(progress)"
+                    if progress.xcodesLocalizedDescription.isEmpty == false {
+                        return "Downloading Xcode \(version)\n\(progress.xcodesLocalizedDescription)"
+                    } else {
+                        return "Downloading Xcode \(version):\n\(progress.fractionCompleted)"
+                    }
                 } else {
                     return "Downloading Xcode \(version)"
                 }
@@ -302,13 +306,9 @@ public final class XcodeInstaller {
                 throw Error.unavailableVersion(version)
             }
 
-            if Current.shell.isatty() {
-                // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
-                Current.logging.log("")
-            } else {
+            if !Current.shell.isatty() {
                 Current.logging.log("\(InstallationStep.downloading(version: xcode.version.description, progress: nil, willInstall: willInstall))")
             }
-            let formatter = NumberFormatter(numberStyle: .percent)
             var observation: NSKeyValueObservation?
 
             let promise = self.downloadOrUseExistingArchive(for: xcode, downloader: downloader, willInstall: willInstall, progressChanged: { progress in
@@ -317,7 +317,7 @@ public final class XcodeInstaller {
                     guard Current.shell.isatty() else { return }
 
                     // These escape codes move up a line and then clear to the end
-                    Current.logging.log("\u{1B}[1A\u{1B}[K\(InstallationStep.downloading(version: xcode.version.description, progress: formatter.string(from: progress.fractionCompleted)!, willInstall: willInstall))")
+                    Current.logging.log("\u{1B}[2A\u{1B}[0J\(InstallationStep.downloading(version: xcode.version.description, progress: progress, willInstall: willInstall))")
                 }
             })
 
@@ -463,6 +463,12 @@ public final class XcodeInstaller {
             let destination = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
             switch downloader {
             case .aria2(let aria2Path):
+                if Current.shell.isatty() {
+                    Current.logging.log("Downloading with aria2")
+                    // Add 2 extra lines as we are overwriting with download stats that take up 2 lines
+                    Current.logging.log("")
+                    Current.logging.log("")
+                }
                 return downloadXcodeWithAria2(
                     xcode,
                     to: destination,
@@ -470,6 +476,13 @@ public final class XcodeInstaller {
                     progressChanged: progressChanged
                 )
             case .urlSession:
+             if Current.shell.isatty() {
+                    Current.logging.log("Downloading with urlSession - for faster downloads install aria2 (`brew install aria2`)")
+                    // Add 2 extra lines as we are overwriting with download stats that take up 2 lines
+                    Current.logging.log("")
+                    Current.logging.log("")
+                }
+                
                 return downloadXcodeWithURLSession(
                     xcode,
                     to: destination,
