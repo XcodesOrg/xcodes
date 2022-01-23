@@ -16,7 +16,7 @@ extension Shell {
     static var processOutputMock: ProcessOutput = (0, "", "")
 
     static var mock = Shell(
-        unxip: { _ in return Promise.value(Shell.processOutputMock) },
+        unxip: { _, _ in return Promise.value(Shell.processOutputMock) },
         spctlAssess: { _ in return Promise.value(Shell.processOutputMock) },
         codesignVerify: { _ in return Promise.value(Shell.processOutputMock) },
         devToolsSecurityEnable: { _ in return Promise.value(Shell.processOutputMock) },
@@ -60,6 +60,7 @@ extension Files {
         trashItem: { _ in return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash") },
         createFile: { _, _, _ in return true },
         createDirectory: { _, _, _ in },
+        temporalDirectory: { _ in return URL(fileURLWithPath: NSTemporaryDirectory()) },
         installedXcodes: { _ in [] }
     )
 }

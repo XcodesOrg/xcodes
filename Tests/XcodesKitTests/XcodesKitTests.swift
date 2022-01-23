@@ -707,7 +707,7 @@ final class XcodesKitTests: XCTestCase {
             XcodesKit.Current.logging.log(prompt)
             return "asdf"
         }
-        Current.shell.unxip = { _ in 
+        Current.shell.unxip = { _, _ in 
             unxipCallCount += 1
             if unxipCallCount == 1 {
                 return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: "The file \"Xcode-0.0.0.xip\" is damaged and can’t be expanded."))

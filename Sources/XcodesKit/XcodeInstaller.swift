@@ -718,9 +718,10 @@ public final class XcodeInstaller {
     }
 
     func unarchiveAndMoveXIP(at source: URL, to destination: URL) -> Promise<URL> {
+        let xcodeExpansionDirectory = (try? Current.files.temporalDirectory(for: destination)) ?? source.deletingLastPathComponent()
         return firstly { () -> Promise<ProcessOutput> in
             Current.logging.log(InstallationStep.unarchiving.description)
-            return Current.shell.unxip(source)
+            return Current.shell.unxip(source, xcodeExpansionDirectory)
                 .recover { (error) throws -> Promise<ProcessOutput> in
                     if case Process.PMKError.execution(_, _, let standardError) = error,
                        standardError?.contains("damaged and can’t be expanded") == true {
@@ -732,8 +733,8 @@ public final class XcodeInstaller {
         .map { output -> URL in
             Current.logging.log(InstallationStep.moving(destination: destination.path).description)
 
-            let xcodeURL = source.deletingLastPathComponent().appendingPathComponent("Xcode.app")
-            let xcodeBetaURL = source.deletingLastPathComponent().appendingPathComponent("Xcode-beta.app")
+            let xcodeURL = xcodeExpansionDirectory.appendingPathComponent("Xcode.app")
+            let xcodeBetaURL = xcodeExpansionDirectory.appendingPathComponent("Xcode-beta.app")
             if Current.files.fileExists(atPath: xcodeURL.path) {
                 try Current.files.moveItem(at: xcodeURL, to: destination)
             }
