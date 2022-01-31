@@ -138,17 +138,7 @@ struct Xcodes: ParsableCommand {
 
             installer.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
-                    switch error {
-                    case Process.PMKError.execution(let process, let standardOutput, let standardError):
-                        Current.logging.log("""
-                            Failed executing: `\(process)` (\(process.terminationStatus))
-                            \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
-                            """.red)
-                    default:
-                        Current.logging.log(error.legibleLocalizedDescription.red)
-                    }
-                    
-                    Install.exit(withError: ExitCode.failure)
+                    Install.processDownloadOrInstall(error: error)
                 }
             
             RunLoop.current.run()
@@ -231,17 +221,7 @@ struct Xcodes: ParsableCommand {
             installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination)
                 .done { Install.exit() }
                 .catch { error in
-                    switch error {
-                    case Process.PMKError.execution(let process, let standardOutput, let standardError):
-                        Current.logging.log("""
-                            Failed executing: `\(process)` (\(process.terminationStatus))
-                            \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
-                            """.red)
-                    default:
-                        Current.logging.log(error.legibleLocalizedDescription.red)
-                    }
-                    
-                    Install.exit(withError: ExitCode.failure)
+                    Install.processDownloadOrInstall(error: error)
                 }
             
             RunLoop.current.run()
