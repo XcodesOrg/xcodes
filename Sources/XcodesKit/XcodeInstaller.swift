@@ -463,6 +463,11 @@ public final class XcodeInstaller {
             let destination = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
             switch downloader {
             case .aria2(let aria2Path):
+                 if Current.shell.isatty() {
+                    Current.logging.log("Downloading with aria2".green)
+                    // Add 1 extra line as we are overwriting with download progress
+                    Current.logging.log("")
+                }
                 return downloadXcodeWithAria2(
                     xcode,
                     to: destination,
@@ -470,6 +475,11 @@ public final class XcodeInstaller {
                     progressChanged: progressChanged
                 )
             case .urlSession:
+                if Current.shell.isatty() {
+                    Current.logging.log("Downloading with urlSession - for faster downloads install aria2 (`brew install aria2`)".black.onYellow)
+                    // Add 1 extra line as we are overwriting with download progress
+                    Current.logging.log("")
+                }
                 return downloadXcodeWithURLSession(
                     xcode,
                     to: destination,
