@@ -4,7 +4,7 @@ import Path
 import Version
 import Rainbow
 
-public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Path) -> Promise<Void> {
+public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Path, fallbackToInteractive: Bool = true) -> Promise<Void> {
     firstly { () -> Promise<ProcessOutput> in
         Current.shell.xcodeSelectPrintPath()
     }
@@ -48,18 +48,23 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
                 return Promise.value(())
             }
 
-            return selectXcodeAtPath(pathToSelect)
+            let selectPromise = selectXcodeAtPath(pathToSelect)
                 .done { output in
                     Current.logging.log("Selected \(output.out)".green)
                     Current.shell.exit(0)
                 }
-                .recover { _ in
-                    selectXcodeInteractively(currentPath: output.out, directory: directory)
-                        .done { output in
-                            Current.logging.log("Selected \(output.out)".green)
-                            Current.shell.exit(0)
-                        }
-                }
+            if fallbackToInteractive {
+                return selectPromise
+                    .recover { _ in
+                        selectXcodeInteractively(currentPath: output.out, directory: directory)
+                            .done { output in
+                                Current.logging.log("Selected \(output.out)".green)
+                                Current.shell.exit(0)
+                            }
+                    }
+            } else {
+                return selectPromise
+            }
         }
     }
 }
