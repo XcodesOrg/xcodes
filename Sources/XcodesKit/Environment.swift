@@ -244,6 +244,12 @@ public struct Files {
         return try temporalDirectory(URL)
     }
 
+    public var xcodeExpansionDirectory: (URL, URL) -> URL = { (try? Current.files.temporalDirectory(for: $1)) ?? $0.deletingLastPathComponent() }
+
+    public func xcodeExpansionDirectory(archiveURL: URL, xcodeURL: URL) -> URL {
+        return xcodeExpansionDirectory(archiveURL, xcodeURL)
+    }
+
     public var installedXcodes = XcodesKit.installedXcodes
 }
 private func installedXcodes(directory: Path) -> [InstalledXcode] {

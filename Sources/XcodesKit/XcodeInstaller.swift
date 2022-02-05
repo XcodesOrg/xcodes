@@ -718,7 +718,7 @@ public final class XcodeInstaller {
     }
 
     func unarchiveAndMoveXIP(at source: URL, to destination: URL) -> Promise<URL> {
-        let xcodeExpansionDirectory = (try? Current.files.temporalDirectory(for: destination)) ?? source.deletingLastPathComponent()
+        let xcodeExpansionDirectory = Current.files.xcodeExpansionDirectory(archiveURL: source, xcodeURL: destination)
         return firstly { () -> Promise<ProcessOutput> in
             Current.logging.log(InstallationStep.unarchiving.description)
             return Current.shell.unxip(source, xcodeExpansionDirectory)
