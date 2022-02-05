@@ -187,6 +187,9 @@ struct Xcodes: ParsableCommand {
                 completion: .directory)
         var directory: String?
         
+        @Flag(help: "Expands (decompress) Xcode .xip on the same directory it's downloaded, instead of using a temporal directory.")
+        var expandXipInplace: Bool = false
+        
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
@@ -218,7 +221,7 @@ struct Xcodes: ParsableCommand {
             
             let destination = getDirectory(possibleDirectory: directory)
             
-            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination)
+            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, shouldExpandXipInplace: expandXipInplace)
                 .done { Install.exit() }
                 .catch { error in
                     Install.processDownloadOrInstall(error: error)

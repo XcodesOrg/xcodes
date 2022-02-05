@@ -86,7 +86,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"))
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment(xcode: installedXcode, output: "")) }
     }
 
@@ -94,7 +94,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"))
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed(output: "")) }
     }
 
@@ -102,7 +102,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise.value((0, "", "")) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"))
+        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.unexpectedCodeSigningIdentity(identifier: "", certificateAuthority: [])) }
     }
 
@@ -115,7 +115,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
-        installer.installArchivedXcode(xcode, at: xipURL, to: Path.root.join("Applications"))
+        installer.installArchivedXcode(xcode, at: xipURL, to: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .ensure { XCTAssertEqual(trashedItemAtURL, xipURL) }
             .cauterize()
     }
@@ -203,7 +203,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -296,7 +296,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath-NoColor", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -393,7 +393,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath-NonInteractiveTerminal", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -486,7 +486,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.home.join("Xcode"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.home.join("Xcode"), shouldExpandXipInplace: true)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-AlternativeDirectory", withExtension: "txt", subdirectory: "Fixtures")!
                 let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
@@ -600,7 +600,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-IncorrectSavedPassword", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -718,7 +718,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"))
+        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-DamagedXIP", withExtension: "txt", subdirectory: "Fixtures")!
                 let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)

@@ -61,7 +61,6 @@ extension Files {
         createFile: { _, _, _ in return true },
         createDirectory: { _, _, _ in },
         temporalDirectory: { _ in return URL(fileURLWithPath: NSTemporaryDirectory()) },
-        xcodeExpansionDirectory: { _, _ in return URL(fileURLWithPath: NSTemporaryDirectory()) },
         installedXcodes: { _ in [] }
     )
 }
