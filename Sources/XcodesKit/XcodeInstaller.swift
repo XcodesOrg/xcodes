@@ -529,14 +529,6 @@ public final class XcodeInstaller {
     }
 
     public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false) -> Promise<InstalledXcode> {
-        let passwordInput = {
-            Promise<String> { seal in
-                Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
-                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(Error.missingSudoerPassword); return }
-                seal.fulfill(password + "\n")
-            }
-        }
-
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = destination.join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
             switch archiveURL.pathExtension {
@@ -565,6 +557,19 @@ public final class XcodeInstaller {
                 .map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
+            return self.postInstallXcode(xcode)
+        }
+    }
+
+    public func postInstallXcode(_ xcode: InstalledXcode) -> Promise<InstalledXcode> {
+        let passwordInput = {
+            Promise<String> { seal in
+                Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
+                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(Error.missingSudoerPassword); return }
+                seal.fulfill(password + "\n")
+            }
+        }
+        return firstly { () -> Promise<InstalledXcode> in
             Current.logging.log(InstallationStep.finishing.description)
 
             return self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
