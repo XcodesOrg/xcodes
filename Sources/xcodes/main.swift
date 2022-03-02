@@ -183,6 +183,9 @@ struct Xcodes: ParsableCommand {
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
         var noAria2: Bool = false
         
+        @Flag(help: "Use the experimental unxip functionality. May speed up unarchiving by up to 2-3x.")
+        var experimentalUnxip: Bool = false
+        
         @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
                 completion: .directory)
         var directory: String?
@@ -218,7 +221,7 @@ struct Xcodes: ParsableCommand {
             
             let destination = getDirectory(possibleDirectory: directory)
             
-            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination)
+            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip)
                 .done { Install.exit() }
                 .catch { error in
                     Install.processDownloadOrInstall(error: error)
