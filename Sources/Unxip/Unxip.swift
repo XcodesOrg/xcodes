@@ -428,6 +428,10 @@ public struct Unxip {
                                 setStickyBit(on: file)
                             }
 
+                            if await file.writeCompressedIfPossible(usingDescriptor: fd) {
+                                return
+                            }
+
                             // pwritev requires the vector count to be positive
                             if file.data.count == 0 {
                                 return
