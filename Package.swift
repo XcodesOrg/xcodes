@@ -58,6 +58,7 @@ let package = Package(
             resources: [
                 .copy("Fixtures"),
             ]),
+        .target(name: "Unxip"),
         .target(
             name: "AppleAPI",
             dependencies: [
