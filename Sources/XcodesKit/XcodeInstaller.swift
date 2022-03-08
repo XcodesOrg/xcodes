@@ -80,7 +80,7 @@ public final class XcodeInstaller {
     /// A numbered step
     enum InstallationStep: CustomStringConvertible {
         case downloading(version: String, progress: String?, willInstall: Bool)
-        case unarchiving
+        case unarchiving(experimentalUnxip: Bool)
         case moving(destination: String)
         case trashingArchive(archiveName: String)
         case checkingSecurity
@@ -103,8 +103,15 @@ public final class XcodeInstaller {
                 } else {
                     return "Downloading Xcode \(version)"
                 }
-            case .unarchiving:
-                return "Unarchiving Xcode (This can take a while)"
+            case .unarchiving(let experimentalUnxip):
+                let hint = experimentalUnxip ?
+                    "Using experimental unxip. If you encounter any issues, remove the flag and try again" :
+                    "Using regular unxip. Try passing `--experimental-unxip` for a faster unxip process"
+                return
+                    """
+                    Unarchiving Xcode (This can take a while)
+                    \(hint)
+                    """
             case .moving(let destination):
                 return "Moving Xcode to \(destination)"
             case .trashingArchive(let archiveName):
@@ -720,7 +727,7 @@ public final class XcodeInstaller {
 
     func unarchiveAndMoveXIP(at source: URL, to destination: URL, experimentalUnxip: Bool) -> Promise<URL> {
         return firstly { () -> Promise<Void> in
-            Current.logging.log(InstallationStep.unarchiving.description)
+            Current.logging.log(InstallationStep.unarchiving(experimentalUnxip: experimentalUnxip).description)
             
             if experimentalUnxip, #available(macOS 11, *) {
                 return Promise { seal in
