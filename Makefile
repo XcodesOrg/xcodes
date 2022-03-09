@@ -7,7 +7,7 @@ srcdir = Sources
 REPODIR = $(shell pwd)
 BUILDDIR = $(REPODIR)/.build
 SOURCES = $(wildcard $(srcdir)/**/*.swift)
-
+RELEASEBUILDDIR = $(BUILDDIR)/apple/Products/Release/xcodes
 .DEFAULT_GOAL = all
 
 .PHONY: all
@@ -33,19 +33,19 @@ sign: xcodes
 		--prefix com.robotsandpencils. \
 		--options runtime \
 		--timestamp \
-		"$(BUILDDIR)/release/xcodes"
+		"$(RELEASEBUILDDIR)"
 
 .PHONY: zip
 zip: sign
 	@rm xcodes.zip 2> /dev/null || true
-	@zip --junk-paths xcodes.zip "$(BUILDDIR)/release/xcodes"
+	@zip --junk-paths xcodes.zip "$(RELEASEBUILDDIR)"
 	@open -R xcodes.zip
 
 # E.g.
-# make notarize USERNAME="test@example.com" PASSWORD="@keychain:altool" ASC_PROVIDER=MyOrg
+# make notarize TEAMID="ABCD123"
 .PHONY: notarize
 notarize: zip
-	./notarize.sh "$(USERNAME)" "$(PASSWORD)" "$(ASC_PROVIDER)" xcodes.zip
+	./notarize.sh xcodes.zip "$(TEAMID)"
 
 # E.g.
 # make bottle VERSION=0.4.0
@@ -54,7 +54,7 @@ bottle: sign
 	@rm -r xcodes 2> /dev/null || true
 	@rm *.tar.gz 2> /dev/null || true
 	@mkdir -p xcodes/$(VERSION)/bin
-	@cp "$(BUILDDIR)/release/xcodes" xcodes/$(VERSION)/bin
+	@cp "$(RELEASEBUILDDIR)" xcodes/$(VERSION)/bin
 	@tar -zcvf xcodes-$(VERSION).mojave.bottle.tar.gz -C "$(REPODIR)" xcodes
 	shasum -a 256 xcodes-$(VERSION).mojave.bottle.tar.gz | cut -f1 -d' '
 	@open -R xcodes-$(VERSION).mojave.bottle.tar.gz
@@ -62,7 +62,7 @@ bottle: sign
 .PHONY: install
 install: xcodes
 	@install -d "$(bindir)"
-	@install "$(BUILDDIR)/release/xcodes" "$(bindir)"
+	@install "$(RELEASEBUILDDIR)" "$(bindir)"
 
 .PHONY: uninstall
 uninstall:
@@ -70,7 +70,7 @@ uninstall:
 
 .PHONY: distclean
 distclean:
-	@rm -f $(BUILDDIR)/release
+	@rm -f $(RELEASEBUILDDIR)
 
 .PHONY: clean
 clean: distclean
