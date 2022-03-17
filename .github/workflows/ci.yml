@@ -2,10 +2,10 @@ name: CI
 on: [push, pull_request]
 jobs:
   test:
-    runs-on: macOS-10.15
+    runs-on: macOS-11
     steps:
     - uses: actions/checkout@v3
     - name: Run tests
       env: 
-        DEVELOPER_DIR: /Applications/Xcode_12.3.app
+        DEVELOPER_DIR: /Applications/Xcode_13.2.1.app
       run: swift test
