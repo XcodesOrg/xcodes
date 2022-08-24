@@ -185,6 +185,9 @@ struct Xcodes: ParsableCommand {
         
         @Flag(help: "Use the experimental unxip functionality. May speed up unarchiving by up to 2-3x.")
         var experimentalUnxip: Bool = false
+
+        @Flag(help: "Don't ask for superuser (root) permission. Some optional steps of the installation will be skipped.")
+        var noSuperuser: Bool = false
         
         @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
                 completion: .directory)
@@ -221,7 +224,7 @@ struct Xcodes: ParsableCommand {
             
             let destination = getDirectory(possibleDirectory: directory)
             
-            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip)
+            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, noSuperuser: noSuperuser)
                 .done { Install.exit() }
                 .catch { error in
                     Install.processDownloadOrInstall(error: error)
