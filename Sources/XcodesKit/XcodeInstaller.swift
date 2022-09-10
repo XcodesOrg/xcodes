@@ -166,9 +166,9 @@ public final class XcodeInstaller {
         case aria2(Path)
     }
 
-    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, deleteXip: Bool, noSuperuser: Bool) -> Promise<Void> {
+    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
-            return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0, experimentalUnxip: experimentalUnxip, deleteXip: deleteXip, noSuperuser: noSuperuser)
+            return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
         }
         .done { xcode in
             Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
@@ -176,12 +176,12 @@ public final class XcodeInstaller {
         }
     }
     
-    private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, deleteXip: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
+    private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<(Xcode, URL)> in
             return self.getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
         }
         .then { xcode, url -> Promise<InstalledXcode> in
-            return self.installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, deleteXip: deleteXip, noSuperuser: noSuperuser)
+            return self.installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
         }
         .recover { error -> Promise<InstalledXcode> in
             switch error {
@@ -198,7 +198,7 @@ public final class XcodeInstaller {
                         Current.logging.log(error.legibleLocalizedDescription.red)
                         Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
                         try Current.files.removeItem(at: damagedXIPURL)
-                        return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1, experimentalUnxip: experimentalUnxip, deleteXip: deleteXip, noSuperuser: noSuperuser)
+                        return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                     }
                 }
             default:
@@ -531,7 +531,7 @@ public final class XcodeInstaller {
         }
     }
 
-    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, deleteXip: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
+    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = destination.join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
             switch archiveURL.pathExtension {
@@ -551,8 +551,8 @@ public final class XcodeInstaller {
             }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            Current.logging.log(InstallationStep.cleaningArchive(archiveName: archiveURL.lastPathComponent, shouldDelete: deleteXip).description)
-            if deleteXip {
+            Current.logging.log(InstallationStep.cleaningArchive(archiveName: archiveURL.lastPathComponent, shouldDelete: emptyTrash).description)
+            if emptyTrash {
                 try Current.files.removeItem(at: archiveURL)
             }
             else {
@@ -595,7 +595,7 @@ public final class XcodeInstaller {
         }
     }
 
-    public func uninstallXcode(_ versionString: String, directory: Path, deleteApp: Bool) -> Promise<Void> {
+    public func uninstallXcode(_ versionString: String, directory: Path, emptyTrash: Bool) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
             guard let version = Version(xcodeVersion: versionString) else {
                 Current.logging.log(Error.invalidVersion(versionString).legibleLocalizedDescription)
@@ -610,7 +610,7 @@ public final class XcodeInstaller {
             return Promise.value(installedXcode)
         }
         .map { installedXcode -> (InstalledXcode, URL?) in
-            if deleteApp {
+            if emptyTrash {
                 try Current.files.removeItem(at: installedXcode.path.url)
                 return (installedXcode, nil)
             }
