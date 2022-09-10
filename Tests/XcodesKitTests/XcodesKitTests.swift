@@ -778,7 +778,7 @@ final class XcodesKitTests: XCTestCase {
             return Promise.value((status: 0, out: "", err: ""))
         }
 
-        installer.uninstallXcode("0.0.0", directory: Path.root.join("Applications"))
+        installer.uninstallXcode("0.0.0", directory: Path.root.join("Applications"), deleteApp: false)
             .ensure {
                 XCTAssertEqual(selectedPaths, ["/Applications/Xcode-2.0.1.app"])
                 XCTAssertEqual(trashedItemAtURL, installedXcodes[0].path.url)
@@ -823,7 +823,7 @@ final class XcodesKitTests: XCTestCase {
             return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
         }
 
-        installer.uninstallXcode("999", directory: Path.root.join("Applications"))
+        installer.uninstallXcode("999", directory: Path.root.join("Applications"), deleteApp: false)
             .ensure {
                 XCTAssertEqual(trashedItemAtURL, installedXcodes[0].path.url)
             }

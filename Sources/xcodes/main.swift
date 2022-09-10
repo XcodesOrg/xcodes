@@ -351,6 +351,9 @@ struct Xcodes: ParsableCommand {
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
         
+        @Flag(help: "Completely delete Xcode, instead of moving it to the user's Trash.")
+        var deleteApp: Bool = false
+        
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
         
@@ -362,7 +365,7 @@ struct Xcodes: ParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.uninstallXcode(version.joined(separator: " "), directory: directory)
+            installer.uninstallXcode(version.joined(separator: " "), directory: directory, deleteApp: deleteApp)
                 .done { Uninstall.exit() }
                 .catch { error in Uninstall.exit(withLegibleError: error) }
             

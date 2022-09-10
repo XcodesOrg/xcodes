@@ -595,7 +595,7 @@ public final class XcodeInstaller {
         }
     }
 
-    public func uninstallXcode(_ versionString: String, directory: Path) -> Promise<Void> {
+    public func uninstallXcode(_ versionString: String, directory: Path, deleteApp: Bool) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
             guard let version = Version(xcodeVersion: versionString) else {
                 Current.logging.log(Error.invalidVersion(versionString).legibleLocalizedDescription)
@@ -609,11 +609,17 @@ public final class XcodeInstaller {
 
             return Promise.value(installedXcode)
         }
-        .map { ($0, try Current.files.trashItem(at: $0.path.url)) }
-        .then { (installedXcode, trashURL) -> Promise<(InstalledXcode, URL)> in
+        .map { installedXcode -> (InstalledXcode, URL?) in
+            if deleteApp {
+                try Current.files.removeItem(at: installedXcode.path.url)
+                return (installedXcode, nil)
+            }
+            return (installedXcode, try Current.files.trashItem(at: installedXcode.path.url))
+        }
+        .then { (installedXcode, trashURL) -> Promise<(InstalledXcode, URL?)> in
             // If we just uninstalled the selected Xcode, try to select the latest installed version so things don't accidentally break
             Current.shell.xcodeSelectPrintPath()
-                .then { output -> Promise<(InstalledXcode, URL)> in
+                .then { output -> Promise<(InstalledXcode, URL?)> in
                     if output.out.hasPrefix(installedXcode.path.string),
                        let latestInstalledXcode = Current.files.installedXcodes(directory).sorted(by: { $0.version < $1.version }).last {
                         return selectXcodeAtPath(latestInstalledXcode.path.string)
@@ -628,7 +634,12 @@ public final class XcodeInstaller {
                 }
         }
         .done { (installedXcode, trashURL) in
-            Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)".green)
+            if let trashURL = trashURL {
+                Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)".green)
+            }
+            else {
+                Current.logging.log("Xcode \(installedXcode.version.appleDescription) deleted".green)
+            }
             Current.shell.exit(0)
         }
     }
