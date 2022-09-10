@@ -82,7 +82,7 @@ public final class XcodeInstaller {
         case downloading(version: String, progress: String?, willInstall: Bool)
         case unarchiving(experimentalUnxip: Bool)
         case moving(destination: String)
-        case trashingArchive(archiveName: String)
+        case cleaningArchive(archiveName: String, shouldDelete: Bool)
         case checkingSecurity
         case finishing
 
@@ -114,7 +114,10 @@ public final class XcodeInstaller {
                     """
             case .moving(let destination):
                 return "Moving Xcode to \(destination)"
-            case .trashingArchive(let archiveName):
+            case .cleaningArchive(let archiveName, let shouldDelete):
+                if shouldDelete {
+                    return "Deleting Xcode archive \(archiveName)"
+                }
                 return "Moving Xcode archive \(archiveName) to the Trash"
             case .checkingSecurity:
                 return "Checking security assessment and code signing"
@@ -128,7 +131,7 @@ public final class XcodeInstaller {
             case .downloading:      return 1
             case .unarchiving:      return 2
             case .moving:           return 3
-            case .trashingArchive:  return 4
+            case .cleaningArchive:  return 4
             case .checkingSecurity: return 5
             case .finishing:        return 6
             }
@@ -163,9 +166,9 @@ public final class XcodeInstaller {
         case aria2(Path)
     }
 
-    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, noSuperuser: Bool) -> Promise<Void> {
+    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, deleteXip: Bool, noSuperuser: Bool) -> Promise<Void> {
         return firstly { () -> Promise<InstalledXcode> in
-            return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0, experimentalUnxip: experimentalUnxip, noSuperuser: noSuperuser)
+            return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0, experimentalUnxip: experimentalUnxip, deleteXip: deleteXip, noSuperuser: noSuperuser)
         }
         .done { xcode in
             Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
@@ -173,12 +176,12 @@ public final class XcodeInstaller {
         }
     }
     
-    private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
+    private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, deleteXip: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<(Xcode, URL)> in
             return self.getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
         }
         .then { xcode, url -> Promise<InstalledXcode> in
-            return self.installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, noSuperuser: noSuperuser)
+            return self.installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, deleteXip: deleteXip, noSuperuser: noSuperuser)
         }
         .recover { error -> Promise<InstalledXcode> in
             switch error {
@@ -195,7 +198,7 @@ public final class XcodeInstaller {
                         Current.logging.log(error.legibleLocalizedDescription.red)
                         Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
                         try Current.files.removeItem(at: damagedXIPURL)
-                        return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1, experimentalUnxip: experimentalUnxip, noSuperuser: noSuperuser)
+                        return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1, experimentalUnxip: experimentalUnxip, deleteXip: deleteXip, noSuperuser: noSuperuser)
                     }
                 }
             default:
@@ -528,7 +531,7 @@ public final class XcodeInstaller {
         }
     }
 
-    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, noSuperuser: Bool) -> Promise<InstalledXcode> {
+    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, deleteXip: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<InstalledXcode> in
             let destinationURL = destination.join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
             switch archiveURL.pathExtension {
@@ -548,8 +551,13 @@ public final class XcodeInstaller {
             }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            Current.logging.log(InstallationStep.trashingArchive(archiveName: archiveURL.lastPathComponent).description)
-            try Current.files.trashItem(at: archiveURL)
+            Current.logging.log(InstallationStep.cleaningArchive(archiveName: archiveURL.lastPathComponent, shouldDelete: deleteXip).description)
+            if deleteXip {
+                try Current.files.removeItem(at: archiveURL)
+            }
+            else {
+                try Current.files.trashItem(at: archiveURL)
+            }
             Current.logging.log(InstallationStep.checkingSecurity.description)
 
             return when(fulfilled: self.verifySecurityAssessment(of: xcode),
