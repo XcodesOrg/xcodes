@@ -69,6 +69,7 @@ xcodes install 11.2 GM seed
 xcodes install 9.0 --path ~/Archive/Xcode_9.xip
 xcodes install --latest-prerelease
 xcodes install --latest --directory "/Volumes/Bag Of Holding/"
+xcodes install --latest --experimental-unxip
 ```
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
@@ -106,6 +107,14 @@ Xcode will be installed to /Applications by default, but you can provide the pat
 - `version`: Print the version number of xcodes itself
 - `signout`: Clears the stored username and password
 
+### Experimental Unxip - for faster unxipping
+
+Thanks to the amazing work by [saagarjhi](https://github.com/saagarjha/unxip) - Xcodes now includes the ability to unxip up to 70% faster on some systems. 
+
+```
+xcodes install --latest --experimental-unxip
+```
+
 ### Shell Completion Scripts
 
 xcodes can generate completion scripts which allow you to press the tab key on your keyboard to autocomplete commands and arguments when typing an xcodes command. The steps to install a completion script depend on the shell that you use. More information about installation instructions for different shells and the underlying implementation is available in the [swift-argument-parser repo](https://github.com/apple/swift-argument-parser/blob/main/Sources/ArgumentParser/Documentation.docc/Articles/InstallingCompletionScripts.md).
@@ -123,7 +132,7 @@ xcodes --generate-completion-script > ~/.oh-my-zsh/completions/_xcodes
 
 ## Development
 
-You'll need Xcode 12 in order to build and run xcodes. 
+You'll need Xcode 13 in order to build and run xcodes. 
 
 <details>
 <summary>Using Xcode</summary>
@@ -166,9 +175,7 @@ make bottle VERSION="$VERSION"
 # Notarize the release build
 # This can take a while
 make notarize \
-    USERNAME="user@example.com" \
-    PASSWORD="@keychain:ALTool Notarization" \
-    ASC_PROVIDER="YourAppStoreConnectTeamName"
+    TEAMID="ABC123" 
 
 # Push the new version bump commit and tag
 git push --follow-tags

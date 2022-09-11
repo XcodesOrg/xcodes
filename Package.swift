@@ -45,6 +45,7 @@ let package = Package(
                 "PromiseKit", 
                 "PMKFoundation", 
                 "SwiftSoup",
+                "Unxip",
                 "Version", 
                 .product(name: "XCModel", package: "XcodeReleases"),
                 "Rainbow",
@@ -58,6 +59,7 @@ let package = Package(
             resources: [
                 .copy("Fixtures"),
             ]),
+        .target(name: "Unxip"),
         .target(
             name: "AppleAPI",
             dependencies: [
