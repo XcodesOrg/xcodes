@@ -22,7 +22,7 @@ xcodes: $(SOURCES)
 		--configuration release \
 		-Xswiftc -Onone \
 		--disable-sandbox \
-		--build-path "$(BUILDDIR)" \
+		--scratch-path "$(BUILDDIR)" \
 		--arch arm64 \
 		--arch x86_64 \
 
