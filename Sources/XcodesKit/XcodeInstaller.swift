@@ -287,7 +287,15 @@ public final class XcodeInstaller {
 
     private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<Version> in
-            loginIfNeeded().map { version }
+            if dataSource == .apple {
+                return loginIfNeeded().map { version }
+            } else {
+                guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
+                    throw Error.unavailableVersion(version)
+                }
+                
+                return validateADCSession(path: xcode.downloadPath).map { version }
+            }
         }
         .then { version -> Promise<Version> in
             if self.xcodeList.shouldUpdate {
@@ -296,14 +304,6 @@ public final class XcodeInstaller {
             else {
                 return Promise.value(version)
             }
-        }
-        .then { version -> Promise<Version> in
-            // This request would've already been made if the Apple data source were being used.
-            // That's not the case for the Xcode Releases data source.
-            // We need the cookies from its response in order to download Xcodes though,
-            // so perform it here first just to be sure.
-            Current.network.dataTask(with: URLRequest.downloads)
-                .map { _ in version }
         }
         .then { version -> Promise<(Xcode, URL)> in
             guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
@@ -334,7 +334,11 @@ public final class XcodeInstaller {
                 .map { return (xcode, $0) }
         }
     }
-
+    
+    func validateADCSession(path: String) -> Promise<Void> {
+        return Current.network.dataTask(with: URLRequest.downloadADCAuth(path: path)).asVoid()
+    }
+    
     func loginIfNeeded(withUsername providedUsername: String? = nil, shouldPromptForPassword: Bool = false) -> Promise<Void> {
         return firstly { () -> Promise<Void> in
             return Current.network.validateSession()
@@ -626,11 +630,15 @@ public final class XcodeInstaller {
     }
 
     func update(dataSource: DataSource) -> Promise<[Xcode]> {
-        return firstly { () -> Promise<Void> in
-            loginIfNeeded()
-        }
-        .then { () -> Promise<[Xcode]> in
-            self.xcodeList.update(dataSource: dataSource)
+        if dataSource == .apple {
+            return firstly { () -> Promise<Void> in
+                loginIfNeeded()
+            }
+            .then { () -> Promise<[Xcode]> in
+                self.xcodeList.update(dataSource: dataSource)
+            }
+        } else {
+            return self.xcodeList.update(dataSource: dataSource)
         }
     }
 
