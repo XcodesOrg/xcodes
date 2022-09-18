@@ -1,6 +1,8 @@
 Apple ID: 
 Apple ID Password: 
 
+Downloading with urlSession - for faster downloads install aria2 (`brew install aria2`)
+
 [1A[K(1/6) Downloading Xcode 0.0.0: 1%
 [1A[K(1/6) Downloading Xcode 0.0.0: 2%
 [1A[K(1/6) Downloading Xcode 0.0.0: 3%
@@ -102,6 +104,7 @@ Apple ID Password:
 [1A[K(1/6) Downloading Xcode 0.0.0: 99%
 [1A[K(1/6) Downloading Xcode 0.0.0: 100%
 (2/6) Unarchiving Xcode (This can take a while)
+Using regular unxip. Try passing `--experimental-unxip` for a faster unxip process
 (3/6) Moving Xcode to /Users/brandon/Xcode/Xcode-0.0.0.app
 (4/6) Moving Xcode archive Xcode-0.0.0.xip to the Trash
 (5/6) Checking security assessment and code signing

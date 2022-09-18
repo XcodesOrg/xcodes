@@ -133,8 +133,9 @@ struct File {
             compressionStream.addTask {
                 try Task.checkCancellation()
                 let position = _position
-                let data = [UInt8](unsafeUninitializedCapacity: blockSize + blockSize / 16) { buffer, count in
-                    data[position..<min(position + blockSize, data.endIndex)].withUnsafeBufferPointer { data in
+                let end = min(position + blockSize, data.endIndex)
+                let data = [UInt8](unsafeUninitializedCapacity: (end - position) + (end - position) / 16) { buffer, count in
+                    data[position..<end].withUnsafeBufferPointer { data in
                         count = compression_encode_buffer(buffer.baseAddress!, buffer.count, data.baseAddress!, data.count, nil, COMPRESSION_LZFSE)
                         guard count < buffer.count else {
                             count = 0
@@ -365,7 +366,7 @@ public struct Unxip {
 
             // The assumption is that all directories are provided without trailing slashes
             func parentDirectory<S: StringProtocol>(of path: S) -> S.SubSequence {
-                return path[..<path.lastIndex(of: "/")!]
+                path[..<path.lastIndex(of: "/")!]
             }
 
             // https://bugs.swift.org/browse/SR-15816
@@ -384,9 +385,11 @@ public struct Unxip {
                 continue
             }
 
-            if let (original, task) = hardlinks[file.identifier] {
+            if let (original, originalTask) = hardlinks[file.identifier] {
+                let task = parentDirectoryTask(for: file)
+                assert(task != nil, file.name)
                 _ = taskStream.addRunningTask {
-                    await task.value
+                    _ = await (originalTask.value, task?.value)
                     warn(link(original, file.name), "linking")
                 }
                 continue
@@ -399,6 +402,7 @@ public struct Unxip {
                     let task = parentDirectoryTask(for: file)
                     assert(task != nil, file.name)
                     _ = taskStream.addRunningTask {
+                        await task?.value
                         warn(symlink(String(data: Data(file.data.map(Array.init).reduce([], +)), encoding: .utf8), file.name), "symlinking")
                         setStickyBit(on: file)
                     }
