@@ -189,6 +189,9 @@ struct Xcodes: ParsableCommand {
         @Flag(help: "Don't ask for superuser (root) permission. Some optional steps of the installation will be skipped.")
         var noSuperuser: Bool = false
         
+        @Flag(help: "Completely delete Xcode .xip after installation, instead of keeping it on the user's Trash.")
+        var emptyTrash: Bool = false
+        
         @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
                 completion: .directory)
         var directory: String?
@@ -224,7 +227,7 @@ struct Xcodes: ParsableCommand {
             
             let destination = getDirectory(possibleDirectory: directory)
             
-            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, noSuperuser: noSuperuser)
+            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                 .done { Install.exit() }
                 .catch { error in
                     Install.processDownloadOrInstall(error: error)
@@ -348,6 +351,9 @@ struct Xcodes: ParsableCommand {
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
         
+        @Flag(help: "Completely delete Xcode, instead of keeping it on the user's Trash.")
+        var emptyTrash: Bool = false
+        
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
         
@@ -359,7 +365,7 @@ struct Xcodes: ParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.uninstallXcode(version.joined(separator: " "), directory: directory)
+            installer.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash)
                 .done { Uninstall.exit() }
                 .catch { error in Uninstall.exit(withLegibleError: error) }
             
