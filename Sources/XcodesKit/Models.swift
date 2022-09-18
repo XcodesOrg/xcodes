@@ -50,6 +50,10 @@ public struct Xcode: Codable, Equatable {
     public let filename: String
     public let releaseDate: Date?
 
+    public var downloadPath: String {
+        return url.path
+    }
+    
     public init(version: Version, url: URL, filename: String, releaseDate: Date?) {
         self.version =  version
         self.url = url
