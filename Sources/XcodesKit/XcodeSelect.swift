@@ -27,7 +27,7 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
            let installedXcode = installedXcodes.first(withVersion: version) {
             let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
             if installedXcode.version == selectedInstalledXcodeVersion {
-                Current.logging.log("Xcode \(version) is already selected")
+                Current.logging.log("Xcode \(version) is already selected".green)
                 Current.shell.exit(0)
                 return Promise.value(())
             }
