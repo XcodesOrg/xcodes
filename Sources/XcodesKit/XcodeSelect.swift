@@ -39,12 +39,11 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
                 }
         }
         else {
-            // remove any whitespaces
             let pathToSelect = pathOrVersion.trimmingCharacters(in: .whitespacesAndNewlines)
             let currentPath = output.out.trimmingCharacters(in: .whitespacesAndNewlines)
 
             if pathToSelect == currentPath {
-                Current.logging.log("Xcode at path \(pathOrVersion) is already selected")
+                Current.logging.log("Xcode at path \(pathOrVersion) is already selected".green)
                 Current.shell.exit(0)
                 return Promise.value(())
             }
