@@ -250,55 +250,51 @@ struct Xcodes: AsyncParsableCommand {
             let destination = getDirectory(possibleDirectory: directory)
 
             if select == false {
-                // install normally
-                installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-                    .done { Install.exit() }
-                    .catch { error in
-                        Install.processDownloadOrInstall(error: error)
-                    }
+                install(installation, using: downloader, to: destination)
             } else {
-                // check if the version is already installed and try to select it
-                firstly { () -> Promise<Void> in
-                    if case .version(let version) = installation {
-                        return selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false)
-                    } else {
-                        return Promise { _ in
-                            throw InstallError.notAlreadyInstalled
-                        }
+                if case .version(let version) = installation {
+                    firstly {
+                        selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false)
+                    }
+                    .catch { _ in
+                        install(installation, using: downloader, to: destination)
                     }
                 }
-                .done { Install.exit() } // successfully selected
-                .catch { error in
-                    // select failed. Xcode must not be installed.
-                    firstly { () -> Promise<InstalledXcode> in
-                        // update the list before installing only for version type because the other types already update internally
-                        if update, case .version = installation {
-                            Current.logging.log("Updating...")
-                            return xcodeList.update(dataSource: globalDataSource.dataSource)
-                                .then { _ -> Promise<InstalledXcode> in
-                                    installer.installWithoutLogging(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-                                }
-                        } else {
-                            // install
-                            return installer.installWithoutLogging(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-                        }
-                    }
-                    .then { xcode -> Promise<Void> in
-                        Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
-
-                        // Install was successful, now select it
-                        return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
-                    }
-                    .done {
-                        Install.exit()
-                    }
-                    .catch { error in
-                        Install.processDownloadOrInstall(error: error)
-                    }
+                else {
+                    install(installation, using: downloader, to: destination)
                 }
             }
 
             RunLoop.current.run()
+        }
+
+        private func install(_ installation: XcodeInstaller.InstallationType,
+                             using downloader: XcodeInstaller.Downloader,
+                             to destination: Path) {
+            firstly { () -> Promise<InstalledXcode> in
+                // update the list before installing only for version type because the other types already update internally
+                if update, case .version = installation {
+                    Current.logging.log("Updating...")
+                    return xcodeList.update(dataSource: globalDataSource.dataSource)
+                        .then { _ -> Promise<InstalledXcode> in
+                            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser, exitAfterInstall: !select)
+                        }
+                } else {
+                    return installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser, exitAfterInstall: !select)
+                }
+            }
+            .then { xcode -> Promise<Void> in
+                Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
+
+                // Install was successful, now select it
+                return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
+            }
+            .done {
+                Install.exit()
+            }
+            .catch { error in
+                Install.processDownloadOrInstall(error: error)
+            }
         }
     }
 
