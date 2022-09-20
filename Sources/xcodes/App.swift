@@ -249,20 +249,15 @@ struct Xcodes: AsyncParsableCommand {
 
             let destination = getDirectory(possibleDirectory: directory)
 
-            if select == false {
-                install(installation, using: downloader, to: destination)
-            } else {
-                if case .version(let version) = installation {
-                    firstly {
-                        selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false)
-                    }
-                    .catch { _ in
-                        install(installation, using: downloader, to: destination)
-                    }
+            if select, case .version(let version) = installation {
+                firstly {
+                    selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false)
                 }
-                else {
+                .catch { _ in
                     install(installation, using: downloader, to: destination)
                 }
+            } else {
+                install(installation, using: downloader, to: destination)
             }
 
             RunLoop.current.run()
