@@ -1212,6 +1212,84 @@ final class XcodesKitTests: XCTestCase {
             """
         )
     }
+
+    func test_Installed_WithValidVersion_PrintsXcodePath() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+        ]
+        Current.files.installedXcodes = { _ in installedXcodes }
+
+        // One is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: ""))
+        }
+
+        // Standard output is not an interactive terminal
+        Current.shell.isatty = { false }
+
+        installer.printXcodePath(ofVersion: "2", searchingIn: Path.root/"Applications")
+            .cauterize()
+
+        XCTAssertEqual(
+            log,
+            """
+            /Applications/Xcode-2.0.0.app
+
+            """
+        )
+    }
+
+    func test_Installed_WithUninstalledVersion_ThrowsError() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+        ]
+        Current.files.installedXcodes = { _ in installedXcodes }
+
+        // One is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: ""))
+        }
+
+        // Standard output is not an interactive terminal
+        Current.shell.isatty = { false }
+
+        installer.printXcodePath(ofVersion: "3", searchingIn: Path.root/"Applications")
+            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.versionNotInstalled(Version(xcodeVersion: "3")!)) }
+    }
     
     func test_Signout_WithExistingSession() {
         var keychainDidRemove = false
