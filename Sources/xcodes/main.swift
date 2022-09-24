@@ -55,11 +55,12 @@ struct Xcodes: ParsableCommand {
     static var configuration = CommandConfiguration(
         abstract: "Manage the Xcodes installed on your Mac",
         shouldDisplay: true,
-        subcommands: [Download.self, Install.self, Installed.self, List.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
+        subcommands: [Download.self, Install.self, Installed.self, List.self, Runtimes.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
     )
     
     static var xcodesConfiguration = Configuration()
     static let xcodeList = XcodeList()
+    static let runtimes = RuntimeList()
     static var installer: XcodeInstaller!
 
     static func main() {
@@ -304,6 +305,20 @@ struct Xcodes: ParsableCommand {
             .catch { error in List.exit(withLegibleError: error) }
             
             RunLoop.current.run()
+        }
+    }
+
+    struct Runtimes: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            abstract: "List all simulator runtimes that are available to install"
+        )
+
+        func run() {
+          runtimes.printAvailableRuntimes()
+            .done { Runtimes.exit() }
+            .catch { error in List.exit(withLegibleError: error) }
+
+          RunLoop.current.run()
         }
     }
     

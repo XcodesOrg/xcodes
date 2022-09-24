@@ -1,0 +1,49 @@
+-- iOS --
+iOS 12.4 (Downloaded)
+iOS 13.0 (Downloaded)
+iOS 13.1 (Downloaded)
+iOS 13.2.2
+iOS 13.3
+iOS 13.4
+iOS 13.5
+iOS 13.6
+iOS 13.7
+iOS 14.0.1
+iOS 14.1
+iOS 14.2
+iOS 14.3
+iOS 14.4
+iOS 14.5
+iOS 15.0
+iOS 15.2
+iOS 15.4
+iOS 15.5 (Bundled with selected Xcode)
+iOS 15.5 (Downloaded)
+iOS 16.0
+-- watchOS --
+watchOS 6.0
+watchOS 6.1.1
+watchOS 6.2.1
+watchOS 7.0
+watchOS 7.1
+watchOS 7.2
+watchOS 7.4
+watchOS 8.0
+watchOS 8.3
+watchOS 8.5 (Bundled with selected Xcode)
+watchOS 9.0
+-- tvOS --
+tvOS 12.4
+tvOS 13.0
+tvOS 13.2
+tvOS 13.3
+tvOS 13.4
+tvOS 14.0
+tvOS 14.2
+tvOS 14.3
+tvOS 14.4
+tvOS 14.5
+tvOS 15.0
+tvOS 15.2
+tvOS 15.4 (Bundled with selected Xcode)
+tvOS 16.0

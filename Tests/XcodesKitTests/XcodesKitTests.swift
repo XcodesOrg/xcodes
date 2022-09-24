@@ -9,6 +9,7 @@ import Rainbow
 
 final class XcodesKitTests: XCTestCase {
     var installer: XcodeInstaller!
+    var runtimeList: RuntimeList!
 
     override class func setUp() {
         super.setUp()
@@ -21,6 +22,7 @@ final class XcodesKitTests: XCTestCase {
         Rainbow.outputTarget = .unknown
         Rainbow.enabled = false
         installer = XcodeInstaller(configuration: Configuration(), xcodeList: XcodeList())
+        runtimeList = .init()
     }
 
     func test_ParseCertificateInfo_Succeeds() throws {
@@ -903,6 +905,60 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(removedItemAtURL, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
     }
 
+    func test_installedRuntimes() async throws {
+        Current.shell.installedRuntimes = {
+            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
+            return Promise.value((0, try! String(contentsOf: url), ""))
+        }
+        let values = try await runtimeList.installedRuntimes().async()
+        let givenIDs = [
+            UUID(uuidString: "2A6068A0-7FCF-4DB9-964D-21145EB98498")!,
+            UUID(uuidString: "3A0ED6D6-054B-4360-A205-B84BC8186B36")!,
+            UUID(uuidString: "7A032D54-0D93-4E04-80B9-4CB207136C3F")!,
+            UUID(uuidString: "99A8BE2F-75C3-4A8B-A72A-8AC430EDC3F5")!,
+            UUID(uuidString: "568E5394-928A-4A31-983C-90E9BEE1F1F4")!,
+            UUID(uuidString: "630146EA-A027-42B1-AC25-BE4EA018DE90")!,
+            UUID(uuidString: "AAD753FE-A798-479C-B6D6-41259B063DD6")!,
+        ]
+        XCTAssertEqual(givenIDs, values.map(\.identifier))
+    }
+
+    func test_downloadableRuntimes() async throws {
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == .downloadableRuntimes {
+                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
+                let downloadsData = try! Data(contentsOf: url)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            fatalError("wrong url")
+        }
+        let values = try await runtimeList.downloadableRuntimes().async()
+
+        XCTAssertTrue(values.allSatisfy { !$0.name.contains("beta") })
+        XCTAssertEqual(values.count, 45)
+    }
+
+    func test_printAvailableRuntimes() async throws {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.shell.installedRuntimes = {
+            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
+            return Promise.value((0, try! String(contentsOf: url), ""))
+        }
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == .downloadableRuntimes {
+                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
+                let downloadsData = try! Data(contentsOf: url)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            fatalError("wrong url")
+        }
+        try await runtimeList.printAvailableRuntimes().async()
+
+        let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtimes", withExtension: "txt", subdirectory: "Fixtures")!
+        XCTAssertEqual(log, try String(contentsOf: outputUrl))
+    }
+
     func test_MigrateApplicationSupport_OnlyNewSupportFiles() {
         Current.files.fileExistsAtPath = { return $0.contains("com.robotsandpencils") }
         var source: URL?
@@ -1333,4 +1389,16 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(capturedError as? Client.Error, Client.Error.notAuthenticated)
     }
 
+}
+
+extension Promise {
+    func async() async throws -> T {
+        return try await withCheckedThrowingContinuation { continuation in
+            done { value in
+                continuation.resume(returning: value)
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
 }
