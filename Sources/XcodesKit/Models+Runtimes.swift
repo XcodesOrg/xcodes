@@ -22,7 +22,7 @@ public struct DownloadableRuntime: Decodable {
     let name: String
     let authentication: Authentication?
 
-    private var betaVersion: Int? {
+    var betaVersion: Int? {
         enum Regex { static let shared = try! NSRegularExpression(pattern: "b[0-9]+$") }
         guard var foundString = Regex.shared.firstString(in: identifier) else { return nil }
         foundString.removeFirst()

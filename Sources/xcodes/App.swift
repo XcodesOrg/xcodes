@@ -322,8 +322,11 @@ struct Xcodes: AsyncParsableCommand {
             abstract: "List all simulator runtimes that are available to install"
         )
 
+        @Flag(help: "Include beta runtimes available to install")
+        var includeBetas: Bool = false
+
         func run() async throws {
-            try await runtimes.printAvailableRuntimes()
+            try await runtimes.printAvailableRuntimes(includeBetas: includeBetas)
         }
     }
     

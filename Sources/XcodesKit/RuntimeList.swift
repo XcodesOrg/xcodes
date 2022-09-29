@@ -7,8 +7,8 @@ public class RuntimeList {
     public init() {
     }
 
-    public func printAvailableRuntimes() async throws {
-        let downloadables = try await downloadableRuntimes()
+    public func printAvailableRuntimes(includeBetas: Bool) async throws {
+        let downloadables = try await downloadableRuntimes(includeBetas: includeBetas)
         var installed = try await installedRuntimes()
         for (platform, downloadables) in Dictionary(grouping: downloadables, by: \.platform).sorted(\.key.order) {
             Current.logging.log("-- \(platform.shortName) --")
@@ -31,10 +31,10 @@ public class RuntimeList {
         }
     }
 
-    func downloadableRuntimes() async throws -> [DownloadableRuntime] {
+    func downloadableRuntimes(includeBetas: Bool) async throws -> [DownloadableRuntime] {
         let (data, _) = try await Current.network.dataTask(with: URLRequest.runtimes).async()
         let decodedResponse = try PropertyListDecoder().decode(DownloadableRuntimesResponse.self, from: data)
-        return decodedResponse.downloadables
+        return includeBetas ? decodedResponse.downloadables : decodedResponse.downloadables.filter { $0.betaVersion == nil }
     }
 
     func installedRuntimes() async throws -> [InstalledRuntime] {

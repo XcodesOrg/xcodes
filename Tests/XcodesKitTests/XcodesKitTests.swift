@@ -933,9 +933,23 @@ final class XcodesKitTests: XCTestCase {
             }
             fatalError("wrong url")
         }
-        let values = try await runtimeList.downloadableRuntimes()
+        let values = try await runtimeList.downloadableRuntimes(includeBetas: true)
 
         XCTAssertEqual(values.count, 57)
+    }
+
+    func test_downloadableRuntimesNoBetas() async throws {
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == .downloadableRuntimes {
+                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
+                let downloadsData = try! Data(contentsOf: url)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            fatalError("wrong url")
+        }
+        let values = try await runtimeList.downloadableRuntimes(includeBetas: false)
+        XCTAssertFalse(values.contains { $0.name.lowercased().contains("beta") })
+        XCTAssertEqual(values.count, 45)
     }
 
     func test_printAvailableRuntimes() async throws {
@@ -953,7 +967,7 @@ final class XcodesKitTests: XCTestCase {
             }
             fatalError("wrong url")
         }
-        try await runtimeList.printAvailableRuntimes()
+        try await runtimeList.printAvailableRuntimes(includeBetas: true)
 
         let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtimes", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log, try String(contentsOf: outputUrl))
