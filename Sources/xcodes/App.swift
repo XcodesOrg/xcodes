@@ -279,8 +279,6 @@ struct Xcodes: AsyncParsableCommand {
                 }
             }
             .then { xcode -> Promise<Void> in
-                Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
-
                 // Install was successful, now select it
                 return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
             }
