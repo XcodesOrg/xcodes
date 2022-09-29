@@ -241,6 +241,10 @@ struct Xcodes: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "List the versions of Xcode that are installed"
         )
+
+        @Argument(help: "The version installed to which to print the path for",
+                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
+        var version: [String] = []
         
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
@@ -252,8 +256,16 @@ struct Xcodes: ParsableCommand {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
-            
-            installer.printInstalledXcodes(directory: directory)
+
+            installer.printXcodePath(ofVersion: version.joined(separator: " "), searchingIn: directory)
+                .recover { error -> Promise<Void> in
+                    switch error {
+                    case XcodeInstaller.Error.invalidVersion:
+                        return installer.printInstalledXcodes(directory: directory)
+                    default:
+                        throw error
+                    }
+                }
                 .done { Installed.exit() }
                 .catch { error in Installed.exit(withLegibleError: error) }
             

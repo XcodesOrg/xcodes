@@ -762,6 +762,21 @@ public final class XcodeInstaller {
             }
     }
 
+    public func printXcodePath(ofVersion versionString: String, searchingIn directory: Path) -> Promise<Void> {
+        return firstly { () -> Promise<Void> in
+            guard let version = Version(xcodeVersion: versionString) else {
+                throw Error.invalidVersion(versionString)
+            }
+            let installedXcodes = Current.files.installedXcodes(directory)
+                .sorted { $0.version < $1.version }
+            guard let installedXcode = installedXcodes.first(withVersion: version) else {
+                throw Error.versionNotInstalled(version)
+            }
+            Current.logging.log(installedXcode.path.string)
+            return Promise.value(())
+        }
+    }
+
     func unarchiveAndMoveXIP(at source: URL, to destination: URL, experimentalUnxip: Bool) -> Promise<URL> {
         return firstly { () -> Promise<Void> in
             Current.logging.log(InstallationStep.unarchiving(experimentalUnxip: experimentalUnxip).description)
