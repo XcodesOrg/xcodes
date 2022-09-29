@@ -21,12 +21,30 @@ public struct DownloadableRuntime: Decodable {
     let hostRequirements: HostRequirements?
     let name: String
     let authentication: Authentication?
+
+    private var betaVersion: Int? {
+        enum Regex { static let shared = try! NSRegularExpression(pattern: "b[0-9]+$") }
+        guard var foundString = Regex.shared.firstString(in: identifier) else { return nil }
+        foundString.removeFirst()
+        return Int(foundString)!
+    }
+
+    var visibleName: String {
+        let betaSuffix = betaVersion.flatMap { "-beta\($0)" } ?? ""
+        return platform.shortName + " " + simulatorVersion.version + betaSuffix
+    }
 }
 
 struct SDKToSeedMapping: Decodable {
     let buildUpdate: String
     let platform: DownloadableRuntime.Platform
     let seedNumber: Int
+}
+
+struct SDKToSimulatorMapping: Decodable {
+    let sdkBuildUpdate: String
+    let simulatorBuildUpdate: String
+    let sdkIdentifier: String
 }
 
 extension DownloadableRuntime {
@@ -81,12 +99,6 @@ extension DownloadableRuntime {
     }
 }
 
-struct SDKToSimulatorMapping: Decodable {
-    let sdkBuildUpdate: String
-    let simulatorBuildUpdate: String
-    let sdkIdentifier: String
-}
-
 public struct InstalledRuntime: Decodable {
     let build: String
     let deletable: Bool
@@ -105,6 +117,7 @@ public struct InstalledRuntime: Decodable {
 
 extension InstalledRuntime {
     enum Kind: String, Decodable {
+        case diskImage = "Disk Image"
         case bundled = "Bundled with Xcode"
         case legacyDownload = "Legacy Download"
     }

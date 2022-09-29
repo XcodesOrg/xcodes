@@ -13,15 +13,16 @@ public class RuntimeList {
                 var installed = installed
                 for (platform, downloadables) in Dictionary(grouping: downloadables, by: \.platform).sorted(\.key.order) {
                     Current.logging.log("-- \(platform.shortName) --")
-                    for downloadable in downloadables.sorted(\.version) {
+                    for downloadable in downloadables {
                         let matchingInstalledRuntimes = installed.remove { $0.build == downloadable.simulatorVersion.buildUpdate }
-                        let name = downloadable.platform.shortName + " \(downloadable.simulatorVersion.version)"
+                        let name = downloadable.visibleName
                         if !matchingInstalledRuntimes.isEmpty {
                             for matchingInstalledRuntime in matchingInstalledRuntimes {
-                                if matchingInstalledRuntime.kind == .legacyDownload {
-                                    Current.logging.log(name + " (Downloaded)")
-                                } else if matchingInstalledRuntime.kind == .bundled {
-                                    Current.logging.log(name + " (Bundled with selected Xcode)")
+                                switch matchingInstalledRuntime.kind {
+                                    case .bundled:
+                                        Current.logging.log(name + " (Bundled with selected Xcode)")
+                                    case .diskImage, .legacyDownload:
+                                        Current.logging.log(name + " (Downloaded)")
                                 }
                             }
                         } else {
@@ -38,9 +39,7 @@ public class RuntimeList {
         }
         .map { (data, response) -> [DownloadableRuntime] in
             let response = try PropertyListDecoder().decode(DownloadableRuntimesResponse.self, from: data)
-            return response.downloadables.filter { downloadable in
-                !downloadable.name.lowercased().contains("beta")
-            }
+            return response.downloadables
         }
     }
 

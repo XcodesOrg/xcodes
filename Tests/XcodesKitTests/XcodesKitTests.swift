@@ -913,12 +913,13 @@ final class XcodesKitTests: XCTestCase {
         let values = try await runtimeList.installedRuntimes().async()
         let givenIDs = [
             UUID(uuidString: "2A6068A0-7FCF-4DB9-964D-21145EB98498")!,
-            UUID(uuidString: "3A0ED6D6-054B-4360-A205-B84BC8186B36")!,
+            UUID(uuidString: "6DE6B631-9439-4737-A65B-73F675EB77D1")!,
             UUID(uuidString: "7A032D54-0D93-4E04-80B9-4CB207136C3F")!,
-            UUID(uuidString: "99A8BE2F-75C3-4A8B-A72A-8AC430EDC3F5")!,
-            UUID(uuidString: "568E5394-928A-4A31-983C-90E9BEE1F1F4")!,
+            UUID(uuidString: "91B92361-CD02-4AF7-8DFE-DE8764AA949F")!,
             UUID(uuidString: "630146EA-A027-42B1-AC25-BE4EA018DE90")!,
             UUID(uuidString: "AAD753FE-A798-479C-B6D6-41259B063DD6")!,
+            UUID(uuidString: "BE68168B-7AC8-4A1F-A344-15DFCC375457")!,
+            UUID(uuidString: "F8D81829-354C-4EB0-828D-83DC765B27E1")!,
         ]
         XCTAssertEqual(givenIDs, values.map(\.identifier))
     }
@@ -934,8 +935,7 @@ final class XcodesKitTests: XCTestCase {
         }
         let values = try await runtimeList.downloadableRuntimes().async()
 
-        XCTAssertTrue(values.allSatisfy { !$0.name.contains("beta") })
-        XCTAssertEqual(values.count, 45)
+        XCTAssertEqual(values.count, 57)
     }
 
     func test_printAvailableRuntimes() async throws {
