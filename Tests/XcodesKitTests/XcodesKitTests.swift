@@ -910,7 +910,7 @@ final class XcodesKitTests: XCTestCase {
             let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
             return Promise.value((0, try! String(contentsOf: url), ""))
         }
-        let values = try await runtimeList.installedRuntimes().async()
+        let values = try await runtimeList.installedRuntimes()
         let givenIDs = [
             UUID(uuidString: "2A6068A0-7FCF-4DB9-964D-21145EB98498")!,
             UUID(uuidString: "6DE6B631-9439-4737-A65B-73F675EB77D1")!,
@@ -933,7 +933,7 @@ final class XcodesKitTests: XCTestCase {
             }
             fatalError("wrong url")
         }
-        let values = try await runtimeList.downloadableRuntimes().async()
+        let values = try await runtimeList.downloadableRuntimes()
 
         XCTAssertEqual(values.count, 57)
     }
@@ -953,7 +953,7 @@ final class XcodesKitTests: XCTestCase {
             }
             fatalError("wrong url")
         }
-        try await runtimeList.printAvailableRuntimes().async()
+        try await runtimeList.printAvailableRuntimes()
 
         let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtimes", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log, try String(contentsOf: outputUrl))
@@ -1389,16 +1389,4 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(capturedError as? Client.Error, Client.Error.notAuthenticated)
     }
 
-}
-
-extension Promise {
-    func async() async throws -> T {
-        return try await withCheckedThrowingContinuation { continuation in
-            done { value in
-                continuation.resume(returning: value)
-            }.catch { error in
-                continuation.resume(throwing: error)
-            }
-        }
-    }
 }

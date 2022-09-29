@@ -7,53 +7,43 @@ public class RuntimeList {
     public init() {
     }
 
-    public func printAvailableRuntimes() -> Promise<Void> {
-        when(fulfilled: downloadableRuntimes(), installedRuntimes())
-            .done { downloadables, installed in
-                var installed = installed
-                for (platform, downloadables) in Dictionary(grouping: downloadables, by: \.platform).sorted(\.key.order) {
-                    Current.logging.log("-- \(platform.shortName) --")
-                    for downloadable in downloadables {
-                        let matchingInstalledRuntimes = installed.remove { $0.build == downloadable.simulatorVersion.buildUpdate }
-                        let name = downloadable.visibleName
-                        if !matchingInstalledRuntimes.isEmpty {
-                            for matchingInstalledRuntime in matchingInstalledRuntimes {
-                                switch matchingInstalledRuntime.kind {
-                                    case .bundled:
-                                        Current.logging.log(name + " (Bundled with selected Xcode)")
-                                    case .diskImage, .legacyDownload:
-                                        Current.logging.log(name + " (Downloaded)")
-                                }
-                            }
-                        } else {
-                            Current.logging.log(name)
+    public func printAvailableRuntimes() async throws {
+        let downloadables = try await downloadableRuntimes()
+        var installed = try await installedRuntimes()
+        for (platform, downloadables) in Dictionary(grouping: downloadables, by: \.platform).sorted(\.key.order) {
+            Current.logging.log("-- \(platform.shortName) --")
+            for downloadable in downloadables {
+                let matchingInstalledRuntimes = installed.remove { $0.build == downloadable.simulatorVersion.buildUpdate }
+                let name = downloadable.visibleName
+                if !matchingInstalledRuntimes.isEmpty {
+                    for matchingInstalledRuntime in matchingInstalledRuntimes {
+                        switch matchingInstalledRuntime.kind {
+                            case .bundled:
+                                Current.logging.log(name + " (Bundled with selected Xcode)")
+                            case .diskImage, .legacyDownload:
+                                Current.logging.log(name + " (Downloaded)")
                         }
                     }
+                } else {
+                    Current.logging.log(name)
                 }
             }
-    }
-
-    func downloadableRuntimes() -> Promise<[DownloadableRuntime]> {
-        return firstly { () -> Promise<(data: Data, response: URLResponse)> in
-            Current.network.dataTask(with: URLRequest.runtimes)
-        }
-        .map { (data, response) -> [DownloadableRuntime] in
-            let response = try PropertyListDecoder().decode(DownloadableRuntimesResponse.self, from: data)
-            return response.downloadables
         }
     }
 
-    func installedRuntimes() -> Promise<[InstalledRuntime]> {
-        return firstly { () -> Promise<ProcessOutput> in
-            Current.shell.installedRuntimes()
-        }
-        .map { output -> [InstalledRuntime] in
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let outputDictionary = try decoder.decode([String: InstalledRuntime].self, from: output.out.data(using: .utf8)!)
-            return outputDictionary.values.sorted { first, second in
-                return first.identifier.uuidString.compare(second.identifier.uuidString, options: .numeric) == .orderedAscending
-            }
+    func downloadableRuntimes() async throws -> [DownloadableRuntime] {
+        let (data, _) = try await Current.network.dataTask(with: URLRequest.runtimes).async()
+        let decodedResponse = try PropertyListDecoder().decode(DownloadableRuntimesResponse.self, from: data)
+        return decodedResponse.downloadables
+    }
+
+    func installedRuntimes() async throws -> [InstalledRuntime] {
+        let output = try await Current.shell.installedRuntimes().async()
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let outputDictionary = try decoder.decode([String: InstalledRuntime].self, from: output.out.data(using: .utf8)!)
+        return outputDictionary.values.sorted { first, second in
+            return first.identifier.uuidString.compare(second.identifier.uuidString, options: .numeric) == .orderedAscending
         }
     }
 }
