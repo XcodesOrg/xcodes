@@ -32,17 +32,17 @@ To define an official Xcode release
 13.4.1
 ```
 
-You can also use pre-releases
+You can also use pre-releases:
 
 ```txt
 12.1 GM
 ```
 
 ```txt
-14.0 Beta 6
+14.0b6
 ```
 
-Always following the same version naming listed by `xcodes list`.
+Note that it doesn't support GM release identifiers.
 
 **Note**: Be aware that pre-releases might be eventually taken down from Apple's servers, meaning that it won't allow you to have fully reproducible builds as you won't be able to download the Xcode release once it's gone.
 
