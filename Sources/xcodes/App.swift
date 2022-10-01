@@ -279,11 +279,7 @@ struct Xcodes: AsyncParsableCommand {
                 }
             }
             .then { xcode -> Promise<Void> in
-                if select {
-                    return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
-                } else {
-                    return .init()
-                }
+                select ? selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false) : .init()
             }
             .done {
                 Install.exit()
