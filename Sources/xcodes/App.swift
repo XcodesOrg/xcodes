@@ -156,9 +156,6 @@ struct Xcodes: AsyncParsableCommand {
     }
 
     struct Install: ParsableCommand {
-        enum InstallError: Error {
-            case notAlreadyInstalled
-        }
         static var configuration = CommandConfiguration(
             abstract: "Download and install a specific version of Xcode",
             discussion: """
