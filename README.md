@@ -95,6 +95,16 @@ If you have [aria2](https://aria2.github.io) installed (it's available in Homebr
 
 Xcode will be installed to /Applications by default, but you can provide the path to a different directory with the `--directory` option or the `XCODES_DIRECTORY` environment variable. All of the xcodes commands support this option, like `select` and `uninstall`, so you can manage Xcode versions that aren't in /Applications. xcodes supports having all of your Xcode versions installed in _one_ directory, wherever that may be.
 
+### `.xcode-version`
+
+We recommend the creation of a `.xcode-version` file to explicitly declare and store the Xcode version to be used by your CI environment as well as your team.
+
+```txt
+13.4.1
+```
+
+Read [the proposal](/XCODE_VERSION.md) of `.xcode-version`.
+
 ### Commands
 
 - `download <version>`: Download a specific version of Xcode
