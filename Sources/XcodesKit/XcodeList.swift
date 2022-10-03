@@ -12,9 +12,10 @@ public final class XcodeList {
     }
 
     public private(set) var availableXcodes: [Xcode] = []
+    public private(set) var lastUpdated: Date?
 
     public var shouldUpdate: Bool {
-        return availableXcodes.isEmpty
+        return availableXcodes.isEmpty || (cacheAge ?? 0) > Self.maxCacheAge
     }
 
     public func update(dataSource: DataSource) -> Promise<[Xcode]> {
@@ -45,10 +46,22 @@ public final class XcodeList {
 }
 
 extension XcodeList {
+    private static let maxCacheAge = TimeInterval(86400) // 24 hours
+
+    private var cacheAge: TimeInterval? {
+        guard let lastUpdated = lastUpdated else { return nil }
+        return -lastUpdated.timeIntervalSinceNow
+    }
+
     private func loadCachedAvailableXcodes() throws {
         guard let data = Current.files.contents(atPath: Path.cacheFile.string) else { return }
         let xcodes = try JSONDecoder().decode([Xcode].self, from: data)
+
+        let attributes = try? Current.files.attributesOfItem(atPath: Path.cacheFile.string)
+        let lastUpdated = attributes?[.modificationDate] as? Date
+
         self.availableXcodes = xcodes
+        self.lastUpdated = lastUpdated
     }
 
     private func cacheAvailableXcodes(_ xcodes: [Xcode]) throws {

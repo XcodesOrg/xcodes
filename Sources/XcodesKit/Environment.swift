@@ -201,6 +201,12 @@ public struct Files {
         return fileExistsAtPath(path)
     }
 
+    public var attributesOfItemAtPath: (String) throws -> [FileAttributeKey: Any] = { try FileManager.default.attributesOfItem(atPath: $0) }
+
+    public func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
+        return try attributesOfItemAtPath(path)
+    }
+
     public var moveItem: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }
 
     public func moveItem(at srcURL: URL, to dstURL: URL) throws {

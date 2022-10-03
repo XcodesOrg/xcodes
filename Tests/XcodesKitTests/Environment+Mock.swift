@@ -42,6 +42,7 @@ extension Shell {
 extension Files {
     static var mock = Files(
         fileExistsAtPath: { _ in return true },
+        attributesOfItemAtPath: { _ in [:] },
         moveItem: { _, _ in return },
         contentsAtPath: { path in
             if path.contains("Info.plist") {
