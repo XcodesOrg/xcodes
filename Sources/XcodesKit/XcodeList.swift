@@ -31,6 +31,7 @@ public final class XcodeList {
                         prereleaseXcodes.contains { $0.version.isEquivalent(to: releasedXcode.version) } == false
                     } + prereleaseXcodes
                     self.availableXcodes = xcodes
+                    self.lastUpdated = Date()
                     try? self.cacheAvailableXcodes(xcodes)
                     return xcodes
                 }
@@ -38,6 +39,7 @@ public final class XcodeList {
             return xcodeReleases()
                 .map { xcodes in
                     self.availableXcodes = xcodes
+                    self.lastUpdated = Date()
                     try? self.cacheAvailableXcodes(xcodes)
                     return xcodes
                 }
