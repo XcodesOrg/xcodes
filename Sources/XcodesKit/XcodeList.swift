@@ -55,7 +55,7 @@ extension XcodeList {
         let data = try JSONEncoder().encode(xcodes)
         try FileManager.default.createDirectory(at: Path.cacheFile.url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-        try data.write(to: Path.cacheFile.url)
+        try Current.files.write(data, to: Path.cacheFile.url)
     }
 }
 
