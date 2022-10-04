@@ -59,3 +59,5 @@ tvOS 16.0-beta4
 tvOS 16.0-beta5
 tvOS 16.0
 tvOS 16.1-beta1
+
+Note: Bundled runtimes are only for the selected Xcode, more bundled runtimes may exist in other Xcode(s)

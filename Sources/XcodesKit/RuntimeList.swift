@@ -29,6 +29,7 @@ public class RuntimeList {
                 }
             }
         }
+        Current.logging.log("\nNote: Bundled runtimes are only for the selected Xcode, more bundled runtimes may exist in other Xcode(s)")
     }
 
     func downloadableRuntimes(includeBetas: Bool) async throws -> [DownloadableRuntime] {
