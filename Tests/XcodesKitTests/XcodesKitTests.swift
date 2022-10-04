@@ -1341,7 +1341,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcodesList = XcodeList()
 
-        XCTAssertFalse(xcodesList.shouldUpdate)
+        XCTAssertFalse(xcodesList.shouldUpdateBeforeListingVersions)
     }
 
     func test_XcodeList_ShouldUpdate_WhenCacheFileIsOld() {
@@ -1350,7 +1350,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcodesList = XcodeList()
 
-        XCTAssertTrue(xcodesList.shouldUpdate)
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
     }
 
     func test_XcodeList_ShouldUpdate_WhenCacheFileIsMissing() {
@@ -1358,7 +1358,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcodesList = XcodeList()
 
-        XCTAssertTrue(xcodesList.shouldUpdate)
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
     }
 
     func test_XcodeList_ShouldUpdate_WhenCacheFileIsEmpty() {
@@ -1366,7 +1366,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcodesList = XcodeList()
 
-        XCTAssertTrue(xcodesList.shouldUpdate)
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
     }
 
     func test_XcodeList_ShouldUpdate_WhenCacheFileIsCorrupt() {
@@ -1374,7 +1374,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcodesList = XcodeList()
 
-        XCTAssertTrue(xcodesList.shouldUpdate)
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
     }
 
     func test_XcodeList_LoadsCacheEvenIfAttributesFailToLoad() {

@@ -3,7 +3,7 @@ import Path
 import Version
 import PromiseKit
 import SwiftSoup
-import XCModel
+import struct XCModel.Xcode
 
 /// Provides lists of available and installed Xcodes
 public final class XcodeList {
@@ -14,8 +14,12 @@ public final class XcodeList {
     public private(set) var availableXcodes: [Xcode] = []
     public private(set) var lastUpdated: Date?
 
-    public var shouldUpdate: Bool {
+    public var shouldUpdateBeforeListingVersions: Bool {
         return availableXcodes.isEmpty || (cacheAge ?? 0) > Self.maxCacheAge
+    }
+
+    public func shouldUpdateBeforeDownloading(version: Version) -> Bool {
+        return availableXcodes.first(withVersion: version) == nil
     }
 
     public func update(dataSource: DataSource) -> Promise<[Xcode]> {

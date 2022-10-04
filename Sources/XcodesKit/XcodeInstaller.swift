@@ -289,30 +289,50 @@ public final class XcodeInstaller {
     }
 
     private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
-        return firstly { () -> Promise<Version> in
-            if dataSource == .apple {
-                return loginIfNeeded().map { version }
+        return firstly { () -> Promise<Void> in
+            switch dataSource {
+            case .apple:
+                // When using the Apple data source, an authenticated session is required for both
+                // downloading the list of Xcodes as well as to actually download Xcode, so we'll
+                // establish our session right at the start.
+                return loginIfNeeded()
+
+            case .xcodeReleases:
+                // When using the Xcode Releases data source, we only need to establish an anonymous
+                // session once we're ready to download Xcode. Doing that requires us to know the
+                // URL we want to download though (and we may not know that yet), so we don't need
+                // to do anything session-related quite yet.
+                return Promise()
+            }
+        }
+        .then { () -> Promise<Void> in
+            if self.xcodeList.shouldUpdateBeforeDownloading(version: version) {
+                return self.xcodeList.update(dataSource: dataSource).asVoid()
             } else {
-                guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
-                    throw Error.unavailableVersion(version)
-                }
-                
-                return validateADCSession(path: xcode.downloadPath).map { version }
+                return Promise()
             }
         }
-        .then { version -> Promise<Version> in
-            if self.xcodeList.shouldUpdate {
-                return self.xcodeList.update(dataSource: dataSource).map { _ in version }
-            }
-            else {
-                return Promise.value(version)
-            }
-        }
-        .then { version -> Promise<(Xcode, URL)> in
+        .then { () -> Promise<Xcode> in
             guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
                 throw Error.unavailableVersion(version)
             }
 
+            return Promise.value(xcode)
+        }
+        .then { xcode -> Promise<Xcode> in
+            switch dataSource {
+            case .apple:
+                /// We already established a session for the Apple data source at the beginning of
+                /// this download, so we don't need to do anything session-related at this point.
+                return Promise.value(xcode)
+
+            case .xcodeReleases:
+                /// Now that we've used Xcode Releases to determine what URL we should use to
+                /// download Xcode, we can use that to establish an anonymous session with Apple.
+                return self.validateADCSession(path: xcode.downloadPath).map { xcode }
+            }
+        }
+        .then { xcode -> Promise<(Xcode, URL)> in
             if Current.shell.isatty() {
                 // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
                 Current.logging.log("")
