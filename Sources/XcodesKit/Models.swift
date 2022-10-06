@@ -95,4 +95,3 @@ public struct VersionPlist: Decodable {
         case productBuildVersion = "ProductBuildVersion"
     }
 }
-
