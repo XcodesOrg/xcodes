@@ -81,7 +81,7 @@ public class RuntimeList {
             return destination.url
         }
         if runtime.authentication == .virtual {
-            try await sessionController.loginIfNeeded().async()
+            try await sessionController.validateADCSession(path: url.path).async()
         }
         let formatter = NumberFormatter(numberStyle: .percent)
         var observation: NSKeyValueObservation?

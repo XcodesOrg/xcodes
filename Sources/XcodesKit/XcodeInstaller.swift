@@ -313,7 +313,7 @@ public final class XcodeInstaller {
             case .xcodeReleases:
                 /// Now that we've used Xcode Releases to determine what URL we should use to
                 /// download Xcode, we can use that to establish an anonymous session with Apple.
-                return self.validateADCSession(path: xcode.downloadPath).map { xcode }
+                return self.sessionController.validateADCSession(path: xcode.downloadPath).map { xcode }
             }
         }
         .then { xcode -> Promise<(Xcode, URL)> in
@@ -340,10 +340,6 @@ public final class XcodeInstaller {
                 .get { _ in observation?.invalidate() }
                 .map { return (xcode, $0) }
         }
-    }
-
-    func validateADCSession(path: String) -> Promise<Void> {
-        return Current.network.dataTask(with: URLRequest.downloadADCAuth(path: path)).asVoid()
     }
 
     public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {

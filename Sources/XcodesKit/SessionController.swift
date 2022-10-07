@@ -33,6 +33,10 @@ public class SessionController {
         return nil
     }
 
+    func validateADCSession(path: String) -> Promise<Void> {
+      return Current.network.dataTask(with: URLRequest.downloadADCAuth(path: path)).asVoid()
+    }
+
     func loginIfNeeded(withUsername providedUsername: String? = nil, shouldPromptForPassword: Bool = false) -> Promise<Void> {
         return firstly { () -> Promise<Void> in
             return Current.network.validateSession()
