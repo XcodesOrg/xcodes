@@ -29,7 +29,7 @@ public struct DownloadableRuntime: Decodable {
         return Int(foundString)!
     }
 
-    var visibleName: String {
+    var visibleIdentifier: String {
         let betaSuffix = betaVersion.flatMap { "-beta\($0)" } ?? ""
         return platform.shortName + " " + simulatorVersion.version + betaSuffix
     }

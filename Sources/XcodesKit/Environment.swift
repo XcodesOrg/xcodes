@@ -72,7 +72,7 @@ public struct Shell {
         let process = Process()
         process.executableURL = aria2Path.url
         process.arguments = [
-            "--header=Cookie: \(cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; "))",     
+            "--header=Cookie: \(cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; "))",
             "--max-connection-per-server=16",
             "--split=16",
             "--summary-interval=1",

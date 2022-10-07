@@ -60,13 +60,16 @@ struct Xcodes: AsyncParsableCommand {
     )
 
     static var xcodesConfiguration = Configuration()
+    static var sessionController: SessionController!
     static let xcodeList = XcodeList()
-    static let runtimes = RuntimeList()
+    static var runtimes: RuntimeList!
     static var installer: XcodeInstaller!
 
     static func main() async {
         try? xcodesConfiguration.load()
-        installer = XcodeInstaller(configuration: xcodesConfiguration, xcodeList: xcodeList)
+        sessionController = SessionController(configuration: xcodesConfiguration)
+        installer = XcodeInstaller(sessionController: sessionController, xcodeList: xcodeList)
+        runtimes = RuntimeList(sessionController: sessionController)
         migrateApplicationSupportFiles()
         do {
             var command = try parseAsRoot()
@@ -136,8 +139,8 @@ struct Xcodes: AsyncParsableCommand {
             } else {
                 installation = .version(versionString)
             }
-
-            var downloader = XcodeInstaller.Downloader.urlSession
+            
+            var downloader = Downloader.urlSession
             if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
                aria2Path.exists,
                noAria2 == false {
@@ -236,8 +239,8 @@ struct Xcodes: AsyncParsableCommand {
             } else {
                 installation = .version(versionString)
             }
-
-            var downloader = XcodeInstaller.Downloader.urlSession
+            
+            var downloader = Downloader.urlSession
             if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
                aria2Path.exists,
                noAria2 == false {
@@ -261,7 +264,7 @@ struct Xcodes: AsyncParsableCommand {
         }
 
         private func install(_ installation: XcodeInstaller.InstallationType,
-                             using downloader: XcodeInstaller.Downloader,
+                             using downloader: Downloader,
                              to destination: Path) {
             firstly { () -> Promise<InstalledXcode> in
                 // update the list before installing only for version type because the other types already update internally
@@ -363,7 +366,8 @@ struct Xcodes: AsyncParsableCommand {
 
     struct Runtimes: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
-            abstract: "List all simulator runtimes that are available to install"
+            abstract: "List all simulator runtimes that are available to install",
+            subcommands: [Install.self]
         )
 
         @Flag(help: "Include beta runtimes available to install")
@@ -371,6 +375,38 @@ struct Xcodes: AsyncParsableCommand {
 
         func run() async throws {
             try await runtimes.printAvailableRuntimes(includeBetas: includeBetas)
+        }
+
+        struct Install: AsyncParsableCommand {
+            static var configuration = CommandConfiguration(
+                abstract: "Download and install a specific simulator runtime"
+            )
+
+            @Argument(help: "The runtime to install")
+            var version: String
+
+            @Option(help: "The path to an aria2 executable. Searches $PATH by default.",
+                    completion: .file())
+            var aria2: String?
+
+            @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
+            var noAria2: Bool = false
+
+            @OptionGroup
+            var globalColor: GlobalColorOption
+
+            func run() async throws {
+                Rainbow.enabled = Rainbow.enabled && globalColor.color
+
+                var downloader = Downloader.urlSession
+                if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
+                   aria2Path.exists,
+                   noAria2 == false {
+                    downloader = .aria2(aria2Path)
+                }
+                try await runtimes.downloadAndInstallRuntime(identifier: version, downloader: downloader)
+                Current.logging.log("Finished")
+            }
         }
     }
 
@@ -504,8 +540,8 @@ struct Xcodes: AsyncParsableCommand {
 
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
-
-            installer.logout()
+            
+            sessionController.logout()
                 .done {
                     Current.logging.log("Successfully signed out".green)
                     Signout.exit()
