@@ -128,6 +128,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "runtimes"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "install --help"
             isEnabled = "YES">
          </CommandLineArgument>

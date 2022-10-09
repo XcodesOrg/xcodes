@@ -51,23 +51,33 @@ struct GlobalColorOption: ParsableArguments {
     var color: Bool = true
 }
 
-struct Xcodes: ParsableCommand {
+@main
+struct Xcodes: AsyncParsableCommand {
     static var configuration = CommandConfiguration(
         abstract: "Manage the Xcodes installed on your Mac",
         shouldDisplay: true,
-        subcommands: [Download.self, Install.self, Installed.self, List.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
+        subcommands: [Download.self, Install.self, Installed.self, List.self, Runtimes.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
     )
     
     static var xcodesConfiguration = Configuration()
     static let xcodeList = XcodeList()
+    static let runtimes = RuntimeList()
     static var installer: XcodeInstaller!
 
-    static func main() {
+    static func main() async {
         try? xcodesConfiguration.load()
         installer = XcodeInstaller(configuration: xcodesConfiguration, xcodeList: xcodeList)
         migrateApplicationSupportFiles()
-        
-        self.main(nil)
+        do {
+            var command = try parseAsRoot()
+            if var asyncCommand = command as? AsyncParsableCommand {
+                try await asyncCommand.run()
+            } else {
+                try command.run()
+            }
+        } catch {
+            exit(withError: error)
+        }
     }
     
     struct Download: ParsableCommand {
@@ -133,7 +143,7 @@ struct Xcodes: ParsableCommand {
                noAria2 == false {
                 downloader = .aria2(aria2Path)
             }
-            
+
             let destination = getDirectory(possibleDirectory: directory, default: Path.home.join("Downloads"))
 
             installer.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
@@ -306,6 +316,19 @@ struct Xcodes: ParsableCommand {
             RunLoop.current.run()
         }
     }
+
+    struct Runtimes: AsyncParsableCommand {
+        static var configuration = CommandConfiguration(
+            abstract: "List all simulator runtimes that are available to install"
+        )
+
+        @Flag(help: "Include beta runtimes available to install")
+        var includeBetas: Bool = false
+
+        func run() async throws {
+            try await runtimes.printAvailableRuntimes(includeBetas: includeBetas)
+        }
+    }
     
     struct Select: ParsableCommand {
         static var configuration = CommandConfiguration(
@@ -452,6 +475,3 @@ struct Xcodes: ParsableCommand {
         }
     }
 }
-
-// @main doesn't work yet because of https://bugs.swift.org/browse/SR-12683
-Xcodes.main()

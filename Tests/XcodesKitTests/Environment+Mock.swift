@@ -27,6 +27,7 @@ extension Shell {
         xcodeBuildVersion: { _ in return Promise.value(Shell.processOutputMock) },
         getUserCacheDir: { return Promise.value(Shell.processOutputMock) },
         touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) },
+        installedRuntimes: { return Promise.value(Shell.processOutputMock) },
         validateSudoAuthentication: { return Promise.value(Shell.processOutputMock) },
         // Deliberately using real implementation of authenticateSudoerIfNecessary since it depends on others that can be mocked
         xcodeSelectPrintPath: { return Promise.value(Shell.processOutputMock) },

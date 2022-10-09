@@ -5,6 +5,7 @@ extension URL {
     static let downloads = URL(string: "https://developer.apple.com/services-account/QH65B2/downloadws/listDownloads.action")!
     static let downloadXcode = URL(string: "https://developer.apple.com/devcenter/download.action")!
     static let downloadADCAuth = URL(string: "https://developerservices2.apple.com/services/download")!
+    static let downloadableRuntimes = URL(string: "https://devimages-cdn.apple.com/downloads/xcode/simulators/index2.dvtdownloadableindex")!
 }
 
 extension URLRequest {
@@ -16,6 +17,10 @@ extension URLRequest {
         var request = URLRequest(url: .downloads)
         request.httpMethod = "POST"
         return request
+    }
+
+    static var runtimes: URLRequest {
+        return URLRequest(url: .downloadableRuntimes)
     }
 
     static func downloadXcode(path: String) -> URLRequest {
