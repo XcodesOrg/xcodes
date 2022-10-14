@@ -57,6 +57,7 @@ extension Files {
                 return nil
             }
         },
+        write: { _, _ in },
         removeItem: { _ in },
         trashItem: { _ in return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash") },
         createFile: { _, _, _ in return true },

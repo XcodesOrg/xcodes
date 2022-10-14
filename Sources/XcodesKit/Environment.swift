@@ -214,6 +214,12 @@ public struct Files {
         return contentsAtPath(path)
     }
 
+    public var write: (Data, URL) throws -> Void = { try $0.write(to: $1) }
+
+    public func write(_ data: Data, to url: URL) throws {
+        try write(data, url)
+    }
+
     public var removeItem: (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }
 
     public func removeItem(at URL: URL) throws {
