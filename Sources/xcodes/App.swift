@@ -180,6 +180,9 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .file(extensions: ["xip"]))
         var pathString: String?
         
+        @Flag(help: "Install a specific build number of Xcode.")
+        var build = false
+        
         @Flag(help: "Update and then install the latest non-prerelease version available.")
         var latest: Bool = false
         
@@ -224,6 +227,8 @@ struct Xcodes: AsyncParsableCommand {
                 installation = .latestPrerelease
             } else if let pathString = pathString, let path = Path(pathString) {
                 installation = .path(versionString, path)
+            } else if build {
+                installation = .build(versionString)
             } else {
                 installation = .version(versionString)
             }

@@ -21,11 +21,13 @@ public final class XcodeInstaller {
         case unsupportedFileFormat(extension: String)
         case missingSudoerPassword
         case unavailableVersion(Version)
+        case unavailableBuild(Build)
         case noNonPrereleaseVersionAvailable
         case noPrereleaseVersionAvailable
         case missingUsernameOrPassword
         case versionAlreadyInstalled(InstalledXcode)
         case invalidVersion(String)
+        case invalidBuild(String)
         case versionNotInstalled(Version)
 
         public var errorDescription: String? {
@@ -61,6 +63,8 @@ public final class XcodeInstaller {
                 return "Missing password. Please try again."
             case let .unavailableVersion(version):
                 return "Could not find version \(version.appleDescription)."
+            case let .unavailableBuild(build):
+                return "Could not find build \(build)."
             case .noNonPrereleaseVersionAvailable:
                 return "No non-prerelease versions available."
             case .noPrereleaseVersionAvailable:
@@ -71,6 +75,8 @@ public final class XcodeInstaller {
                 return "\(installedXcode.version.appleDescription) is already installed at \(installedXcode.path)"
             case let .invalidVersion(version):
                 return "\(version) is not a valid version number."
+            case let .invalidBuild(buildIdentifier):
+                return "\(buildIdentifier) is not a valid build identifier."
             case let .versionNotInstalled(version):
                 return "\(version.appleDescription) is not installed."
             }
@@ -156,6 +162,7 @@ public final class XcodeInstaller {
     
     public enum InstallationType {
         case version(String)
+        case build(String)
         case path(String, Path)
         case latest
         case latestPrerelease
@@ -276,6 +283,16 @@ public final class XcodeInstaller {
                     throw Error.versionAlreadyInstalled(installedXcode)
                 }
                 return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+            case .build(let buildIdentifier):
+                guard let build = Build(identifier: buildIdentifier) ?? buildFromXcodeVersionFile() else {
+                    throw Error.invalidBuild(buildIdentifier)
+                }
+                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: {
+                    $0.version.buildMetadataIdentifiers.contains(build.identifier)
+                }) {
+                    throw Error.versionAlreadyInstalled(installedXcode)
+                }
+                return self.downloadXcode(build: build, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
             }
         }
     }
@@ -287,8 +304,16 @@ public final class XcodeInstaller {
             .flatMap(Version.init(gemVersion:))
         return version
     }
-
-    private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
+    
+    private func buildFromXcodeVersionFile() -> Build? {
+        let xcodeVersionFilePath = Path.cwd.join(".xcode-version")
+        let version = (try? Data(contentsOf: xcodeVersionFilePath.url))
+            .flatMap { String(data: $0, encoding: .utf8) }
+            .flatMap(Build.init(identifier:))
+        return version
+    }
+    
+    private func findXcode(version: Version, dataSource: DataSource) -> Promise<Xcode> {
         return firstly { () -> Promise<Version> in
             if dataSource == .apple {
                 return loginIfNeeded().map { version }
@@ -308,11 +333,48 @@ public final class XcodeInstaller {
                 return Promise.value(version)
             }
         }
-        .then { version -> Promise<(Xcode, URL)> in
+        .map { version -> Xcode in
             guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
                 throw Error.unavailableVersion(version)
             }
-
+            return xcode
+        }
+    }
+    
+    private func findXcode(build: Build, dataSource: DataSource) -> Promise<Xcode> {
+        return firstly { () -> Promise<Build> in
+            if dataSource == .apple {
+                return loginIfNeeded().map { build }
+            } else {
+                guard let xcode = self.xcodeList.availableXcodes.first(where: { xcode in
+                    xcode.version.buildMetadataIdentifiers.contains(build.identifier)
+                }) else {
+                    throw Error.unavailableVersion(version)
+                }
+                
+                return validateADCSession(path: xcode.downloadPath).map { build }
+            }
+        }
+        .then { build -> Promise<Build> in
+            if self.xcodeList.shouldUpdate {
+                return self.xcodeList.update(dataSource: dataSource).map { _ in build }
+            }
+            else {
+                return Promise.value(build)
+            }
+        }
+        .map { build -> Xcode in
+            guard let xcode = self.xcodeList.availableXcodes.first(where: { xcode in
+                xcode.version.buildMetadataIdentifiers.contains(build.identifier)
+            }) else {
+                throw Error.unavailableBuild(build)
+            }
+            return xcode
+        }
+    }
+    
+    private func downloadXcode(xcode: Xcode, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
+        return firstly {
             if Current.shell.isatty() {
                 // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
                 Current.logging.log("")
@@ -335,6 +397,22 @@ public final class XcodeInstaller {
             return promise
                 .get { _ in observation?.invalidate() }
                 .map { return (xcode, $0) }
+        }
+    }
+
+    private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
+        return firstly {
+            findXcode(version: version, dataSource: dataSource)
+        }.then { xcode in
+            self.downloadXcode(xcode: xcode, downloader: downloader, willInstall: willInstall)
+        }
+    }
+    
+    private func downloadXcode(build: Build, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
+        return firstly {
+            findXcode(build: build, dataSource: dataSource)
+        }.then { xcode in
+            self.downloadXcode(xcode: xcode, downloader: downloader, willInstall: willInstall)
         }
     }
     

@@ -128,6 +128,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "install --build 13A5201i"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "runtimes"
             isEnabled = "NO">
          </CommandLineArgument>
