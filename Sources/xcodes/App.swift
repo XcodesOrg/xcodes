@@ -303,7 +303,7 @@ struct Xcodes: AsyncParsableCommand {
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
             
             firstly { () -> Promise<Void> in
-                if xcodeList.shouldUpdate {
+                if xcodeList.shouldUpdateBeforeListingVersions {
                     return installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 }
                 else {

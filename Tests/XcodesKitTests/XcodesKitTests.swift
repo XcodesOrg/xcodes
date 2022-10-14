@@ -8,6 +8,8 @@ import Rainbow
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
+    static let mockXcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
+
     var installer: XcodeInstaller!
     var runtimeList: RuntimeList!
 
@@ -1403,4 +1405,54 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(capturedError as? Client.Error, Client.Error.notAuthenticated)
     }
 
+    func test_XcodeList_ShouldUpdate_NotWhenCacheFileIsRecent() {
+        Current.files.contentsAtPath = { _ in try! JSONEncoder().encode([Self.mockXcode]) }
+        Current.files.attributesOfItemAtPath = { _ in [.modificationDate: Date(timeIntervalSinceNow: -3600*12)] }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertFalse(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsOld() {
+        Current.files.contentsAtPath = { _ in try! JSONEncoder().encode([Self.mockXcode]) }
+        Current.files.attributesOfItemAtPath = { _ in [.modificationDate: Date(timeIntervalSinceNow: -3600*24*2)] }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsMissing() {
+        Current.files.contentsAtPath = { _ in nil }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsEmpty() {
+        Current.files.contentsAtPath = { _ in "[]".data(using: .utf8) }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsCorrupt() {
+        Current.files.contentsAtPath = { _ in "[".data(using: .utf8) }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_LoadsCacheEvenIfAttributesFailToLoad() {
+        Current.files.contentsAtPath = { _ in try! JSONEncoder().encode([Self.mockXcode]) }
+        Current.files.attributesOfItemAtPath = { _ in throw NSError(domain: "com.robotsandpencils.xcodes", code: 0) }
+
+        let xcodesList = XcodeList()
+
+        XCTAssert(xcodesList.availableXcodes == [Self.mockXcode])
+    }
 }
