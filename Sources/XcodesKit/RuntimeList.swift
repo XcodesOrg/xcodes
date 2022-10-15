@@ -2,6 +2,7 @@ import PromiseKit
 import Foundation
 import Version
 import Path
+import AppleAPI
 
 public class RuntimeList {
 
@@ -57,7 +58,63 @@ public class RuntimeList {
         guard let matchedRuntime = downloadables.first(where: { $0.visibleIdentifier == identifier }) else {
             throw Error.unavailableRuntime(identifier)
         }
-        _ = try await download(runtime: matchedRuntime, downloader: downloader)
+        let dmgUrl = try await download(runtime: matchedRuntime, downloader: downloader)
+        switch matchedRuntime.contentType {
+            case .package:
+                try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
+            case .diskImage:
+                try await installFromImage(dmgUrl: dmgUrl)
+        }
+    }
+
+    private func installFromImage(dmgUrl: URL)  async throws {
+        Current.logging.log("Installing Runtime")
+        try await Current.shell.installRuntimeImage(dmgUrl).asVoid().async()
+    }
+
+    private func installFromPackage(dmgUrl: URL, runtime: DownloadableRuntime) async throws {
+        Current.logging.log("Mounting DMG")
+        let mountedUrl = try await mountDMG(dmgUrl: dmgUrl)
+        let pkgPath = try! Path(url: mountedUrl)!.ls().first!.path
+        try Path.xcodesCaches.mkdir()
+        let expandedPkgPath = Path.xcodesCaches/runtime.identifier
+        try expandedPkgPath.delete()
+        _ = try await Current.shell.expandPkg(pkgPath.url, expandedPkgPath.url).async()
+        try await unmountDMG(mountedURL: mountedUrl)
+        let packageInfoPath = expandedPkgPath/"PackageInfo"
+        var packageInfoContents = try String(contentsOf: packageInfoPath)
+        let runtimeFileName = "\(runtime.platform.shortName) \(runtime.simulatorVersion.version).simruntime"
+        let runtimeDestination = Path("/Library/Developer/CoreSimulator/Profiles/Runtimes/\(runtimeFileName)")!
+        packageInfoContents = packageInfoContents.replacingOccurrences(of: "<pkg-info", with: "<pkg-info install-location=\"\(runtimeDestination)\"")
+        try packageInfoContents.write(to: packageInfoPath)
+        let newPkgPath = Path.xcodesCaches/(runtime.identifier + ".pkg")
+        try await Current.shell.createPkg(expandedPkgPath.url, newPkgPath.url).asVoid().async()
+        try expandedPkgPath.delete()
+        Current.logging.log("Installing Runtime")
+        let passwordInput = {
+            Promise<String> { seal in
+                Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
+                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(XcodeInstaller.Error.missingSudoerPassword); return }
+                seal.fulfill(password + "\n")
+            }
+        }
+        let possiblePassword = try await Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput).async()
+        _ = try await Current.shell.installPkg(newPkgPath.url, "/", possiblePassword).async()
+        try newPkgPath.delete()
+    }
+
+    private func mountDMG(dmgUrl: URL) async throws -> URL {
+        let resultPlist = try await Current.shell.mountDmg(dmgUrl).async()
+        let dict = try? (PropertyListSerialization.propertyList(from: resultPlist.out.data(using: .utf8)!, format: nil) as? NSDictionary)
+        let systemEntities = dict?["system-entities"] as? NSArray
+        guard let path = systemEntities?.compactMap ({ ($0 as? NSDictionary)?["mount-point"] as? String }).first else {
+            throw Error.failedMountingDMG
+        }
+        return URL(fileURLWithPath: path)
+    }
+
+    private func unmountDMG(mountedURL: URL) async throws {
+        _ = try await Current.shell.unmountDmg(mountedURL).async()
     }
 
     private func download(runtime: DownloadableRuntime, downloader: Downloader) async throws -> URL {
@@ -73,11 +130,11 @@ public class RuntimeList {
             // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
             Current.logging.log("")
         } else {
-            Current.logging.log("\(InstallationStep.downloading(identifier: runtime.visibleIdentifier, progress: nil))")
+            Current.logging.log("Downloading Runtime \(runtime.visibleIdentifier)")
         }
 
         if Current.files.fileExistsAtPath(destination.string), aria2DownloadIsIncomplete == false {
-            Current.logging.log("(1/1) Found existing Runtime that will be used for installation at \(destination).")
+            Current.logging.log("Found existing Runtime that will be used for installation at \(destination).")
             return destination.url
         }
         if runtime.authentication == .virtual {
@@ -90,7 +147,7 @@ public class RuntimeList {
             observation = progress.observe(\.fractionCompleted) { progress, _ in
                 guard Current.shell.isatty() else { return }
                 // These escape codes move up a line and then clear to the end
-                Current.logging.log("\u{1B}[1A\u{1B}[K\(InstallationStep.downloading(identifier: runtime.visibleIdentifier, progress: formatter.string(from: progress.fractionCompleted)!))")
+                Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)))")
             }
         }).async()
         observation?.invalidate()
@@ -101,41 +158,15 @@ public class RuntimeList {
 extension RuntimeList {
     public enum Error: LocalizedError, Equatable {
         case unavailableRuntime(String)
+        case failedMountingDMG
 
         public var errorDescription: String? {
             switch self {
                 case let .unavailableRuntime(version):
                     return "Could not find runtime \(version)."
+                case .failedMountingDMG:
+                    return "Failed to mount image."
             }
-        }
-    }
-
-    enum InstallationStep: CustomStringConvertible {
-        case downloading(identifier: String, progress: String?)
-
-        var description: String {
-            return "(\(stepNumber)/\(InstallationStep.installStepCount)) \(message)"
-        }
-
-        var message: String {
-            switch self {
-                case .downloading(let version, let progress):
-                    if let progress = progress {
-                        return "Downloading Runtime \(version): \(progress)"
-                    } else {
-                        return "Downloading Runtime \(version)"
-                    }
-            }
-        }
-
-        var stepNumber: Int {
-            switch self {
-                case .downloading: return 1
-            }
-        }
-
-        static var installStepCount: Int {
-            return 1
         }
     }
 }

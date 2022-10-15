@@ -24,6 +24,12 @@ public var Current = Environment()
 
 public struct Shell {
     public var unxip: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, workingDirectory: $0.deletingLastPathComponent(), "--expand", "\($0.path)") }
+    public var mountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "attach", "-nobrowse", "-plist", $0.path) }
+    public var unmountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "detach", $0.path) }
+    public var expandPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--expand", $0.path, $1.path) }
+    public var createPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--flatten", $0.path, $1.path) }
+    public var installPkg: (URL, String, String?) -> Promise<ProcessOutput> = { Process.sudo(password: $2, Path.root.usr.sbin.join("installer"), "-pkg", $0.path, "-target", $1) }
+    public var installRuntimeImage: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcrun"), "simctl", "runtime", "add", $0.path) }
     public var spctlAssess: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.spctl, "--assess", "--verbose", "--type", "execute", "\($0.path)") }
     public var codesignVerify: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.codesign, "-vv", "-d", "\($0.path)") }
     public var devToolsSecurityEnable: (String?) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.sbin.DevToolsSecurity, "-enable") }
