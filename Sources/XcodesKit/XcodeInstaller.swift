@@ -143,11 +143,11 @@ public final class XcodeInstaller {
         }
     }
 
-    private var sessionController: SessionController
+    private var sessionService: AppleSessionService
     private var xcodeList: XcodeList
 
-    public init(sessionController: SessionController, xcodeList: XcodeList) {
-        self.sessionController = sessionController
+    public init(sessionService: AppleSessionService, xcodeList: XcodeList) {
+        self.sessionService = sessionService
         self.xcodeList = xcodeList
     }
 
@@ -276,17 +276,17 @@ public final class XcodeInstaller {
         return firstly { () -> Promise<Void> in
             switch dataSource {
             case .apple:
-                // When using the Apple data source, an authenticated session is required for both
-                // downloading the list of Xcodes as well as to actually download Xcode, so we'll
-                // establish our session right at the start.
-                return sessionController.loginIfNeeded()
+                    // When using the Apple data source, an authenticated session is required for both
+                    // downloading the list of Xcodes as well as to actually download Xcode, so we'll
+                    // establish our session right at the start.
+                    return sessionService.loginIfNeeded()
 
             case .xcodeReleases:
-                // When using the Xcode Releases data source, we only need to establish an anonymous
-                // session once we're ready to download Xcode. Doing that requires us to know the
-                // URL we want to download though (and we may not know that yet), so we don't need
-                // to do anything session-related quite yet.
-                return Promise()
+                    // When using the Xcode Releases data source, we only need to establish an anonymous
+                    // session once we're ready to download Xcode. Doing that requires us to know the
+                    // URL we want to download though (and we may not know that yet), so we don't need
+                    // to do anything session-related quite yet.
+                    return Promise()
             }
         }
         .then { () -> Promise<Void> in
@@ -306,14 +306,14 @@ public final class XcodeInstaller {
         .then { xcode -> Promise<Xcode> in
             switch dataSource {
             case .apple:
-                /// We already established a session for the Apple data source at the beginning of
-                /// this download, so we don't need to do anything session-related at this point.
-                return Promise.value(xcode)
+                    /// We already established a session for the Apple data source at the beginning of
+                    /// this download, so we don't need to do anything session-related at this point.
+                    return Promise.value(xcode)
 
             case .xcodeReleases:
-                /// Now that we've used Xcode Releases to determine what URL we should use to
-                /// download Xcode, we can use that to establish an anonymous session with Apple.
-                return self.sessionController.validateADCSession(path: xcode.downloadPath).map { xcode }
+                    /// Now that we've used Xcode Releases to determine what URL we should use to
+                    /// download Xcode, we can use that to establish an anonymous session with Apple.
+                    return self.sessionService.validateADCSession(path: xcode.downloadPath).map { xcode }
             }
         }
         .then { xcode -> Promise<(Xcode, URL)> in
@@ -480,7 +480,7 @@ public final class XcodeInstaller {
     func update(dataSource: DataSource) -> Promise<[Xcode]> {
         if dataSource == .apple {
             return firstly { () -> Promise<Void> in
-                sessionController.loginIfNeeded()
+                sessionService.loginIfNeeded()
             }
             .then { () -> Promise<[Xcode]> in
                 self.xcodeList.update(dataSource: dataSource)

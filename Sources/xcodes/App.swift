@@ -60,16 +60,16 @@ struct Xcodes: AsyncParsableCommand {
     )
 
     static var xcodesConfiguration = Configuration()
-    static var sessionController: SessionController!
+    static var sessionService: AppleSessionService!
     static let xcodeList = XcodeList()
     static var runtimes: RuntimeList!
     static var installer: XcodeInstaller!
 
     static func main() async {
         try? xcodesConfiguration.load()
-        sessionController = SessionController(configuration: xcodesConfiguration)
-        installer = XcodeInstaller(sessionController: sessionController, xcodeList: xcodeList)
-        runtimes = RuntimeList(sessionController: sessionController)
+        sessionService = AppleSessionService(configuration: xcodesConfiguration)
+        installer = XcodeInstaller(sessionService: sessionService, xcodeList: xcodeList)
+        runtimes = RuntimeList(sessionService: sessionService)
         migrateApplicationSupportFiles()
         do {
             var command = try parseAsRoot()
@@ -541,7 +541,7 @@ struct Xcodes: AsyncParsableCommand {
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
             
-            sessionController.logout()
+            sessionService.logout()
                 .done {
                     Current.logging.log("Successfully signed out".green)
                     Signout.exit()

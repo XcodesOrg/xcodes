@@ -6,10 +6,10 @@ import AppleAPI
 
 public class RuntimeList {
 
-    private var sessionController: SessionController
+    private var sessionService: AppleSessionService
 
-    public init(sessionController: SessionController) {
-        self.sessionController = sessionController
+    public init(sessionService: AppleSessionService) {
+        self.sessionService = sessionService
     }
 
     public func printAvailableRuntimes(includeBetas: Bool) async throws {
@@ -138,7 +138,7 @@ public class RuntimeList {
             return destination.url
         }
         if runtime.authentication == .virtual {
-            try await sessionController.validateADCSession(path: url.path).async()
+            try await sessionService.validateADCSession(path: url.path).async()
         }
         let formatter = NumberFormatter(numberStyle: .percent)
         var observation: NSKeyValueObservation?

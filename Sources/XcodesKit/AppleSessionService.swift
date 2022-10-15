@@ -2,7 +2,7 @@ import PromiseKit
 import Foundation
 import AppleAPI
 
-public class SessionController {
+public class AppleSessionService {
 
     private let xcodesUsername = "XCODES_USERNAME"
     private let xcodesPassword = "XCODES_PASSWORD"
@@ -130,7 +130,7 @@ public class SessionController {
     }
 }
 
-extension SessionController {
+extension AppleSessionService {
     enum Error: LocalizedError, Equatable {
         case missingUsernameOrPassword
 

@@ -12,7 +12,7 @@ final class XcodesKitTests: XCTestCase {
 
     var installer: XcodeInstaller!
     var runtimeList: RuntimeList!
-    var sessionController: SessionController!
+    var sessionService: AppleSessionService!
 
     override class func setUp() {
         super.setUp()
@@ -24,9 +24,9 @@ final class XcodesKitTests: XCTestCase {
         Current = .mock
         Rainbow.outputTarget = .unknown
         Rainbow.enabled = false
-        sessionController = SessionController(configuration: Configuration())
-        installer = XcodeInstaller(sessionController: sessionController, xcodeList: XcodeList())
-        runtimeList = RuntimeList(sessionController: sessionController)
+        sessionService = AppleSessionService(configuration: Configuration())
+        installer = XcodeInstaller(sessionService: sessionService, xcodeList: XcodeList())
+        runtimeList = RuntimeList(sessionService: sessionService)
     }
 
     func test_ParseCertificateInfo_Succeeds() throws {
@@ -1434,11 +1434,11 @@ final class XcodesKitTests: XCTestCase {
 
         var customConfig = Configuration()
         customConfig.defaultUsername = "test@example.com"
-        let customController = SessionController(configuration: customConfig)
+        let customService = AppleSessionService(configuration: customConfig)
 
         let expectation = self.expectation(description: "Signout complete")
 
-        customController.logout()
+        customService.logout()
             .ensure { expectation.fulfill() }
             .catch {
                 XCTFail($0.localizedDescription)
@@ -1452,13 +1452,13 @@ final class XcodesKitTests: XCTestCase {
     func test_Signout_WithoutExistingSession() {
         var customConfig = Configuration()
         customConfig.defaultUsername = nil
-        let customController = SessionController(configuration: customConfig)
+        let customService = AppleSessionService(configuration: customConfig)
 
         var capturedError: Error?
 
         let expectation = self.expectation(description: "Signout complete")
 
-        customController.logout()
+        customService.logout()
             .ensure { expectation.fulfill() }
             .catch { error in
                 capturedError = error
