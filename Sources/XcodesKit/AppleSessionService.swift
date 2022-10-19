@@ -34,7 +34,7 @@ public class AppleSessionService {
     }
 
     func validateADCSession(path: String) -> Promise<Void> {
-      return Current.network.dataTask(with: URLRequest.downloadADCAuth(path: path)).asVoid()
+        return Current.network.dataTask(with: URLRequest.downloadADCAuth(path: path)).asVoid()
     }
 
     func loginIfNeeded(withUsername providedUsername: String? = nil, shouldPromptForPassword: Bool = false) -> Promise<Void> {
@@ -89,13 +89,13 @@ public class AppleSessionService {
         .recover { error -> Promise<Void> in
 
             if let error = error as? Client.Error {
-              switch error  {
-              case .invalidUsernameOrPassword(_):
-                  // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
-                  try? Current.keychain.remove(username)
-              default:
-                  break
-              }
+                switch error  {
+                    case .invalidUsernameOrPassword(_):
+                        // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
+                        try? Current.keychain.remove(username)
+                    default:
+                        break
+                }
             }
 
             return Promise(error: error)

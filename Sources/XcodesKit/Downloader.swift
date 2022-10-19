@@ -19,7 +19,7 @@ public enum Downloader {
                 return withUrlSession(url: url, to: destination, progressChanged: progressChanged)
             case .aria2(let aria2Path):
                 if Current.shell.isatty() {
-                    Current.logging.log("Downloading with aria2 at \(aria2Path)".green)
+                    Current.logging.log("Downloading with aria2 (\(aria2Path))".green)
                     // Add 1 extra line as we are overwriting with download progress
                     Current.logging.log("")
                 }

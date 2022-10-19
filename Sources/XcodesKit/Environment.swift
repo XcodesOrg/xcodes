@@ -75,6 +75,7 @@ public struct Shell {
     }
     
     public var downloadWithAria2: (Path, URL, Path, [HTTPCookie]) -> (Progress, Promise<Void>) = { aria2Path, url, destination, cookies in
+        precondition(Thread.isMainThread, "Aria must be called on the main queue")
         let process = Process()
         process.executableURL = aria2Path.url
         process.arguments = [

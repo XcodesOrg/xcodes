@@ -117,6 +117,7 @@ public class RuntimeList {
         _ = try await Current.shell.unmountDmg(mountedURL).async()
     }
 
+    @MainActor
     private func download(runtime: DownloadableRuntime, downloader: Downloader) async throws -> URL {
         let url = URL(string: runtime.source)!
         let destination = Path.xcodesApplicationSupport/url.lastPathComponent
@@ -147,7 +148,7 @@ public class RuntimeList {
             observation = progress.observe(\.fractionCompleted) { progress, _ in
                 guard Current.shell.isatty() else { return }
                 // These escape codes move up a line and then clear to the end
-                Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)))")
+                Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)")
             }
         }).async()
         observation?.invalidate()
