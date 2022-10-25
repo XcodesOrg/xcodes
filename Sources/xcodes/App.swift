@@ -62,14 +62,15 @@ struct Xcodes: AsyncParsableCommand {
     static var xcodesConfiguration = Configuration()
     static var sessionService: AppleSessionService!
     static let xcodeList = XcodeList()
-    static var runtimes: RuntimeList!
-    static var installer: XcodeInstaller!
+    static let runtimeList = RuntimeList()
+    static var runtimeInstaller: RuntimeInstaller!
+    static var xcodeInstaller: XcodeInstaller!
 
     static func main() async {
         try? xcodesConfiguration.load()
         sessionService = AppleSessionService(configuration: xcodesConfiguration)
-        installer = XcodeInstaller(sessionService: sessionService, xcodeList: xcodeList)
-        runtimes = RuntimeList(sessionService: sessionService)
+        xcodeInstaller = XcodeInstaller(xcodeList: xcodeList, sessionService: sessionService)
+        runtimeInstaller = RuntimeInstaller(runtimeList: runtimeList, sessionService: sessionService)
         migrateApplicationSupportFiles()
         do {
             var command = try parseAsRoot()
@@ -149,7 +150,7 @@ struct Xcodes: AsyncParsableCommand {
 
             let destination = getDirectory(possibleDirectory: directory, default: Path.home.join("Downloads"))
 
-            installer.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
+            xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
                     Install.processDownloadOrInstall(error: error)
                 }
@@ -272,10 +273,10 @@ struct Xcodes: AsyncParsableCommand {
                     Current.logging.log("Updating...")
                     return xcodeList.update(dataSource: globalDataSource.dataSource)
                         .then { _ -> Promise<InstalledXcode> in
-                            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                            xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                         }
                 } else {
-                    return installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                    return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                 }
             }
             .then { xcode -> Promise<Void> in
@@ -314,11 +315,11 @@ struct Xcodes: AsyncParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.printXcodePath(ofVersion: version.joined(separator: " "), searchingIn: directory)
+            xcodeInstaller.printXcodePath(ofVersion: version.joined(separator: " "), searchingIn: directory)
                 .recover { error -> Promise<Void> in
                     switch error {
                     case XcodeInstaller.Error.invalidVersion:
-                        return installer.printInstalledXcodes(directory: directory)
+                        return xcodeInstaller.printInstalledXcodes(directory: directory)
                     default:
                         throw error
                     }
@@ -351,10 +352,10 @@ struct Xcodes: AsyncParsableCommand {
 
             firstly { () -> Promise<Void> in
                 if xcodeList.shouldUpdateBeforeListingVersions {
-                    return installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
+                    return xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 }
                 else {
-                    return installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
+                    return xcodeInstaller.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
                 }
             }
             .done { List.exit() }
@@ -374,7 +375,7 @@ struct Xcodes: AsyncParsableCommand {
         var includeBetas: Bool = false
 
         func run() async throws {
-            try await runtimes.printAvailableRuntimes(includeBetas: includeBetas)
+            try await runtimeInstaller.printAvailableRuntimes(includeBetas: includeBetas)
         }
 
         struct Install: AsyncParsableCommand {
@@ -404,7 +405,7 @@ struct Xcodes: AsyncParsableCommand {
                    noAria2 == false {
                     downloader = .aria2(aria2Path)
                 }
-                try await runtimes.downloadAndInstallRuntime(identifier: version, downloader: downloader)
+                try await runtimeInstaller.downloadAndInstallRuntime(identifier: version, downloader: downloader)
                 Current.logging.log("Finished")
             }
         }
@@ -480,7 +481,7 @@ struct Xcodes: AsyncParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash)
+            xcodeInstaller.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash)
                 .done { Uninstall.exit() }
                 .catch { error in Uninstall.exit(withLegibleError: error) }
 
@@ -507,7 +508,7 @@ struct Xcodes: AsyncParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
+            xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 .done { Update.exit() }
                 .catch { error in Update.exit(withLegibleError: error) }
 

@@ -10,8 +10,10 @@ import Rainbow
 final class XcodesKitTests: XCTestCase {
     static let mockXcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
 
-    var installer: XcodeInstaller!
+    var xcodeList: XcodeList!
+    var xcodeInstaller: XcodeInstaller!
     var runtimeList: RuntimeList!
+    var runtimeInstaller: RuntimeInstaller!
     var sessionService: AppleSessionService!
 
     override class func setUp() {
@@ -25,8 +27,10 @@ final class XcodesKitTests: XCTestCase {
         Rainbow.outputTarget = .unknown
         Rainbow.enabled = false
         sessionService = AppleSessionService(configuration: Configuration())
-        installer = XcodeInstaller(sessionService: sessionService, xcodeList: XcodeList())
-        runtimeList = RuntimeList(sessionService: sessionService)
+        xcodeList = XcodeList()
+        xcodeInstaller = XcodeInstaller(xcodeList: xcodeList, sessionService: sessionService)
+        runtimeList = RuntimeList()
+        runtimeInstaller = RuntimeInstaller(runtimeList: runtimeList, sessionService: sessionService)
     }
 
     func test_ParseCertificateInfo_Succeeds() throws {
@@ -44,7 +48,7 @@ final class XcodesKitTests: XCTestCase {
         Sealed Resources version=2 rules=13 files=253327
         Internal requirements count=1 size=68
         """
-        let info = installer.parseCertificateInfo(sampleRawInfo)
+        let info = xcodeInstaller.parseCertificateInfo(sampleRawInfo)
 
         XCTAssertEqual(info.authority, ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"])
         XCTAssertEqual(info.teamIdentifier, "59GAB85EFG")
@@ -60,7 +64,7 @@ final class XcodesKitTests: XCTestCase {
         }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
-        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
+        xcodeInstaller.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
@@ -78,7 +82,7 @@ final class XcodesKitTests: XCTestCase {
         }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
-        installer.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
+        xcodeInstaller.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
                 XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
@@ -92,7 +96,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment(xcode: installedXcode, output: "")) }
     }
 
@@ -100,7 +104,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed(output: "")) }
     }
 
@@ -108,7 +112,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.codesignVerify = { _ in return Promise.value((0, "", "")) }
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
-        installer.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.unexpectedCodeSigningIdentity(identifier: "", certificateAuthority: [])) }
     }
 
@@ -121,7 +125,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
-        installer.installArchivedXcode(xcode, at: xipURL, to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.installArchivedXcode(xcode, at: xipURL, to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .ensure { XCTAssertEqual(trashedItemAtURL, xipURL) }
             .cauterize()
     }
@@ -209,7 +213,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -302,7 +306,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath-NoColor", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -399,7 +403,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath-NonInteractiveTerminal", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -492,7 +496,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.home.join("Xcode"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.home.join("Xcode"), emptyTrash: false, noSuperuser: false)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-AlternativeDirectory", withExtension: "txt", subdirectory: "Fixtures")!
                 let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
@@ -606,7 +610,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-IncorrectSavedPassword", withExtension: "txt", subdirectory: "Fixtures")!
                 XCTAssertEqual(log, try! String(contentsOf: url))
@@ -724,7 +728,7 @@ final class XcodesKitTests: XCTestCase {
 
         let expectation = self.expectation(description: "Finished")
 
-        installer.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
             .ensure {
                 let url = Bundle.module.url(forResource: "LogOutput-DamagedXIP", withExtension: "txt", subdirectory: "Fixtures")!
                 let expectedText = try! String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
@@ -784,7 +788,7 @@ final class XcodesKitTests: XCTestCase {
             return Promise.value((status: 0, out: "", err: ""))
         }
 
-        installer.uninstallXcode("0.0.0", directory: Path.root.join("Applications"), emptyTrash: false)
+        xcodeInstaller.uninstallXcode("0.0.0", directory: Path.root.join("Applications"), emptyTrash: false)
             .ensure {
                 XCTAssertEqual(selectedPaths, ["/Applications/Xcode-2.0.1.app"])
                 XCTAssertEqual(trashedItemAtURL, installedXcodes[0].path.url)
@@ -829,7 +833,7 @@ final class XcodesKitTests: XCTestCase {
             return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash/\(itemURL.lastPathComponent)")
         }
 
-        installer.uninstallXcode("999", directory: Path.root.join("Applications"), emptyTrash: false)
+        xcodeInstaller.uninstallXcode("999", directory: Path.root.join("Applications"), emptyTrash: false)
             .ensure {
                 XCTAssertEqual(trashedItemAtURL, installedXcodes[0].path.url)
             }
@@ -850,7 +854,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.spctlAssess = { _ in return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil)) }
 
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
-        installer.verifySecurityAssessment(of: installedXcode)
+        xcodeInstaller.verifySecurityAssessment(of: installedXcode)
             .tap { result in XCTAssertFalse(result.isFulfilled) }
             .cauterize()
     }
@@ -859,7 +863,7 @@ final class XcodesKitTests: XCTestCase {
         Current.shell.spctlAssess = { _ in return Promise.value((0, "", "")) }
 
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
-        installer.verifySecurityAssessment(of: installedXcode)
+        xcodeInstaller.verifySecurityAssessment(of: installedXcode)
             .tap { result in XCTAssertTrue(result.isFulfilled) }
             .cauterize()
     }
@@ -971,7 +975,7 @@ final class XcodesKitTests: XCTestCase {
             }
             fatalError("wrong url")
         }
-        try await runtimeList.printAvailableRuntimes(includeBetas: true)
+        try await runtimeInstaller.printAvailableRuntimes(includeBetas: true)
 
         let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtimes", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log, try String(contentsOf: outputUrl))
@@ -1279,7 +1283,7 @@ final class XcodesKitTests: XCTestCase {
         // Standard output is an interactive terminal
         Current.shell.isatty = { true }
 
-        installer.printInstalledXcodes(directory: Path.root/"Applications")
+        xcodeInstaller.printInstalledXcodes(directory: Path.root/"Applications")
             .cauterize()
 
         XCTAssertEqual(
@@ -1334,7 +1338,7 @@ final class XcodesKitTests: XCTestCase {
         // Standard output is not an interactive terminal
         Current.shell.isatty = { false }
 
-        installer.printInstalledXcodes(directory: Path.root/"Applications")
+        xcodeInstaller.printInstalledXcodes(directory: Path.root/"Applications")
             .cauterize()
 
         XCTAssertEqual(
@@ -1379,7 +1383,7 @@ final class XcodesKitTests: XCTestCase {
         // Standard output is not an interactive terminal
         Current.shell.isatty = { false }
 
-        installer.printXcodePath(ofVersion: "2", searchingIn: Path.root/"Applications")
+        xcodeInstaller.printXcodePath(ofVersion: "2", searchingIn: Path.root/"Applications")
             .cauterize()
 
         XCTAssertEqual(
@@ -1422,7 +1426,7 @@ final class XcodesKitTests: XCTestCase {
         // Standard output is not an interactive terminal
         Current.shell.isatty = { false }
 
-        installer.printXcodePath(ofVersion: "3", searchingIn: Path.root/"Applications")
+        xcodeInstaller.printXcodePath(ofVersion: "3", searchingIn: Path.root/"Applications")
             .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.versionNotInstalled(Version(xcodeVersion: "3")!)) }
     }
 

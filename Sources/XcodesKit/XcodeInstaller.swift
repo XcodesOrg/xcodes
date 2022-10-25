@@ -146,9 +146,9 @@ public final class XcodeInstaller {
     private var sessionService: AppleSessionService
     private var xcodeList: XcodeList
 
-    public init(sessionService: AppleSessionService, xcodeList: XcodeList) {
-        self.sessionService = sessionService
+    public init(xcodeList: XcodeList, sessionService: AppleSessionService) {
         self.xcodeList = xcodeList
+        self.sessionService = sessionService
     }
 
     public enum InstallationType {
