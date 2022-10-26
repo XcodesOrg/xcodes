@@ -9,7 +9,7 @@ import Rainbow
 
 func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Applications")) -> Path {
     let directory = possibleDirectory.flatMap(Path.init) ??
-        ProcessInfo.processInfo.environment["XCODES_DIRECTORY"].flatMap(Path.init) ?? 
+        ProcessInfo.processInfo.environment["XCODES_DIRECTORY"].flatMap(Path.init) ??
         `default`
     guard directory.isDirectory else {
         Current.logging.log("Directory argument must be a directory, but was provided \(directory.string).".red)
@@ -19,7 +19,7 @@ func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Ap
 }
 
 struct GlobalDirectoryOption: ParsableArguments {
-    @Option(help: "The directory where your Xcodes are installed. Defaults to /Applications.", 
+    @Option(help: "The directory where your Xcodes are installed. Defaults to /Applications.",
             completion: .directory)
     var directory: String?
 }
@@ -44,7 +44,7 @@ struct GlobalColorOption: ParsableArguments {
         help: ArgumentHelp(
             "Determines whether output should be colored.",
             discussion: """
-                xcodes will also disable colored output if its not running in an interactive terminal, if the NO_COLOR environment variable is set, or if the TERM environment variable is set to "dumb". 
+                xcodes will also disable colored output if its not running in an interactive terminal, if the NO_COLOR environment variable is set, or if the TERM environment variable is set to "dumb".
                 """
         )
     )
@@ -58,7 +58,7 @@ struct Xcodes: AsyncParsableCommand {
         shouldDisplay: true,
         subcommands: [Download.self, Install.self, Installed.self, List.self, Runtimes.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
     )
-    
+
     static var xcodesConfiguration = Configuration()
     static let xcodeList = XcodeList()
     static let runtimes = RuntimeList()
@@ -79,7 +79,7 @@ struct Xcodes: AsyncParsableCommand {
             exit(withError: error)
         }
     }
-    
+
     struct Download: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Download a specific version of Xcode",
@@ -94,39 +94,39 @@ struct Xcodes: AsyncParsableCommand {
                           xcodes download --latest-prerelease
                         """
         )
-        
+
         @Argument(help: "The version to download",
                   completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
-        
+
         @Flag(help: "Update and then download the latest non-prerelease version available.")
         var latest: Bool = false
-        
+
         @Flag(help: "Update and then download the latest prerelease version available, including GM seeds and GMs.")
         var latestPrerelease = false
-        
-        @Option(help: "The path to an aria2 executable. Searches $PATH by default.", 
+
+        @Option(help: "The path to an aria2 executable. Searches $PATH by default.",
                 completion: .file())
         var aria2: String?
-        
+
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
         var noAria2: Bool = false
-        
-        @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.", 
+
+        @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.",
                 completion: .directory)
         var directory: String?
-        
+
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let versionString = version.joined(separator: " ")
-            
+
             let installation: XcodeInstaller.InstallationType
             // Deliberately not using InstallationType.path here as it doesn't make sense to download an Xcode from a .xip that's already on disk
             if latest {
@@ -136,7 +136,7 @@ struct Xcodes: AsyncParsableCommand {
             } else {
                 installation = .version(versionString)
             }
-            
+
             var downloader = XcodeInstaller.Downloader.urlSession
             if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
                aria2Path.exists,
@@ -150,11 +150,11 @@ struct Xcodes: AsyncParsableCommand {
                 .catch { error in
                     Install.processDownloadOrInstall(error: error)
                 }
-            
+
             RunLoop.current.run()
         }
     }
-    
+
     struct Install: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Download and install a specific version of Xcode",
@@ -170,53 +170,62 @@ struct Xcodes: AsyncParsableCommand {
                           xcodes install --latest --directory "/Volumes/Bag Of Holding/"
                         """
         )
-        
+
         @Argument(help: "The version to install",
                   completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
-        
+
         @Option(name: .customLong("path"),
                 help: "Local path to Xcode .xip",
                 completion: .file(extensions: ["xip"]))
         var pathString: String?
-        
+
         @Flag(help: "Update and then install the latest non-prerelease version available.")
         var latest: Bool = false
-        
+
         @Flag(help: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
         var latestPrerelease = false
-        
-        @Option(help: "The path to an aria2 executable. Searches $PATH by default.", 
+
+        @Option(help: "The path to an aria2 executable. Searches $PATH by default.",
                 completion: .file())
         var aria2: String?
-        
+
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
         var noAria2: Bool = false
-        
+
+        @Flag(help: "Select the installed xcode version after installation.")
+        var select: Bool = false
+
+        @Flag(help: "Whether to update the list before installing")
+        var update: Bool = false
+
+        @ArgumentParser.Flag(name: [.customShort("p"), .customLong("print-path")], help: "Print the path of the selected Xcode")
+        var print: Bool = false
+
         @Flag(help: "Use the experimental unxip functionality. May speed up unarchiving by up to 2-3x.")
         var experimentalUnxip: Bool = false
 
         @Flag(help: "Don't ask for superuser (root) permission. Some optional steps of the installation will be skipped.")
         var noSuperuser: Bool = false
-        
+
         @Flag(help: "Completely delete Xcode .xip after installation, instead of keeping it on the user's Trash.")
         var emptyTrash: Bool = false
-        
+
         @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
                 completion: .directory)
         var directory: String?
-        
+
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let versionString = version.joined(separator: " ")
-            
+
             let installation: XcodeInstaller.InstallationType
             if latest {
                 installation = .latest
@@ -227,26 +236,61 @@ struct Xcodes: AsyncParsableCommand {
             } else {
                 installation = .version(versionString)
             }
-            
+
             var downloader = XcodeInstaller.Downloader.urlSession
             if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
                aria2Path.exists,
                noAria2 == false {
                 downloader = .aria2(aria2Path)
             }
-            
+
             let destination = getDirectory(possibleDirectory: directory)
-            
-            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-                .done { Install.exit() }
-                .catch { error in
-                    Install.processDownloadOrInstall(error: error)
+
+            if select, case .version(let version) = installation {
+                firstly {
+                    selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false)
                 }
-            
+                .catch { _ in
+                    install(installation, using: downloader, to: destination)
+                }
+            } else {
+                install(installation, using: downloader, to: destination)
+            }
+
             RunLoop.current.run()
         }
+
+        private func install(_ installation: XcodeInstaller.InstallationType,
+                             using downloader: XcodeInstaller.Downloader,
+                             to destination: Path) {
+            firstly { () -> Promise<InstalledXcode> in
+                // update the list before installing only for version type because the other types already update internally
+                if update, case .version = installation {
+                    Current.logging.log("Updating...")
+                    return xcodeList.update(dataSource: globalDataSource.dataSource)
+                        .then { _ -> Promise<InstalledXcode> in
+                            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                        }
+                } else {
+                    return installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                }
+            }
+            .then { xcode -> Promise<Void> in
+                if select {
+                    return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false) 
+                } else {
+                    return .init()
+                }
+            }
+            .done {
+                Install.exit()
+            }
+            .catch { error in
+                Install.processDownloadOrInstall(error: error)
+            }
+        }
     }
-    
+
     struct Installed: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "List the versions of Xcode that are installed"
@@ -255,13 +299,13 @@ struct Xcodes: AsyncParsableCommand {
         @Argument(help: "The version installed to which to print the path for",
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
-        
+
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
-        
+
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
@@ -278,30 +322,30 @@ struct Xcodes: AsyncParsableCommand {
                 }
                 .done { Installed.exit() }
                 .catch { error in Installed.exit(withLegibleError: error) }
-            
+
             RunLoop.current.run()
         }
     }
-    
+
     struct List: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "List all versions of Xcode that are available to install"
         )
-        
+
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
-        
+
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
-            
+
             firstly { () -> Promise<Void> in
                 if xcodeList.shouldUpdateBeforeListingVersions {
                     return installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
@@ -312,7 +356,7 @@ struct Xcodes: AsyncParsableCommand {
             }
             .done { List.exit() }
             .catch { error in List.exit(withLegibleError: error) }
-            
+
             RunLoop.current.run()
         }
     }
@@ -329,7 +373,7 @@ struct Xcodes: AsyncParsableCommand {
             try await runtimes.printAvailableRuntimes(includeBetas: includeBetas)
         }
     }
-    
+
     struct Select: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Change the selected Xcode",
@@ -343,33 +387,33 @@ struct Xcodes: AsyncParsableCommand {
                           xcodes select -p
                         """
         )
-        
+
         @ArgumentParser.Flag(name: [.customShort("p"), .customLong("print-path")], help: "Print the path of the selected Xcode")
         var print: Bool = false
-        
+
         @Argument(help: "Version or path",
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var versionOrPath: [String] = []
-        
+
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
-        
+
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
-            
+
             selectXcode(shouldPrint: print, pathOrVersion: versionOrPath.joined(separator: " "), directory: directory)
                 .done { Select.exit() }
                 .catch { error in Select.exit(withLegibleError: error) }
-            
+
             RunLoop.current.run()
         }
     }
-        
+
     struct Uninstall: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Uninstall a version of Xcode",
@@ -381,20 +425,20 @@ struct Xcodes: AsyncParsableCommand {
                           xcodes uninstall 11.4.0
                         """
         )
-        
+
         @Argument(help: "The version to uninstall",
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
-        
+
         @Flag(help: "Completely delete Xcode, instead of keeping it on the user's Trash.")
         var emptyTrash: Bool = false
-        
+
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
-        
+
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
@@ -403,64 +447,64 @@ struct Xcodes: AsyncParsableCommand {
             installer.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash)
                 .done { Uninstall.exit() }
                 .catch { error in Uninstall.exit(withLegibleError: error) }
-            
+
             RunLoop.current.run()
         }
     }
-    
+
     struct Update: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Update the list of available versions of Xcode"
         )
-        
+
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
-        
+
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
-            
+
             installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 .done { Update.exit() }
                 .catch { error in Update.exit(withLegibleError: error) }
-            
+
             RunLoop.current.run()
         }
     }
-    
+
     struct Version: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Print the version number of xcodes itself"
         )
-        
+
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             Current.logging.log(XcodesKit.version.description)
         }
     }
-    
+
     struct Signout: ParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Clears the stored username and password"
         )
-        
+
         @OptionGroup
         var globalColor: GlobalColorOption
-        
+
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
-            
+
             installer.logout()
                 .done {
                     Current.logging.log("Successfully signed out".green)
@@ -470,7 +514,7 @@ struct Xcodes: AsyncParsableCommand {
                     Current.logging.log(error.legibleLocalizedDescription)
                     Signout.exit()
                 }
-            
+
             RunLoop.current.run()
         }
     }
