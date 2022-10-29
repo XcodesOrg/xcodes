@@ -6,8 +6,8 @@ import AppleAPI
 
 public class RuntimeInstaller {
 
-    private var sessionService: AppleSessionService
-    private var runtimeList: RuntimeList
+    public let sessionService: AppleSessionService
+    public let runtimeList: RuntimeList
 
     public init(runtimeList: RuntimeList, sessionService: AppleSessionService) {
         self.runtimeList = runtimeList
@@ -39,17 +39,27 @@ public class RuntimeInstaller {
         Current.logging.log("\nNote: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)")
     }
 
-    public func downloadAndInstallRuntime(identifier: String, downloader: Downloader) async throws {
-        let downloadables = try await runtimeList.downloadableRuntimes(includeBetas: true)
+    public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
+        let downloadables = try await runtimeList.downloadableRuntimes()
         guard let matchedRuntime = downloadables.first(where: { $0.visibleIdentifier == identifier }) else {
             throw Error.unavailableRuntime(identifier)
         }
-        let dmgUrl = try await download(runtime: matchedRuntime, downloader: downloader)
+
+        if matchedRuntime.contentType == .package && !Current.shell.isRoot() {
+            Current.logging.log("Must be run as root to install the specified runtime")
+            exit(1)
+        }
+
+        let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
         switch matchedRuntime.contentType {
             case .package:
                 try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
             case .diskImage:
                 try await installFromImage(dmgUrl: dmgUrl)
+        }
+        if shouldDelete {
+            Current.logging.log("Deleting Archive")
+            try? Current.files.removeItem(at: dmgUrl)
         }
     }
 
@@ -62,10 +72,10 @@ public class RuntimeInstaller {
         Current.logging.log("Mounting DMG")
         let mountedUrl = try await mountDMG(dmgUrl: dmgUrl)
         let pkgPath = try! Path(url: mountedUrl)!.ls().first!.path
-        try Path.xcodesCaches.mkdir()
+        try Path.xcodesCaches.mkdir().setCurrentUserAsOwner()
         let expandedPkgPath = Path.xcodesCaches/runtime.identifier
         try expandedPkgPath.delete()
-        _ = try await Current.shell.expandPkg(pkgPath.url, expandedPkgPath.url).async()
+        try await Current.shell.expandPkg(pkgPath.url, expandedPkgPath.url).asVoid().async()
         try await unmountDMG(mountedURL: mountedUrl)
         let packageInfoPath = expandedPkgPath/"PackageInfo"
         var packageInfoContents = try String(contentsOf: packageInfoPath)
@@ -74,18 +84,12 @@ public class RuntimeInstaller {
         packageInfoContents = packageInfoContents.replacingOccurrences(of: "<pkg-info", with: "<pkg-info install-location=\"\(runtimeDestination)\"")
         try packageInfoContents.write(to: packageInfoPath)
         let newPkgPath = Path.xcodesCaches/(runtime.identifier + ".pkg")
+        try newPkgPath.delete()
         try await Current.shell.createPkg(expandedPkgPath.url, newPkgPath.url).asVoid().async()
         try expandedPkgPath.delete()
         Current.logging.log("Installing Runtime")
-        let passwordInput = {
-            Promise<String> { seal in
-                Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
-                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(XcodeInstaller.Error.missingSudoerPassword); return }
-                seal.fulfill(password + "\n")
-            }
-        }
-        let possiblePassword = try await Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput).async()
-        _ = try await Current.shell.installPkg(newPkgPath.url, "/", possiblePassword).async()
+        // TODO: Report progress
+        try await Current.shell.installPkg(newPkgPath.url, "/").asVoid().async()
         try newPkgPath.delete()
     }
 
@@ -100,13 +104,13 @@ public class RuntimeInstaller {
     }
 
     private func unmountDMG(mountedURL: URL) async throws {
-        _ = try await Current.shell.unmountDmg(mountedURL).async()
+        try await Current.shell.unmountDmg(mountedURL).asVoid().async()
     }
 
     @MainActor
-    private func download(runtime: DownloadableRuntime, downloader: Downloader) async throws -> URL {
+    public func downloadOrUseExistingArchive(runtime: DownloadableRuntime, to destinationDirectory: Path, downloader: Downloader) async throws -> URL {
         let url = URL(string: runtime.source)!
-        let destination = Path.xcodesApplicationSupport/url.lastPathComponent
+        let destination = destinationDirectory/url.lastPathComponent
         let aria2DownloadMetadataPath = destination.parent/(destination.basename() + ".aria2")
         var aria2DownloadIsIncomplete = false
         if case .aria2 = downloader, aria2DownloadMetadataPath.exists {
@@ -138,6 +142,7 @@ public class RuntimeInstaller {
             }
         }).async()
         observation?.invalidate()
+        destination.setCurrentUserAsOwner()
         return result
     }
 }

@@ -4,7 +4,7 @@ public class RuntimeList {
 
     public init() {}
 
-    func downloadableRuntimes(includeBetas: Bool) async throws -> [DownloadableRuntime] {
+    func downloadableRuntimes(includeBetas: Bool = true) async throws -> [DownloadableRuntime] {
         let (data, _) = try await Current.network.dataTask(with: URLRequest.runtimes).async()
         let decodedResponse = try PropertyListDecoder().decode(DownloadableRuntimesResponse.self, from: data)
         return includeBetas ? decodedResponse.downloadables : decodedResponse.downloadables.filter { $0.betaVersion == nil }

@@ -12,8 +12,6 @@ final class XcodesKitTests: XCTestCase {
 
     var xcodeList: XcodeList!
     var xcodeInstaller: XcodeInstaller!
-    var runtimeList: RuntimeList!
-    var runtimeInstaller: RuntimeInstaller!
     var sessionService: AppleSessionService!
 
     override class func setUp() {
@@ -29,8 +27,6 @@ final class XcodesKitTests: XCTestCase {
         sessionService = AppleSessionService(configuration: Configuration())
         xcodeList = XcodeList()
         xcodeInstaller = XcodeInstaller(xcodeList: xcodeList, sessionService: sessionService)
-        runtimeList = RuntimeList()
-        runtimeInstaller = RuntimeInstaller(runtimeList: runtimeList, sessionService: sessionService)
     }
 
     func test_ParseCertificateInfo_Succeeds() throws {
@@ -67,7 +63,7 @@ final class XcodesKitTests: XCTestCase {
         xcodeInstaller.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
-                XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
+                XCTAssertEqual(value, Path.environmentApplicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
                 XCTAssertNil(xcodeDownloadURL)
             }
             .cauterize()
@@ -85,7 +81,7 @@ final class XcodesKitTests: XCTestCase {
         xcodeInstaller.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: true, progressChanged: { _ in })
             .tap { result in
                 guard case .fulfilled(let value) = result else { XCTFail("downloadOrUseExistingArchive rejected."); return }
-                XCTAssertEqual(value, Path.applicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
+                XCTAssertEqual(value, Path.environmentApplicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
                 XCTAssertEqual(xcodeDownloadURL, URL(string: "https://apple.com/xcode.xip")!)
             }
             .cauterize()
@@ -893,8 +889,8 @@ final class XcodesKitTests: XCTestCase {
 
         migrateApplicationSupportFiles()
 
-        XCTAssertEqual(source, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
-        XCTAssertEqual(destination, Path.applicationSupport.join("com.robotsandpencils.xcodes").url)
+        XCTAssertEqual(source, Path.environmentApplicationSupport.join("ca.brandonevans.xcodes").url)
+        XCTAssertEqual(destination, Path.environmentApplicationSupport.join("com.robotsandpencils.xcodes").url)
         XCTAssertNil(removedItemAtURL)
     }
 
@@ -910,75 +906,7 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssertNil(source)
         XCTAssertNil(destination)
-        XCTAssertEqual(removedItemAtURL, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
-    }
-
-    func test_installedRuntimes() async throws {
-        Current.shell.installedRuntimes = {
-            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
-            return Promise.value((0, try! String(contentsOf: url), ""))
-        }
-        let values = try await runtimeList.installedRuntimes()
-        let givenIDs = [
-            UUID(uuidString: "2A6068A0-7FCF-4DB9-964D-21145EB98498")!,
-            UUID(uuidString: "6DE6B631-9439-4737-A65B-73F675EB77D1")!,
-            UUID(uuidString: "7A032D54-0D93-4E04-80B9-4CB207136C3F")!,
-            UUID(uuidString: "91B92361-CD02-4AF7-8DFE-DE8764AA949F")!,
-            UUID(uuidString: "630146EA-A027-42B1-AC25-BE4EA018DE90")!,
-            UUID(uuidString: "AAD753FE-A798-479C-B6D6-41259B063DD6")!,
-            UUID(uuidString: "BE68168B-7AC8-4A1F-A344-15DFCC375457")!,
-            UUID(uuidString: "F8D81829-354C-4EB0-828D-83DC765B27E1")!,
-        ]
-        XCTAssertEqual(givenIDs, values.map(\.identifier))
-    }
-
-    func test_downloadableRuntimes() async throws {
-        XcodesKit.Current.network.dataTask = { url in
-            if url.pmkRequest.url! == .downloadableRuntimes {
-                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
-                let downloadsData = try! Data(contentsOf: url)
-                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
-            }
-            fatalError("wrong url")
-        }
-        let values = try await runtimeList.downloadableRuntimes(includeBetas: true)
-
-        XCTAssertEqual(values.count, 57)
-    }
-
-    func test_downloadableRuntimesNoBetas() async throws {
-        XcodesKit.Current.network.dataTask = { url in
-            if url.pmkRequest.url! == .downloadableRuntimes {
-                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
-                let downloadsData = try! Data(contentsOf: url)
-                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
-            }
-            fatalError("wrong url")
-        }
-        let values = try await runtimeList.downloadableRuntimes(includeBetas: false)
-        XCTAssertFalse(values.contains { $0.name.lowercased().contains("beta") })
-        XCTAssertEqual(values.count, 45)
-    }
-
-    func test_printAvailableRuntimes() async throws {
-        var log = ""
-        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
-        Current.shell.installedRuntimes = {
-            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
-            return Promise.value((0, try! String(contentsOf: url), ""))
-        }
-        XcodesKit.Current.network.dataTask = { url in
-            if url.pmkRequest.url! == .downloadableRuntimes {
-                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
-                let downloadsData = try! Data(contentsOf: url)
-                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
-            }
-            fatalError("wrong url")
-        }
-        try await runtimeInstaller.printAvailableRuntimes(includeBetas: true)
-
-        let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtimes", withExtension: "txt", subdirectory: "Fixtures")!
-        XCTAssertEqual(log, try String(contentsOf: outputUrl))
+        XCTAssertEqual(removedItemAtURL, Path.environmentApplicationSupport.join("ca.brandonevans.xcodes").url)
     }
 
     func test_MigrateApplicationSupport_OnlyNewSupportFiles() {

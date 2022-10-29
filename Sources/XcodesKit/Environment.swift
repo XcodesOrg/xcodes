@@ -28,7 +28,7 @@ public struct Shell {
     public var unmountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "detach", $0.path) }
     public var expandPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--expand", $0.path, $1.path) }
     public var createPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--flatten", $0.path, $1.path) }
-    public var installPkg: (URL, String, String?) -> Promise<ProcessOutput> = { Process.sudo(password: $2, Path.root.usr.sbin.join("installer"), "-pkg", $0.path, "-target", $1) }
+    public var installPkg: (URL, String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("installer"), "-pkg", $0.path, "-target", $1) }
     public var installRuntimeImage: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcrun"), "simctl", "runtime", "add", $0.path) }
     public var spctlAssess: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.spctl, "--assess", "--verbose", "--type", "execute", "\($0.path)") }
     public var codesignVerify: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.codesign, "-vv", "-d", "\($0.path)") }
@@ -55,6 +55,7 @@ public struct Shell {
         authenticateSudoerIfNecessary(passwordInput)
     }
 
+    public var isRoot: () -> Bool = { NSUserName() == "root" }
     public var xcodeSelectPrintPath: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcode-select"), "-p") }
     public var xcodeSelectSwitch: (String?, String) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.bin.join("xcode-select"), "-s", $1) }
     public func xcodeSelectSwitch(password: String?, path: String) -> Promise<ProcessOutput> {

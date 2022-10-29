@@ -148,7 +148,7 @@ struct Xcodes: AsyncParsableCommand {
                 downloader = .aria2(aria2Path)
             }
 
-            let destination = getDirectory(possibleDirectory: directory, default: Path.home.join("Downloads"))
+            let destination = getDirectory(possibleDirectory: directory, default: Path.environmentHome.join("Downloads"))
 
             xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
@@ -390,8 +390,15 @@ struct Xcodes: AsyncParsableCommand {
                     completion: .file())
             var aria2: String?
 
-            @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
+            @Flag(help: "Don't use aria2 to download the runtime, even if its available.")
             var noAria2: Bool = false
+
+            @Option(help: "The directory to download the runtime archive to. Defaults to ~/Downloads.",
+                    completion: .directory)
+            var directory: String?
+
+            @Flag(help: "Do not delete the runtime archive after the installation is finished.")
+            var keepArchive = false
 
             @OptionGroup
             var globalColor: GlobalColorOption
@@ -405,7 +412,10 @@ struct Xcodes: AsyncParsableCommand {
                    noAria2 == false {
                     downloader = .aria2(aria2Path)
                 }
-                try await runtimeInstaller.downloadAndInstallRuntime(identifier: version, downloader: downloader)
+
+                let destination = getDirectory(possibleDirectory: directory, default: Path.environmentHome.join("Downloads"))
+
+                try await runtimeInstaller.downloadAndInstallRuntime(identifier: version, to: destination, with: downloader, shouldDelete: !keepArchive)
                 Current.logging.log("Finished")
             }
         }

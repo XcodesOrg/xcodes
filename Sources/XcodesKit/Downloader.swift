@@ -7,7 +7,6 @@ public enum Downloader {
     case urlSession
     case aria2(Path)
 
-
     func download(url: URL, to destination: Path, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         switch self {
             case .urlSession:
