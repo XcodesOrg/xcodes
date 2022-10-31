@@ -148,7 +148,7 @@ struct Xcodes: AsyncParsableCommand {
                 downloader = .aria2(aria2Path)
             }
 
-            let destination = getDirectory(possibleDirectory: directory, default: Path.environmentHome.join("Downloads"))
+            let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
 
             xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
@@ -413,7 +413,7 @@ struct Xcodes: AsyncParsableCommand {
                     downloader = .aria2(aria2Path)
                 }
 
-                let destination = getDirectory(possibleDirectory: directory, default: Path.environmentHome.join("Downloads"))
+                let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
 
                 try await runtimeInstaller.downloadAndInstallRuntime(identifier: version, to: destination, with: downloader, shouldDelete: !keepArchive)
                 Current.logging.log("Finished")

@@ -55,13 +55,13 @@ public struct Shell {
         authenticateSudoerIfNecessary(passwordInput)
     }
 
-    public var isRoot: () -> Bool = { NSUserName() == "root" }
     public var xcodeSelectPrintPath: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcode-select"), "-p") }
     public var xcodeSelectSwitch: (String?, String) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.bin.join("xcode-select"), "-s", $1) }
     public func xcodeSelectSwitch(password: String?, path: String) -> Promise<ProcessOutput> {
         xcodeSelectSwitch(password, path)
     }
-    
+    public var isRoot: () -> Bool = { NSUserName() == "root" }
+
     /// Returns the path of an executable within the directories in the PATH environment variable.
     public var findExecutable: (_ executableName: String) -> Path? = { executableName in
         guard let path = ProcessInfo.processInfo.environment["PATH"] else { return nil }
@@ -71,10 +71,10 @@ public struct Shell {
                 return executable
             }
         }
-        
+
         return nil
     }
-    
+
     public var downloadWithAria2: (Path, URL, Path, [HTTPCookie]) -> (Progress, Promise<Void>) = { aria2Path, url, destination, cookies in
         precondition(Thread.isMainThread, "Aria must be called on the main queue")
         let process = Process()
@@ -93,12 +93,12 @@ public struct Shell {
         process.standardOutput = stdOutPipe
         let stdErrPipe = Pipe()
         process.standardError = stdErrPipe
-        
+
         var progress = Progress(totalUnitCount: 100)
 
         let observer = NotificationCenter.default.addObserver(
-            forName: .NSFileHandleDataAvailable, 
-            object: nil, 
+            forName: .NSFileHandleDataAvailable,
+            object: nil,
             queue: OperationQueue.main
         ) { note in
             guard
@@ -124,7 +124,7 @@ public struct Shell {
 
         stdOutPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
         stdErrPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
-        
+
         do {
             try process.run()
         } catch {
@@ -134,7 +134,7 @@ public struct Shell {
         let promise = Promise<Void> { seal in
             DispatchQueue.global(qos: .default).async {
                 process.waitUntilExit()
-                
+
                 NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
 
                 guard process.terminationReason == .exit, process.terminationStatus == 0 else {
@@ -147,7 +147,7 @@ public struct Shell {
                 seal.fulfill(())
             }
         }
-        
+
         return (progress, promise)
     }
 
@@ -199,7 +199,7 @@ public struct Shell {
     }
 
     public var exit: (Int32) -> Void = { Darwin.exit($0) }
-    
+
     public var isatty: () -> Bool = { Foundation.isatty(fileno(stdout)) != 0 }
 }
 
@@ -246,9 +246,9 @@ public struct Files {
     public func trashItem(at URL: URL) throws -> URL {
         return try trashItem(URL)
     }
-    
+
     public var createFile: (String, Data?, [FileAttributeKey: Any]?) -> Bool = { FileManager.default.createFile(atPath: $0, contents: $1, attributes: $2) }
-    
+
     @discardableResult
     public func createFile(atPath path: String, contents data: Data?, attributes attr: [FileAttributeKey : Any]? = nil) -> Bool {
         return createFile(path, data, attr)
@@ -259,13 +259,14 @@ public struct Files {
         try createDirectory(url, createIntermediates, attributes)
     }
 
-    public var installedXcodes = XcodesKit.installedXcodes
-}
-private func installedXcodes(directory: Path) -> [InstalledXcode] {
-    ((try? directory.ls()) ?? [])
-        .filter { $0.isAppBundle && $0.infoPlist?.bundleID == "com.apple.dt.Xcode" }
-        .map { $0.path }
-        .compactMap(InstalledXcode.init)
+    public var contentsOfDirectory: (URL) throws -> [URL] = { try FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil, options: []) }
+
+    public var installedXcodes: (Path) -> [InstalledXcode] = { directory in
+        return ((try? directory.ls()) ?? [])
+            .filter { $0.isAppBundle && $0.infoPlist?.bundleID == "com.apple.dt.Xcode" }
+            .map { $0.path }
+            .compactMap(InstalledXcode.init)
+    }
 }
 
 public struct Network {

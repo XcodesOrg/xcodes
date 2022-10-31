@@ -46,8 +46,7 @@ public class RuntimeInstaller {
         }
 
         if matchedRuntime.contentType == .package && !Current.shell.isRoot() {
-            Current.logging.log("Must be run as root to install the specified runtime")
-            exit(1)
+            throw Error.rootNeeded
         }
 
         let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
@@ -74,23 +73,24 @@ public class RuntimeInstaller {
         let pkgPath = try! Path(url: mountedUrl)!.ls().first!.path
         try Path.xcodesCaches.mkdir().setCurrentUserAsOwner()
         let expandedPkgPath = Path.xcodesCaches/runtime.identifier
-        try expandedPkgPath.delete()
+        try? Current.files.removeItem(at: expandedPkgPath.url)
         try await Current.shell.expandPkg(pkgPath.url, expandedPkgPath.url).asVoid().async()
         try await unmountDMG(mountedURL: mountedUrl)
         let packageInfoPath = expandedPkgPath/"PackageInfo"
-        var packageInfoContents = try String(contentsOf: packageInfoPath)
+        let packageInfoContentsData = Current.files.contents(atPath: packageInfoPath.string)!
+        var packageInfoContents = String(data: packageInfoContentsData, encoding: .utf8)!
         let runtimeFileName = "\(runtime.platform.shortName) \(runtime.simulatorVersion.version).simruntime"
         let runtimeDestination = Path("/Library/Developer/CoreSimulator/Profiles/Runtimes/\(runtimeFileName)")!
         packageInfoContents = packageInfoContents.replacingOccurrences(of: "<pkg-info", with: "<pkg-info install-location=\"\(runtimeDestination)\"")
-        try packageInfoContents.write(to: packageInfoPath)
+        try Current.files.write(packageInfoContents.data(using: .utf8)!, to: packageInfoPath.url)
         let newPkgPath = Path.xcodesCaches/(runtime.identifier + ".pkg")
-        try newPkgPath.delete()
+        try? Current.files.removeItem(at: newPkgPath.url)
         try await Current.shell.createPkg(expandedPkgPath.url, newPkgPath.url).asVoid().async()
-        try expandedPkgPath.delete()
+        try Current.files.removeItem(at: expandedPkgPath.url)
         Current.logging.log("Installing Runtime")
         // TODO: Report progress
         try await Current.shell.installPkg(newPkgPath.url, "/").asVoid().async()
-        try newPkgPath.delete()
+        try Current.files.removeItem(at: newPkgPath.url)
     }
 
     private func mountDMG(dmgUrl: URL) async throws -> URL {
@@ -151,6 +151,7 @@ extension RuntimeInstaller {
     public enum Error: LocalizedError, Equatable {
         case unavailableRuntime(String)
         case failedMountingDMG
+        case rootNeeded
 
         public var errorDescription: String? {
             switch self {
@@ -158,6 +159,8 @@ extension RuntimeInstaller {
                     return "Could not find runtime \(version)."
                 case .failedMountingDMG:
                     return "Failed to mount image."
+                case .rootNeeded:
+                    return "Must be run as root to install the specified runtime"
             }
         }
     }
