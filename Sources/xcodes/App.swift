@@ -277,7 +277,7 @@ struct Xcodes: AsyncParsableCommand {
             }
             .then { xcode -> Promise<Void> in
                 if select {
-                    return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false) 
+                    return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
                 } else {
                     return .init()
                 }
@@ -378,7 +378,7 @@ struct Xcodes: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Change the selected Xcode",
             discussion: """
-                        Run without any arguments to interactively select from a list, or provide an absolute path.
+                        Select a version of Xcode by specifying a version number or an absolute path. Run without arguments to select the version specified in your .xcode-version file. If no version file is found, you will be prompted to interactively select from a list.
 
                         EXAMPLES:
                           xcodes select

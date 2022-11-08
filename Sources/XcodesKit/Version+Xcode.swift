@@ -55,6 +55,15 @@ public extension Version {
         self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers, buildMetadataIdentifiers: [buildMetadataIdentifier].compactMap { $0 })
     }
 
+    /// Attempt to instatiate a `Version` using the `.xcode-version` file in the provided directory
+    static func fromXcodeVersionFile(inDirectory: Path = Path.cwd) -> Version? {
+        let xcodeVersionFilePath = inDirectory.join(".xcode-version")
+        let version = (try? Data(contentsOf: xcodeVersionFilePath.url))
+            .flatMap { String(data: $0, encoding: .utf8) }
+            .flatMap(Version.init(gemVersion:))
+        return version
+    }
+
     /// The intent here is to match Apple's marketing version
     ///
     /// Only show the patch number if it's not 0

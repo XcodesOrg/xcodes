@@ -22,8 +22,9 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
             }
         }
 
+        let versionToSelect = pathOrVersion.isEmpty ? Version.fromXcodeVersionFile() : Version(xcodeVersion: pathOrVersion)
         let installedXcodes = Current.files.installedXcodes(directory)
-        if let version = Version(xcodeVersion: pathOrVersion),
+        if let version = versionToSelect,
            let installedXcode = installedXcodes.first(withVersion: version) {
             let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
             if installedXcode.version == selectedInstalledXcodeVersion {
