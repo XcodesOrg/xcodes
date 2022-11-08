@@ -1,4 +1,5 @@
 import Foundation
+import Path
 import Version
 
 public extension Version {
@@ -58,9 +59,15 @@ public extension Version {
     /// Attempt to instatiate a `Version` using the `.xcode-version` file in the provided directory
     static func fromXcodeVersionFile(inDirectory: Path = Path.cwd) -> Version? {
         let xcodeVersionFilePath = inDirectory.join(".xcode-version")
-        let version = (try? Data(contentsOf: xcodeVersionFilePath.url))
-            .flatMap { String(data: $0, encoding: .utf8) }
-            .flatMap(Version.init(gemVersion:))
+        guard
+            Current.files.fileExists(atPath: xcodeVersionFilePath.string),
+            let contents = Current.files.contents(atPath: xcodeVersionFilePath.string),
+            let versionString = String(data: contents, encoding: .utf8),
+            let version = Version(gemVersion: versionString)
+        else {
+            return nil
+        }
+
         return version
     }
 
