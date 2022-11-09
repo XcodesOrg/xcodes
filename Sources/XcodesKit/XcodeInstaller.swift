@@ -61,7 +61,7 @@ public final class XcodeInstaller {
             case let .unavailableVersion(version):
                 return "Could not find version \(version.appleDescription)."
             case .noNonPrereleaseVersionAvailable:
-                return "No non-prerelease versions available."
+                return "No release versions available."
             case .noPrereleaseVersionAvailable:
                 return "No prerelease versions available."
             case let .versionAlreadyInstalled(installedXcode):
@@ -225,8 +225,9 @@ public final class XcodeInstaller {
                         guard let latestNonPrereleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
-                        Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.appleDescription)")
 
+                        Current.logging.log("Latest release version available is \(latestNonPrereleaseXcode.version.appleDescription)")
+                        
                         if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestNonPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
