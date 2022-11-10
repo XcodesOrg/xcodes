@@ -13,7 +13,7 @@ _If you're looking for an app version of `xcodes`, try [Xcodes.app](https://gith
 ### Homebrew (Preferred)
 
 ```sh
-brew install robotsandpencils/made/xcodes
+brew install xcodes
 ```
 
 These are Developer ID-signed and notarized release builds and don't require Xcode to already be installed in order to use.
