@@ -60,9 +60,25 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 
 ## Usage
 
+### Listing
+
+You can list all the available Xcode versions available to download via `xcodes list`
+
+```sh
+xcodes list
+
+...
+14.0 (14A309)
+14.0.1 (14A400) (Installed)
+```
+
+If you are not seeing a brand new version of Xcode, you can use the `xcode update` command. Xcode will try and update it's cache if it's older then 24 hours.
+
+### Installing
 Install a specific version of Xcode using a command like one of these:
 
 ```sh
+xcodes install
 xcodes install 10.2.1
 xcodes install 11 Beta 7
 xcodes install 11.2 GM seed
@@ -72,9 +88,11 @@ xcodes install --latest --directory "/Volumes/Bag Of Holding/"
 xcodes install --latest --experimental-unxip
 ```
 
-You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
+~~You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
 
-After successfully authenticating, xcodes will save your Apple ID password into the keychain and will remember your Apple ID for future use. If you need to use a different Apple ID than the one that's remembered, set the `XCODES_USERNAME` environment variable.
+After successfully authenticating, xcodes will save your Apple ID password into the keychain and will remember your Apple ID for future use. If you need to use a different Apple ID than the one that's remembered, set the `XCODES_USERNAME` environment variable.~~
+
+As of `Xcode v1.0` you no longer require to pass in your Apple username/password to download Xcode 
 
 xcodes will download and install the version you asked for so that it's ready to use.
 
@@ -102,6 +120,8 @@ We recommend the creation of a `.xcode-version` file to explicitly declare and s
 ```txt
 13.4.1
 ```
+
+When using `xcodes install` command (with no version specfied), Xcodes will look for the `.xcode-version` file and read it's version from there.
 
 Read [the proposal](/XCODE_VERSION.md) of `.xcode-version`.
 
@@ -205,6 +225,10 @@ git push --follow-tags
 Notable design decisions are recorded in [DECISIONS.md](./DECISIONS.md). The Apple authentication flow is described in [Apple.paw](./Apple.paw), which will allow you to play with the API endpoints that are involved using the [Paw](https://paw.cloud) app.
 
 [`xcode-install`](https://github.com/xcpretty/xcode-install) and [fastlane/spaceship](https://github.com/fastlane/fastlane/tree/master/spaceship) both deserve credit for figuring out the hard parts of what makes this possible.
+
+## Contributing
+
+We welcome new features, bug fixes, and any changes that make Xcodes the best CLI tool for downloading and maintaining multiple versions of Xcode. See [Contributing.md](./CONTRIBUTING.md) for more info.
 
 ## Contact
 
