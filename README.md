@@ -88,9 +88,9 @@ xcodes install --latest --directory "/Volumes/Bag Of Holding/"
 xcodes install --latest --experimental-unxip
 ```
 
-~~You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
+~~You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.~~
 
-After successfully authenticating, xcodes will save your Apple ID password into the keychain and will remember your Apple ID for future use. If you need to use a different Apple ID than the one that's remembered, set the `XCODES_USERNAME` environment variable.~~
+~~After successfully authenticating, xcodes will save your Apple ID password into the keychain and will remember your Apple ID for future use. If you need to use a different Apple ID than the one that's remembered, set the `XCODES_USERNAME` environment variable.~~
 
 As of `Xcode v1.0` you no longer require to pass in your Apple username/password to download Xcode 
 
