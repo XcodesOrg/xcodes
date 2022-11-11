@@ -72,7 +72,7 @@ xcodes list
 14.0.1 (14A400) (Installed)
 ```
 
-If you are not seeing a brand new version of Xcode, you can use the `xcode update` command. Xcode will try and update it's cache if it's older then 24 hours.
+If you are not seeing a brand new version of Xcode, you can use the `xcodes update` command. `xcodes` will try and update it's cache if it's older then 24 hours.
 
 ### Installing
 Install a specific version of Xcode using a command like one of these:
