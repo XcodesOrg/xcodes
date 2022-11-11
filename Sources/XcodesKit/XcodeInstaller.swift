@@ -263,13 +263,13 @@ public final class XcodeInstaller {
                         return self.downloadXcode(version: latestPrereleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
                     }
             case .path(let versionString, let path):
-                guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
+                guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
                 let xcode = Xcode(version: version, url: path.url, filename: String(path.string.suffix(fromLast: "/")), releaseDate: nil)
                 return Promise.value((xcode, path.url))
             case .version(let versionString):
-                guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
+                guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
                 if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
@@ -278,14 +278,6 @@ public final class XcodeInstaller {
                 return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
             }
         }
-    }
-
-    private func versionFromXcodeVersionFile() -> Version? {
-        let xcodeVersionFilePath = Path.cwd.join(".xcode-version")
-        let version = (try? Data(contentsOf: xcodeVersionFilePath.url))
-            .flatMap { String(data: $0, encoding: .utf8) }
-            .flatMap(Version.init(gemVersion:))
-        return version
     }
 
     private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
@@ -414,13 +406,13 @@ public final class XcodeInstaller {
         .recover { error -> Promise<Void> in
 
             if let error = error as? Client.Error {
-              switch error  {
-              case .invalidUsernameOrPassword(_):
-                  // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
-                  try? Current.keychain.remove(username)
-              default:
-                  break
-              }
+                switch error  {
+                case .invalidUsernameOrPassword(_):
+                    // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
+                    try? Current.keychain.remove(username)
+                default:
+                    break
+                }
             }
 
             return Promise(error: error)
@@ -529,7 +521,7 @@ public final class XcodeInstaller {
     
         return attemptRetryableTask(maximumRetryCount: 3) {
             let (progress, promise) = Current.shell.downloadWithAria2(
-                aria2Path, 
+                aria2Path,
                 xcode.url,
                 destination,
                 cookies
@@ -561,7 +553,7 @@ public final class XcodeInstaller {
             switch archiveURL.pathExtension {
             case "xip":
                 return unarchiveAndMoveXIP(at: archiveURL, to: destinationURL, experimentalUnxip: experimentalUnxip).map { xcodeURL in
-                    guard 
+                    guard
                         let path = Path(url: xcodeURL),
                         Current.files.fileExists(atPath: path.string),
                         let installedXcode = InstalledXcode(path: path)

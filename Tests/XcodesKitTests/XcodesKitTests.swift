@@ -1174,6 +1174,67 @@ final class XcodesKitTests: XCTestCase {
 
         """)
     }
+
+    func test_SelectUsingXcodeVersionFile() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.installedXcodes = { _ in
+            [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+             InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!]
+        }
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.1.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.hasSuffix(".xcode-version") {
+                return "2.0.1\n".data(using: .utf8)
+            }
+            else {
+                return nil
+            }
+        }
+        Current.files.fileExistsAtPath = { path in
+            if path == "" {
+                return false
+            }
+            return true
+        }
+        // It prints the expected paths
+        var xcodeSelectPrintPathCallCount = 0
+        Current.shell.xcodeSelectPrintPath = {
+            defer { xcodeSelectPrintPathCallCount += 1 }
+            if xcodeSelectPrintPathCallCount == 0 {
+                return Promise.value((status: 0, out: "/Applications/Xcode-0.0.0.app/Contents/Developer", err: ""))
+            } else if xcodeSelectPrintPathCallCount == 1 {
+                return Promise.value((status: 0, out: "/Applications/Xcode-2.0.1.app/Contents/Developer", err: ""))
+            } else {
+                fatalError("Unexpected third invocation of xcode select")
+            }
+        }
+        // It successfully switches
+        Current.shell.xcodeSelectSwitch = { _, _ in
+            Promise.value((status: 0, out: "", err: ""))
+        }
+
+        selectXcode(shouldPrint: false, pathOrVersion: "", directory: Path.root.join("Applications"))
+            .cauterize()
+
+        XCTAssertEqual(log, """
+        Selected /Applications/Xcode-2.0.1.app/Contents/Developer
+
+        """)
+    }
     
     func test_Installed_InteractiveTerminal() {
         var log = ""
