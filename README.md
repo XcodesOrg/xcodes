@@ -92,7 +92,7 @@ xcodes install --latest --experimental-unxip
 
 ~~After successfully authenticating, xcodes will save your Apple ID password into the keychain and will remember your Apple ID for future use. If you need to use a different Apple ID than the one that's remembered, set the `XCODES_USERNAME` environment variable.~~
 
-As of `Xcode v1.0` you no longer require to pass in your Apple username/password to download Xcode 
+As of `Xcode v1.0` it is no longer required to pass in your Apple username/password to download Xcode 
 
 xcodes will download and install the version you asked for so that it's ready to use.
 
