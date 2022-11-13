@@ -138,7 +138,7 @@ public class RuntimeInstaller {
         // 6-Get the `PackageInfo` file contents from the expanded pkg
         let packageInfoContentsData = Current.files.contents(atPath: packageInfoPath.string)!
         var packageInfoContents = String(data: packageInfoContentsData, encoding: .utf8)!
-        let runtimeFileName = "\(runtime.platform.shortName) \(runtime.simulatorVersion.version).simruntime"
+        let runtimeFileName = "\(runtime.visibleIdentifier).simruntime"
         let runtimeDestination = Path("/Library/Developer/CoreSimulator/Profiles/Runtimes/\(runtimeFileName)")!
         packageInfoContents = packageInfoContents.replacingOccurrences(of: "<pkg-info", with: "<pkg-info install-location=\"\(runtimeDestination)\"")
         // 7-Modify the `PackageInfo` file with a new `install-location`
