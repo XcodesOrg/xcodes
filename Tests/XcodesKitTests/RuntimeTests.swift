@@ -66,6 +66,7 @@ final class RuntimeTests: XCTestCase {
         let givenIDs = [
             UUID(uuidString: "2A6068A0-7FCF-4DB9-964D-21145EB98498")!,
             UUID(uuidString: "6DE6B631-9439-4737-A65B-73F675EB77D1")!,
+            UUID(uuidString: "6DE6B631-9439-4737-A65B-73F675EB77D2")!,
             UUID(uuidString: "7A032D54-0D93-4E04-80B9-4CB207136C3F")!,
             UUID(uuidString: "91B92361-CD02-4AF7-8DFE-DE8764AA949F")!,
             UUID(uuidString: "630146EA-A027-42B1-AC25-BE4EA018DE90")!,
@@ -78,13 +79,13 @@ final class RuntimeTests: XCTestCase {
 
     func test_downloadableRuntimes() async throws {
         mockDownloadables()
-        let values = try await runtimeList.downloadableRuntimes()
+        let values = try await runtimeList.downloadableRuntimes().downloadables
         XCTAssertEqual(values.count, 57)
     }
 
     func test_downloadableRuntimesNoBetas() async throws {
         mockDownloadables()
-        let values = try await runtimeList.downloadableRuntimes(includeBetas: false)
+        let values = try await runtimeList.downloadableRuntimes().downloadables.filter { $0.betaNumber == nil }
         XCTAssertFalse(values.contains { $0.name.lowercased().contains("beta") })
         XCTAssertEqual(values.count, 45)
     }
@@ -131,7 +132,7 @@ final class RuntimeTests: XCTestCase {
         mockDownloadables()
         XcodesKit.Current.shell.isRoot = { false }
         let identifier = "iOS 15.5"
-        let runtime = try await runtimeList.downloadableRuntimes().first { $0.visibleIdentifier == identifier }!
+        let runtime = try await runtimeList.downloadableRuntimes().downloadables.first { $0.visibleIdentifier == identifier }!
         var resultError: RuntimeInstaller.Error? = nil
         do {
             try await runtimeInstaller.downloadAndInstallRuntime(identifier: identifier, to: .xcodesCaches, with: .urlSession, shouldDelete: true)
@@ -147,7 +148,7 @@ final class RuntimeTests: XCTestCase {
         mockDownloadables()
         XcodesKit.Current.shell.isRoot = { false }
         let identifier = "iOS 16.0"
-        let runtime = try await runtimeList.downloadableRuntimes().first { $0.visibleIdentifier == identifier }!
+        let runtime = try await runtimeList.downloadableRuntimes().downloadables.first { $0.visibleIdentifier == identifier }!
         var resultError: RuntimeInstaller.Error? = nil
         do {
             try await runtimeInstaller.downloadAndInstallRuntime(identifier: identifier, to: .xcodesCaches, with: .urlSession, shouldDelete: true)
@@ -162,7 +163,7 @@ final class RuntimeTests: XCTestCase {
     func test_downloadOrUseExistingArchive_ReturnsExistingArchive() async throws {
         Current.files.fileExistsAtPath = { _ in return true }
         mockDownloadables()
-        let runtime = try await runtimeList.downloadableRuntimes().first { $0.visibleIdentifier == "iOS 15.5" }!
+        let runtime = try await runtimeList.downloadableRuntimes().downloadables.first { $0.visibleIdentifier == "iOS 15.5" }!
         var xcodeDownloadURL: URL?
         Current.network.downloadTask = { url, _, _ in
             xcodeDownloadURL = url.pmkRequest.url
@@ -183,7 +184,7 @@ final class RuntimeTests: XCTestCase {
             xcodeDownloadURL = url.pmkRequest.url
             return (Progress(), Promise.value((destination, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)))
         }
-        let runtime = try await runtimeList.downloadableRuntimes().first { $0.visibleIdentifier == "iOS 15.5" }!
+        let runtime = try await runtimeList.downloadableRuntimes().downloadables.first { $0.visibleIdentifier == "iOS 15.5" }!
         let fileName = URL(string: runtime.source)!.lastPathComponent
         let url = try await runtimeInstaller.downloadOrUseExistingArchive(runtime: runtime, to: .xcodesCaches, downloader: .urlSession)
         XCTAssertEqual(url, Path.xcodesCaches.join(fileName).url)

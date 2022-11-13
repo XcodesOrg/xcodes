@@ -15,32 +15,85 @@ public class RuntimeInstaller {
     }
 
     public func printAvailableRuntimes(includeBetas: Bool) async throws {
-        let downloadables = try await runtimeList.downloadableRuntimes(includeBetas: includeBetas)
+        let downloadablesResponse = try await runtimeList.downloadableRuntimes()
         var installed = try await runtimeList.installedRuntimes()
-        for (platform, downloadables) in Dictionary(grouping: downloadables, by: \.platform).sorted(\.key.order) {
-            Current.logging.log("-- \(platform.shortName) --")
-            for downloadable in downloadables {
-                let matchingInstalledRuntimes = installed.remove { $0.build == downloadable.simulatorVersion.buildUpdate }
-                let name = downloadable.visibleIdentifier
-                if !matchingInstalledRuntimes.isEmpty {
-                    for matchingInstalledRuntime in matchingInstalledRuntimes {
-                        switch matchingInstalledRuntime.kind {
-                            case .bundled:
-                                Current.logging.log(name + " (Bundled with selected Xcode)")
-                            case .diskImage, .legacyDownload:
-                                Current.logging.log(name + " (Downloaded)")
-                        }
-                    }
-                } else {
-                    Current.logging.log(name)
+
+        var mappedRuntimes: [PrintableRuntime] = []
+
+        downloadablesResponse.downloadables.forEach { downloadable in
+            let matchingInstalledRuntimes = installed.removeAll { $0.build == downloadable.simulatorVersion.buildUpdate }
+            if !matchingInstalledRuntimes.isEmpty {
+                matchingInstalledRuntimes.forEach {
+                    mappedRuntimes.append(PrintableRuntime(platform: downloadable.platform,
+                                                           betaNumber: downloadable.betaNumber,
+                                                           version: downloadable.simulatorVersion.version,
+                                                           build: downloadable.simulatorVersion.buildUpdate,
+                                                           state: $0.kind))
                 }
+            } else {
+                mappedRuntimes.append(PrintableRuntime(platform: downloadable.platform,
+                                                       betaNumber: downloadable.betaNumber,
+                                                       version: downloadable.simulatorVersion.version,
+                                                       build: downloadable.simulatorVersion.buildUpdate))
+            }
+        }
+
+
+
+
+        installed.forEach { runtime in
+            let resolvedBetaNumber = downloadablesResponse.sdkToSeedMappings.first {
+                $0.buildUpdate == runtime.build
+            }?.seedNumber
+
+            var result = PrintableRuntime(platform: runtime.platformIdentifier.asPlatformOS,
+                                          betaNumber: resolvedBetaNumber,
+                                          version: runtime.version,
+                                          build: runtime.build,
+                                          state: runtime.kind)
+
+            mappedRuntimes.indices {
+                result.visibleIdentifier == $0.visibleIdentifier
+            }.forEach { index in
+                result.hasDuplicateVersion = true
+                mappedRuntimes[index].hasDuplicateVersion = true
+            }
+
+            mappedRuntimes.append(result)
+        }
+
+        for (platform, runtimes) in Dictionary(grouping: mappedRuntimes, by: \.platform).sorted(\.key.order) {
+            Current.logging.log("-- \(platform.shortName) --")
+            let sortedRuntimes = runtimes.sorted { first, second in
+                let firstVersion = Version(tolerant: first.completeVersion)!
+                let secondVersion = Version(tolerant: second.completeVersion)!
+                if firstVersion == secondVersion {
+                    return first.build.compare(second.build, options: .numeric) == .orderedAscending
+                }
+                return firstVersion < secondVersion
+            }
+
+            for runtime in sortedRuntimes {
+                if !includeBetas && runtime.betaNumber != nil && runtime.state == nil {
+                    continue
+                }
+                var str = runtime.visibleIdentifier
+                if runtime.hasDuplicateVersion {
+                    str += " (\(runtime.build))"
+                }
+                if runtime.state == .legacyDownload || runtime.state == .diskImage {
+                    str += " (Downloaded)"
+                } else if runtime.state == .bundled {
+                    str += " (Bundled with selected Xcode)"
+                }
+                Current.logging.log(str)
             }
         }
         Current.logging.log("\nNote: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)")
     }
 
     public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
-        let downloadables = try await runtimeList.downloadableRuntimes()
+        let downloadables = try await runtimeList.downloadableRuntimes().downloadables
         guard let matchedRuntime = downloadables.first(where: { $0.visibleIdentifier == identifier }) else {
             throw Error.unavailableRuntime(identifier)
         }
@@ -175,8 +228,25 @@ extension RuntimeInstaller {
     }
 }
 
+fileprivate struct PrintableRuntime {
+    let platform: DownloadableRuntime.Platform
+    let betaNumber: Int?
+    let version: String
+    let build: String
+    var state: InstalledRuntime.Kind? = nil
+    var hasDuplicateVersion = false
+
+    var completeVersion: String {
+        makeVersion(for: version, betaNumber: betaNumber)
+    }
+
+    var visibleIdentifier: String {
+        return platform.shortName + " " + completeVersion
+    }
+}
+
 extension Array {
-    fileprivate mutating func remove(where predicate: ((Element) -> Bool)) -> [Element] {
+    fileprivate mutating func removeAll(where predicate: ((Element) -> Bool)) -> [Element] {
         guard !isEmpty else { return [] }
         var removed: [Element] = []
         self = filter { current in
@@ -187,5 +257,17 @@ extension Array {
             return !satisfy
         }
         return removed
+    }
+
+    fileprivate func indices(where predicate: ((Element) -> Bool)) -> [Index] {
+        var result: [Index] = []
+
+        for index in indices {
+            if predicate(self[index]) {
+                result.append(index)
+            }
+        }
+
+        return result
     }
 }

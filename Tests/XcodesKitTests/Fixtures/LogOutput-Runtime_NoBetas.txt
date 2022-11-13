@@ -31,7 +31,9 @@ watchOS 7.4
 watchOS 8.0
 watchOS 8.3
 watchOS 8.5 (Bundled with selected Xcode)
-watchOS 9.0 (Downloaded)
+watchOS 9.0-beta4 (Downloaded)
+watchOS 9.0 (20R362)
+watchOS 9.0 (UnknownBuildNumber) (Downloaded)
 -- tvOS --
 tvOS 12.4
 tvOS 13.0

@@ -34,9 +34,10 @@ watchOS 8.5 (Bundled with selected Xcode)
 watchOS 9.0-beta1
 watchOS 9.0-beta2
 watchOS 9.0-beta3
-watchOS 9.0-beta4
+watchOS 9.0-beta4 (Downloaded)
 watchOS 9.0-beta5
-watchOS 9.0 (Downloaded)
+watchOS 9.0 (20R362)
+watchOS 9.0 (UnknownBuildNumber) (Downloaded)
 watchOS 9.1-beta1
 -- tvOS --
 tvOS 12.4
