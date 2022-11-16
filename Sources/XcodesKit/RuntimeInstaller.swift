@@ -94,7 +94,7 @@ public class RuntimeInstaller {
 
     public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
         let downloadables = try await runtimeList.downloadableRuntimes().downloadables
-        guard let matchedRuntime = downloadables.first(where: { $0.visibleIdentifier == identifier }) else {
+        guard let matchedRuntime = downloadables.first(where: { $0.visibleIdentifier == identifier || $0.simulatorVersion.buildUpdate == identifier }) else {
             throw Error.unavailableRuntime(identifier)
         }
 
@@ -218,7 +218,7 @@ extension RuntimeInstaller {
         public var errorDescription: String? {
             switch self {
                 case let .unavailableRuntime(version):
-                    return "Could not find runtime \(version)."
+                    return "Runtime \(version) is invalid or not downloadable"
                 case .failedMountingDMG:
                     return "Failed to mount image."
                 case .rootNeeded:
