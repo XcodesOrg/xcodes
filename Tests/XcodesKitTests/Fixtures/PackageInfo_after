@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<pkg-info install-location="/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 15.5.simruntime" postinstall-action="none" auth="root" format-version="2" identifier="com.apple.pkg.iPhoneSimulatorSDK15_5" version="15.5.1.1653527639">
+  <payload installKBytes="11546951" numberOfFiles="225598"/>
+  <bundle-version>
+  </bundle-version>
+</pkg-info>

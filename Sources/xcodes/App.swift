@@ -60,13 +60,17 @@ struct Xcodes: AsyncParsableCommand {
     )
 
     static var xcodesConfiguration = Configuration()
+    static var sessionService: AppleSessionService!
     static let xcodeList = XcodeList()
-    static let runtimes = RuntimeList()
-    static var installer: XcodeInstaller!
+    static let runtimeList = RuntimeList()
+    static var runtimeInstaller: RuntimeInstaller!
+    static var xcodeInstaller: XcodeInstaller!
 
     static func main() async {
         try? xcodesConfiguration.load()
-        installer = XcodeInstaller(configuration: xcodesConfiguration, xcodeList: xcodeList)
+        sessionService = AppleSessionService(configuration: xcodesConfiguration)
+        xcodeInstaller = XcodeInstaller(xcodeList: xcodeList, sessionService: sessionService)
+        runtimeInstaller = RuntimeInstaller(runtimeList: runtimeList, sessionService: sessionService)
         migrateApplicationSupportFiles()
         do {
             var command = try parseAsRoot()
@@ -136,17 +140,17 @@ struct Xcodes: AsyncParsableCommand {
             } else {
                 installation = .version(versionString)
             }
-
-            var downloader = XcodeInstaller.Downloader.urlSession
+            
+            var downloader = Downloader.urlSession
             if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
                aria2Path.exists,
                noAria2 == false {
                 downloader = .aria2(aria2Path)
             }
 
-            let destination = getDirectory(possibleDirectory: directory, default: Path.home.join("Downloads"))
+            let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
 
-            installer.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
+            xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
                     Install.processDownloadOrInstall(error: error)
                 }
@@ -236,8 +240,8 @@ struct Xcodes: AsyncParsableCommand {
             } else {
                 installation = .version(versionString)
             }
-
-            var downloader = XcodeInstaller.Downloader.urlSession
+            
+            var downloader = Downloader.urlSession
             if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
                aria2Path.exists,
                noAria2 == false {
@@ -261,7 +265,7 @@ struct Xcodes: AsyncParsableCommand {
         }
 
         private func install(_ installation: XcodeInstaller.InstallationType,
-                             using downloader: XcodeInstaller.Downloader,
+                             using downloader: Downloader,
                              to destination: Path) {
             firstly { () -> Promise<InstalledXcode> in
                 // update the list before installing only for version type because the other types already update internally
@@ -269,10 +273,10 @@ struct Xcodes: AsyncParsableCommand {
                     Current.logging.log("Updating...")
                     return xcodeList.update(dataSource: globalDataSource.dataSource)
                         .then { _ -> Promise<InstalledXcode> in
-                            installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                            xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                         }
                 } else {
-                    return installer.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                    return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                 }
             }
             .then { xcode -> Promise<Void> in
@@ -311,11 +315,11 @@ struct Xcodes: AsyncParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.printXcodePath(ofVersion: version.joined(separator: " "), searchingIn: directory)
+            xcodeInstaller.printXcodePath(ofVersion: version.joined(separator: " "), searchingIn: directory)
                 .recover { error -> Promise<Void> in
                     switch error {
                     case XcodeInstaller.Error.invalidVersion:
-                        return installer.printInstalledXcodes(directory: directory)
+                        return xcodeInstaller.printInstalledXcodes(directory: directory)
                     default:
                         throw error
                     }
@@ -348,10 +352,10 @@ struct Xcodes: AsyncParsableCommand {
 
             firstly { () -> Promise<Void> in
                 if xcodeList.shouldUpdateBeforeListingVersions {
-                    return installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
+                    return xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 }
                 else {
-                    return installer.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
+                    return xcodeInstaller.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
                 }
             }
             .done { List.exit() }
@@ -363,14 +367,57 @@ struct Xcodes: AsyncParsableCommand {
 
     struct Runtimes: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
-            abstract: "List all simulator runtimes that are available to install"
+            abstract: "List all simulator runtimes that are available to install",
+            subcommands: [Install.self]
         )
 
         @Flag(help: "Include beta runtimes available to install")
         var includeBetas: Bool = false
 
         func run() async throws {
-            try await runtimes.printAvailableRuntimes(includeBetas: includeBetas)
+            try await runtimeInstaller.printAvailableRuntimes(includeBetas: includeBetas)
+        }
+
+        struct Install: AsyncParsableCommand {
+            static var configuration = CommandConfiguration(
+                abstract: "Download and install a specific simulator runtime"
+            )
+
+            @Argument(help: "The runtime to install")
+            var version: String
+
+            @Option(help: "The path to an aria2 executable. Searches $PATH by default.",
+                    completion: .file())
+            var aria2: String?
+
+            @Flag(help: "Don't use aria2 to download the runtime, even if its available.")
+            var noAria2: Bool = false
+
+            @Option(help: "The directory to download the runtime archive to. Defaults to ~/Downloads.",
+                    completion: .directory)
+            var directory: String?
+
+            @Flag(help: "Do not delete the runtime archive after the installation is finished.")
+            var keepArchive = false
+
+            @OptionGroup
+            var globalColor: GlobalColorOption
+
+            func run() async throws {
+                Rainbow.enabled = Rainbow.enabled && globalColor.color
+
+                var downloader = Downloader.urlSession
+                if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
+                   aria2Path.exists,
+                   noAria2 == false {
+                    downloader = .aria2(aria2Path)
+                }
+
+                let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
+
+                try await runtimeInstaller.downloadAndInstallRuntime(identifier: version, to: destination, with: downloader, shouldDelete: !keepArchive)
+                Current.logging.log("Finished")
+            }
         }
     }
 
@@ -444,7 +491,7 @@ struct Xcodes: AsyncParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash)
+            xcodeInstaller.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash)
                 .done { Uninstall.exit() }
                 .catch { error in Uninstall.exit(withLegibleError: error) }
 
@@ -471,7 +518,7 @@ struct Xcodes: AsyncParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            installer.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
+            xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
                 .done { Update.exit() }
                 .catch { error in Update.exit(withLegibleError: error) }
 
@@ -504,8 +551,8 @@ struct Xcodes: AsyncParsableCommand {
 
         func run() {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
-
-            installer.logout()
+            
+            sessionService.logout()
                 .done {
                     Current.logging.log("Successfully signed out".green)
                     Signout.exit()
