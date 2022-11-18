@@ -286,7 +286,7 @@ public final class XcodeInstaller {
                     // session once we're ready to download Xcode. Doing that requires us to know the
                     // URL we want to download though (and we may not know that yet), so we don't need
                     // to do anything session-related quite yet.
-                    return Promise()
+                    return sessionService.loginIfNeeded()
             }
         }
         .then { () -> Promise<Void> in
@@ -313,7 +313,12 @@ public final class XcodeInstaller {
             case .xcodeReleases:
                     /// Now that we've used Xcode Releases to determine what URL we should use to
                     /// download Xcode, we can use that to establish an anonymous session with Apple.
-                    return self.sessionService.validateADCSession(path: xcode.downloadPath).map { xcode }
+                    // As of Nov 2022, the `validateADCSession` return 403 forbidden for Xcode versions (works with runtimes)
+                    // return self.sessionService.validateADCSession(path: xcode.downloadPath).map { xcode }
+                    // -------
+                    // We need the cookies from its response in order to download Xcodes though,
+                    // so perform it here first just to be sure.
+                    return Current.network.dataTask(with: URLRequest.downloads).map { _ in xcode }
             }
         }
         .then { xcode -> Promise<(Xcode, URL)> in
