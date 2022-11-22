@@ -49,7 +49,15 @@ public enum Downloader {
                                                                    to: destination.url,
                                                                    resumingWith: resumeData ?? persistedResumeData)
             progressChanged(progress)
-            return promise.map { $0.saveLocation }
+            return promise.map { result in
+                /// If the operation is unauthorized, the download page redirects to https://developer.apple.com/unauthorized/
+                /// with 200 status. After that the html page is downloaded as a xip and subsequent unxipping fails
+                guard result.response.url?.lastPathComponent != "unauthorized" else {
+                    throw XcodeInstaller.Error.unauthorized
+                }
+                
+                return result.saveLocation
+            }
         }
         .tap { result in
             self.persistOrCleanUpResumeData(at: resumeDataPath, for: result)

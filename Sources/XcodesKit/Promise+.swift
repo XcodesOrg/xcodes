@@ -15,6 +15,11 @@ func attemptResumableTask<T>(
                 attempts < maximumRetryCount,
                 let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
             else { throw error }
+            
+            // Don't retry unauthorized errors because it won't change the outcome
+            if case XcodeInstaller.Error.unauthorized = error {
+                throw error
+            }
 
             return after(delayBeforeRetry).then(on: nil) { attempt(with: resumeData) }
         }
@@ -33,6 +38,12 @@ func attemptRetryableTask<T>(
         attempts += 1
         return body().recover { error -> Promise<T> in
             guard attempts < maximumRetryCount else { throw error }
+            
+            // Don't retry unauthorized errors because it won't change the outcome
+            if case XcodeInstaller.Error.unauthorized = error {
+                throw error
+            }
+            
             return after(delayBeforeRetry).then(on: nil) { attempt() }
         }
     }

@@ -26,6 +26,7 @@ public final class XcodeInstaller {
         case versionAlreadyInstalled(InstalledXcode)
         case invalidVersion(String)
         case versionNotInstalled(Version)
+        case unauthorized
 
         public var errorDescription: String? {
             switch self {
@@ -70,6 +71,12 @@ public final class XcodeInstaller {
                 return "\(version) is not a valid version number."
             case let .versionNotInstalled(version):
                 return "\(version.appleDescription) is not installed."
+            case .unauthorized:
+                return """
+                        Received 403: Unauthorized. This can happen when either:
+                        1. Apple Developer Terms and Conditions were not accepted at https://developer.apple.com/
+                        2. Apple ID authorization was revoked for some other reason
+                       """
             }
         }
     }
