@@ -21,7 +21,7 @@ public final class XcodeInstaller {
         case unsupportedFileFormat(extension: String)
         case missingSudoerPassword
         case unavailableVersion(Version)
-        case noNonPrereleaseVersionAvailable
+        case noReleaseVersionAvailable
         case noPrereleaseVersionAvailable
         case versionAlreadyInstalled(InstalledXcode)
         case invalidVersion(String)
@@ -60,8 +60,8 @@ public final class XcodeInstaller {
                 return "Missing password. Please try again."
             case let .unavailableVersion(version):
                 return "Could not find version \(version.appleDescription)."
-            case .noNonPrereleaseVersionAvailable:
-                return "No non-prerelease versions available."
+            case .noReleaseVersionAvailable:
+                return "No release versions available."
             case .noPrereleaseVersionAvailable:
                 return "No prerelease versions available."
             case let .versionAlreadyInstalled(installedXcode):
@@ -222,16 +222,17 @@ public final class XcodeInstaller {
 
                 return update(dataSource: dataSource)
                     .then { availableXcodes -> Promise<(Xcode, URL)> in
-                        guard let latestNonPrereleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
-                            throw Error.noNonPrereleaseVersionAvailable
+                        guard let latestReleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
+                            throw Error.noReleaseVersionAvailable
                         }
-                        Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.appleDescription)")
 
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestNonPrereleaseXcode.version) }) {
+                        Current.logging.log("Latest release version available is \(latestReleaseXcode.version.appleDescription)")
+                        
+                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestReleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
 
-                        return self.downloadXcode(version: latestNonPrereleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+                        return self.downloadXcode(version: latestReleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
                     }
             case .latestPrerelease:
                 Current.logging.log("Updating...")
@@ -244,7 +245,7 @@ public final class XcodeInstaller {
                             .sorted(by: { $0.releaseDate! < $1.releaseDate! })
                             .last
                         else {
-                            throw Error.noNonPrereleaseVersionAvailable
+                            throw Error.noReleaseVersionAvailable
                         }
                         Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.appleDescription)")
 

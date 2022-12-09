@@ -103,7 +103,7 @@ struct Xcodes: AsyncParsableCommand {
                   completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
 
-        @Flag(help: "Update and then download the latest non-prerelease version available.")
+        @Flag(help: "Update and then download the latest release version available.")
         var latest: Bool = false
 
         @Flag(help: "Update and then download the latest prerelease version available, including GM seeds and GMs.")
@@ -184,7 +184,7 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .file(extensions: ["xip"]))
         var pathString: String?
 
-        @Flag(help: "Update and then install the latest non-prerelease version available.")
+        @Flag(help: "Update and then install the latest release version available.")
         var latest: Bool = false
 
         @Flag(help: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
