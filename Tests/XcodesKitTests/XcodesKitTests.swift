@@ -1450,4 +1450,33 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssert(xcodesList.availableXcodes == [Self.mockXcode])
     }
+
+    func test_FastlaneCookieParser_ShouldParseCookies() throws {
+        let url = Bundle.module.url(forResource: "FastlaneCookies", withExtension: "yml", subdirectory: "Fixtures")!
+
+        let cookieString = try String(contentsOf: url)
+
+        let parser = FastlaneCookieParser()
+        let cookies = try parser.parse(cookieString: cookieString)
+
+        XCTAssertEqual(cookies.count, 3)
+
+        XCTAssertEqual(cookies[0].name, "myacinfo")
+        XCTAssertEqual(cookies[0].value, "myacinfo_dummy")
+        XCTAssertEqual(cookies[0].domain, ".apple.com")
+        XCTAssertEqual(cookies[0].path, "/")
+        XCTAssertEqual(cookies[0].isSecure, true)
+
+        XCTAssertEqual(cookies[1].name, "DES5a8153bb0fcd039d87286b59d3accea2")
+        XCTAssertEqual(cookies[1].value, "DES5a8153bb0fcd039d87286b59d3accea2_dummy")
+        XCTAssertEqual(cookies[1].domain, ".idmsa.apple.com")
+        XCTAssertEqual(cookies[1].path, "/")
+        XCTAssertEqual(cookies[1].isSecure, true)
+
+        XCTAssertEqual(cookies[2].name, "dqsid")
+        XCTAssertEqual(cookies[2].value, "dqsid_dummy")
+        XCTAssertEqual(cookies[2].domain, "appstoreconnect.apple.com")
+        XCTAssertEqual(cookies[2].path, "/")
+        XCTAssertEqual(cookies[2].isSecure, true)
+    }
 }

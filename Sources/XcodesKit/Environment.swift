@@ -18,6 +18,7 @@ public struct Environment {
     public var network = Network()
     public var logging = Logging()
     public var keychain = Keychain()
+    public var fastlaneCookieParser = FastlaneCookieParser()
 }
 
 public var Current = Environment()
@@ -204,6 +205,7 @@ public struct Shell {
 }
 
 public struct Files {
+
     public var fileExistsAtPath: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
 
     public func fileExists(atPath path: String) -> Bool {
