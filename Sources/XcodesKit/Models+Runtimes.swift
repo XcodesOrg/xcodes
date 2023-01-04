@@ -86,6 +86,7 @@ extension DownloadableRuntime {
         case macOS = "com.apple.platform.macosx"
         case watchOS = "com.apple.platform.watchos"
         case tvOS = "com.apple.platform.appletvos"
+        case unknown = ""
 
         var order: Int {
             switch self {
@@ -93,6 +94,7 @@ extension DownloadableRuntime {
                 case .macOS: return 2
                 case .watchOS: return 3
                 case .tvOS: return 4
+                case .unknown: return 5
             }
         }
 
@@ -102,24 +104,25 @@ extension DownloadableRuntime {
                 case .macOS: return "macOS"
                 case .watchOS: return "watchOS"
                 case .tvOS: return "tvOS"
+                case .unknown: return "Unknown"
             }
         }
     }
 }
 
 public struct InstalledRuntime: Decodable {
-    let build: String
+    let build: String?
     let deletable: Bool
     let identifier: UUID
     let kind: Kind
     let lastUsedAt: Date?
     let path: String
-    let platformIdentifier: Platform
-    let runtimeBundlePath: String
-    let runtimeIdentifier: String
+    let platformIdentifier: Platform?
+    let runtimeBundlePath: String?
+    let runtimeIdentifier: String?
     let signatureState: String
     let state: String
-    let version: String
+    let version: String?
     let sizeBytes: Int?
 }
 

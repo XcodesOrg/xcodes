@@ -43,13 +43,13 @@ public class RuntimeInstaller {
 
         installed.forEach { runtime in
             let resolvedBetaNumber = downloadablesResponse.sdkToSeedMappings.first {
-                $0.buildUpdate == runtime.build
+                $0.buildUpdate == runtime.build ?? ""
             }?.seedNumber
 
-            var result = PrintableRuntime(platform: runtime.platformIdentifier.asPlatformOS,
+            var result = PrintableRuntime(platform: runtime.platformIdentifier?.asPlatformOS ?? .unknown,
                                           betaNumber: resolvedBetaNumber,
-                                          version: runtime.version,
-                                          build: runtime.build,
+                                          version: runtime.version ?? "0",
+                                          build: runtime.build ?? "",
                                           state: runtime.kind)
 
             mappedRuntimes.indices {
