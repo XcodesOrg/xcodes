@@ -22,6 +22,7 @@ let package = Package(
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0")),
         .package(url: "https://github.com/xcodereleases/data", revision: "fcf527b187817f67c05223676341f3ab69d4214d"),
         .package(url: "https://github.com/onevcat/Rainbow.git", .upToNextMinor(from: "3.2.0")),
+        .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "5.0.1")),
     ],
     targets: [
         .executableTarget(
@@ -49,6 +50,7 @@ let package = Package(
                 "Version",
                 .product(name: "XCModel", package: "data"),
                 "Rainbow",
+                "Yams"
             ]),
         .testTarget(
             name: "XcodesKitTests",

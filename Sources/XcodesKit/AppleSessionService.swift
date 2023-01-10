@@ -39,6 +39,12 @@ public class AppleSessionService {
 
     func loginIfNeeded(withUsername providedUsername: String? = nil, shouldPromptForPassword: Bool = false) -> Promise<Void> {
         return firstly { () -> Promise<Void> in
+            Promise { promise in
+                FastlaneCookieLoader().load(in: AppleAPI.Current.network.session.configuration.httpCookieStorage)
+                promise.fulfill(())
+            }
+        }
+        .then { () -> Promise<Void> in
             return Current.network.validateSession()
         }
         // Don't have a valid session, so we'll need to log in
