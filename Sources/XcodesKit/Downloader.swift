@@ -7,6 +7,14 @@ public enum Downloader {
     case urlSession
     case aria2(Path)
 
+    public init(aria2Path: String?) {
+        guard let aria2Path = aria2Path.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"), aria2Path.exists else {
+            self = .urlSession
+            return
+        }
+        self = .aria2(aria2Path)
+    }
+
     func download(url: URL, to destination: Path, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         switch self {
             case .urlSession:

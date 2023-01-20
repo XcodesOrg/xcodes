@@ -1,7 +1,7 @@
 -- iOS --
-iOS 12.4 (Downloaded)
-iOS 13.0 (Downloaded)
-iOS 13.1 (Downloaded)
+iOS 12.4 (Installed)
+iOS 13.0 (Installed)
+iOS 13.1 (Installed)
 iOS 13.2.2
 iOS 13.3
 iOS 13.4
@@ -18,7 +18,7 @@ iOS 15.0
 iOS 15.2
 iOS 15.4
 iOS 15.5 (Bundled with selected Xcode)
-iOS 15.5 (Downloaded)
+iOS 15.5 (Installed)
 iOS 16.0
 -- watchOS --
 watchOS 6.0
@@ -34,10 +34,10 @@ watchOS 8.5 (Bundled with selected Xcode)
 watchOS 9.0-beta1
 watchOS 9.0-beta2
 watchOS 9.0-beta3
-watchOS 9.0-beta4 (Downloaded)
+watchOS 9.0-beta4 (Installed)
 watchOS 9.0-beta5
 watchOS 9.0 (20R362)
-watchOS 9.0 (UnknownBuildNumber) (Downloaded)
+watchOS 9.0 (UnknownBuildNumber) (Installed)
 watchOS 9.1-beta1
 -- tvOS --
 tvOS 12.4

@@ -82,7 +82,7 @@ public class RuntimeInstaller {
                     str += " (\(runtime.build))"
                 }
                 if runtime.state == .legacyDownload || runtime.state == .diskImage {
-                    str += " (Downloaded)"
+                    str += " (Installed)"
                 } else if runtime.state == .bundled {
                     str += " (Bundled with selected Xcode)"
                 }
@@ -92,11 +92,15 @@ public class RuntimeInstaller {
         Current.logging.log("\nNote: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)")
     }
 
+    public func downloadRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader) async throws {
+        let matchedRuntime = try await getMatchingRuntime(identifier: identifier)
+
+        _ = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
+    }
+
+
     public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
-        let downloadables = try await runtimeList.downloadableRuntimes().downloadables
-        guard let matchedRuntime = downloadables.first(where: { $0.visibleIdentifier == identifier || $0.simulatorVersion.buildUpdate == identifier }) else {
-            throw Error.unavailableRuntime(identifier)
-        }
+        let matchedRuntime = try await getMatchingRuntime(identifier: identifier)
 
         if matchedRuntime.contentType == .package && !Current.shell.isRoot() {
             throw Error.rootNeeded
@@ -113,6 +117,14 @@ public class RuntimeInstaller {
             Current.logging.log("Deleting Archive")
             try? Current.files.removeItem(at: dmgUrl)
         }
+    }
+
+    private func getMatchingRuntime(identifier: String) async throws -> DownloadableRuntime {
+        let downloadables = try await runtimeList.downloadableRuntimes().downloadables
+        guard let runtime = downloadables.first(where: { $0.visibleIdentifier == identifier || $0.simulatorVersion.buildUpdate == identifier }) else {
+            throw Error.unavailableRuntime(identifier)
+        }
+        return runtime
     }
 
     private func installFromImage(dmgUrl: URL)  async throws {
@@ -187,7 +199,7 @@ public class RuntimeInstaller {
         }
 
         if Current.files.fileExistsAtPath(destination.string), aria2DownloadIsIncomplete == false {
-            Current.logging.log("Found existing Runtime that will be used for installation at \(destination).")
+            Current.logging.log("Found existing Runtime that will be used, at \(destination).")
             return destination.url
         }
         if runtime.authentication == .virtual {
