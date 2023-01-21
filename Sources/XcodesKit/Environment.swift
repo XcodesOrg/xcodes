@@ -33,33 +33,20 @@ public struct Shell {
     public var installRuntimeImage: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcrun"), "simctl", "runtime", "add", $0.path) }
     public var spctlAssess: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.spctl, "--assess", "--verbose", "--type", "execute", "\($0.path)") }
     public var codesignVerify: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.codesign, "-vv", "-d", "\($0.path)") }
-    public var devToolsSecurityEnable: (String?) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.sbin.DevToolsSecurity, "-enable") }
-    public var addStaffToDevelopersGroup: (String?) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.sbin.dseditgroup, "-o", "edit", "-t", "group", "-a", "staff", "_developer") }
-    public var acceptXcodeLicense: (InstalledXcode, String?) -> Promise<ProcessOutput> = { Process.sudo(password: $1, $0.path.join("/Contents/Developer/usr/bin/xcodebuild"), "-license", "accept") }
-    public var runFirstLaunch: (InstalledXcode, String?) -> Promise<ProcessOutput> = { Process.sudo(password: $1, $0.path.join("/Contents/Developer/usr/bin/xcodebuild"),"-runFirstLaunch") }
+    public var devToolsSecurityEnable: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.DevToolsSecurity, "-enable") }
+    public var addStaffToDevelopersGroup: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.dseditgroup, "-o", "edit", "-t", "group", "-a", "staff", "_developer") }
+    public var acceptXcodeLicense: (InstalledXcode) -> Promise<ProcessOutput> = { Process.run($0.path.join("/Contents/Developer/usr/bin/xcodebuild"), "-license", "accept") }
+    public var runFirstLaunch: (InstalledXcode) -> Promise<ProcessOutput> = { Process.run($0.path.join("/Contents/Developer/usr/bin/xcodebuild"),"-runFirstLaunch") }
     public var buildVersion: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sw_vers, "-buildVersion") }
     public var xcodeBuildVersion: (InstalledXcode) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.libexec.PlistBuddy, "-c", "Print :ProductBuildVersion", "\($0.path.string)/Contents/version.plist") }
     public var getUserCacheDir: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.getconf, "DARWIN_USER_CACHE_DIR") }
     public var touchInstallCheck: (String, String, String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin/"touch", "\($0)com.apple.dt.Xcode.InstallCheckCache_\($1)_\($2)") }
     public var installedRuntimes: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcrun"), "simctl", "runtime", "list", "-j") }
 
-    public var validateSudoAuthentication: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, "-nv") }
-    public var authenticateSudoerIfNecessary: (@escaping () -> Promise<String>) -> Promise<String?> = { passwordInput in
-        firstly { () -> Promise<String?> in
-            Current.shell.validateSudoAuthentication().map { _ in return nil }
-        }
-        .recover { _ -> Promise<String?> in
-            return passwordInput().map(Optional.init)
-        }
-    }
-    public func authenticateSudoerIfNecessary(passwordInput: @escaping () -> Promise<String>) -> Promise<String?> {
-        authenticateSudoerIfNecessary(passwordInput)
-    }
-
     public var xcodeSelectPrintPath: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcode-select"), "-p") }
-    public var xcodeSelectSwitch: (String?, String) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.bin.join("xcode-select"), "-s", $1) }
-    public func xcodeSelectSwitch(password: String?, path: String) -> Promise<ProcessOutput> {
-        xcodeSelectSwitch(password, path)
+    public var xcodeSelectSwitch: (String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcode-select"), "-s", $0) }
+    public func xcodeSelectSwitch(path: String) -> Promise<ProcessOutput> {
+        xcodeSelectSwitch(path)
     }
     public var isRoot: () -> Bool = { NSUserName() == "root" }
 

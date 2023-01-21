@@ -7,7 +7,5 @@ Using regular unxip. Try passing `--experimental-unxip` for a faster unxip proce
 (4/6) Moving Xcode archive Xcode-0.0.0.xip to the Trash
 (5/6) Checking security assessment and code signing
 (6/6) Finishing installation
-xcodes requires superuser privileges in order to finish installation.
-macOS User Password: 
 
 Xcode 0.0.0 has been installed to /Applications/Xcode-0.0.0.app

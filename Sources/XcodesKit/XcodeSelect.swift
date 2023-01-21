@@ -127,23 +127,15 @@ public func selectXcodeInteractively(currentPath: String, directory: Path) -> Pr
 }
 
 public func selectXcodeAtPath(_ pathString: String) -> Promise<ProcessOutput> {
-    firstly { () -> Promise<String?> in
+    firstly { () -> Promise<Void> in
         guard Current.files.fileExists(atPath: pathString) else {
             throw XcodeSelectError.invalidPath(pathString)
         }
 
-        let passwordInput = {
-            Promise<String> { seal in
-                Current.logging.log("xcodes requires superuser privileges to select an Xcode")
-                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(XcodeInstaller.Error.missingSudoerPassword); return }
-                seal.fulfill(password + "\n")
-            }
-        }
-
-        return Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
+        return Current.shell.isRoot() ? .init() : .init(error: XcodeInstaller.Error.rootNeeded)
     }
-    .then { possiblePassword in
-        Current.shell.xcodeSelectSwitch(password: possiblePassword, path: pathString)
+    .then { () in
+        Current.shell.xcodeSelectSwitch(path: pathString)
     }
     .then { _ in
         Current.shell.xcodeSelectPrintPath()

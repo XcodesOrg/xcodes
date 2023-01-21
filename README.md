@@ -63,13 +63,13 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 Install a specific version of Xcode using a command like one of these:
 
 ```sh
-xcodes install 10.2.1
-xcodes install 11 Beta 7
-xcodes install 11.2 GM seed
-xcodes install 9.0 --path ~/Archive/Xcode_9.xip
-xcodes install --latest-prerelease
-xcodes install --latest --directory "/Volumes/Bag Of Holding/"
-xcodes install --latest --experimental-unxip
+sudo xcodes install 10.2.1
+sudo xcodes install 11 Beta 7
+sudo xcodes install 11.2 GM seed
+sudo xcodes install 9.0 --path ~/Archive/Xcode_9.xip
+sudo xcodes install --latest-prerelease
+sudo xcodes install --latest --directory "/Volumes/Bag Of Holding/"
+sudo xcodes install --latest --experimental-unxip
 ```
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
@@ -85,8 +85,6 @@ xcodes will download and install the version you asked for so that it's ready to
 (4/6) Moving Xcode archive Xcode-11.2.0.xip to the Trash
 (5/6) Checking security assessment and code signing
 (6/6) Finishing installation
-xcodes requires superuser privileges in order to finish installation.
-macOS User Password:
 
 Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 ```

@@ -19,7 +19,7 @@ public final class XcodeInstaller {
         case codesignVerifyFailed(output: String)
         case unexpectedCodeSigningIdentity(identifier: String, certificateAuthority: [String])
         case unsupportedFileFormat(extension: String)
-        case missingSudoerPassword
+        case rootNeeded
         case unavailableVersion(Version)
         case noReleaseVersionAvailable
         case noPrereleaseVersionAvailable
@@ -30,6 +30,7 @@ public final class XcodeInstaller {
 
         public var errorDescription: String? {
             switch self {
+
             case .damagedXIP(let url):
                 return "The archive \"\(url.lastPathComponent)\" is damaged and can't be expanded."
             case .failedToMoveXcodeToDestination(let destination):
@@ -57,8 +58,8 @@ public final class XcodeInstaller {
                        """
             case .unsupportedFileFormat(let fileExtension):
                 return "xcodes doesn't (yet) support installing Xcode from the \(fileExtension) file format."
-            case .missingSudoerPassword:
-                return "Missing password. Please try again."
+            case .rootNeeded:
+                return "Must be run as root to complete installation"
             case let .unavailableVersion(version):
                 return "Could not find version \(version.appleDescription)."
             case .noReleaseVersionAvailable:
@@ -176,7 +177,12 @@ public final class XcodeInstaller {
     }
 
     private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
-        return firstly { () -> Promise<(Xcode, URL)> in
+        return firstly { () -> Promise<Void> in
+            if noSuperuser {
+                return .init()
+            }
+            return Current.shell.isRoot() ? .init() : .init(error: Error.rootNeeded)
+        }.then { () -> Promise<(Xcode, URL)> in
             return self.getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
         }
         .then { xcode, url -> Promise<InstalledXcode> in
@@ -413,7 +419,6 @@ public final class XcodeInstaller {
         .then { xcode -> Promise<InstalledXcode> in
             if noSuperuser {
                 Current.logging.log(InstallationStep.finishing.description)
-                Current.logging.log("Skipping asking for superuser privileges.")
                 return Promise.value(xcode)
             }
             return self.postInstallXcode(xcode)
@@ -421,28 +426,24 @@ public final class XcodeInstaller {
     }
 
     public func postInstallXcode(_ xcode: InstalledXcode) -> Promise<InstalledXcode> {
-        let passwordInput = {
-            Promise<String> { seal in
-                Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
-                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(Error.missingSudoerPassword); return }
-                seal.fulfill(password + "\n")
-            }
-        }
         return firstly { () -> Promise<InstalledXcode> in
             Current.logging.log(InstallationStep.finishing.description)
 
-            return self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
+            return self.enableDeveloperMode().map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            self.approveLicense(for: xcode, passwordInput: passwordInput).map { xcode }
+            self.approveLicense(for: xcode).map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            self.installComponents(for: xcode, passwordInput: passwordInput).map { xcode }
+            self.installComponents(for: xcode).map { xcode }
         }
     }
 
     public func uninstallXcode(_ versionString: String, directory: Path, emptyTrash: Bool) -> Promise<Void> {
-        return firstly { () -> Promise<InstalledXcode> in
+        return firstly { () -> Promise<Void> in
+            return Current.shell.isRoot() ? .init() : .init(error: Error.rootNeeded)
+        }
+        .then { () -> Promise<InstalledXcode> in
             guard let version = Version(xcodeVersion: versionString) else {
                 Current.logging.log(Error.invalidVersion(versionString).legibleLocalizedDescription)
                 return chooseFromInstalledXcodesInteractively(currentPath: "", directory: directory)
@@ -660,7 +661,7 @@ public final class XcodeInstaller {
             else if Current.files.fileExists(atPath: xcodeBetaURL.path) {
                 try Current.files.moveItem(at: xcodeBetaURL, to: destination)
             }
-
+            Path(url: destination)?.setCurrentUserAsOwner()
             return destination
         }
     }
@@ -722,33 +723,24 @@ public final class XcodeInstaller {
         return info
     }
 
-    func enableDeveloperMode(passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
+    func enableDeveloperMode() -> Promise<Void> {
+        return firstly { () -> Promise<Void> in
+            return Current.shell.devToolsSecurityEnable().asVoid()
         }
-        .then { possiblePassword -> Promise<String?> in
-            return Current.shell.devToolsSecurityEnable(possiblePassword).map { _ in possiblePassword }
-        }
-        .then { possiblePassword in
-            return Current.shell.addStaffToDevelopersGroup(possiblePassword).asVoid()
+        .then { () in
+            return Current.shell.addStaffToDevelopersGroup().asVoid()
         }
     }
 
-    func approveLicense(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-        }
-        .then { possiblePassword in
-            return Current.shell.acceptXcodeLicense(xcode, possiblePassword).asVoid()
+    func approveLicense(for xcode: InstalledXcode) -> Promise<Void> {
+        return firstly { () -> Promise<Void> in
+            return Current.shell.acceptXcodeLicense(xcode).asVoid()
         }
     }
 
-    func installComponents(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-        }
-        .then { possiblePassword -> Promise<Void> in
-            Current.shell.runFirstLaunch(xcode, possiblePassword).asVoid()
+    func installComponents(for xcode: InstalledXcode) -> Promise<Void> {
+        return firstly { () -> Promise<Void> in
+            Current.shell.runFirstLaunch(xcode).asVoid()
         }
         .then { () -> Promise<(String, String, String)> in
             return when(fulfilled:
