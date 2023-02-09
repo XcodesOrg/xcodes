@@ -205,7 +205,6 @@ public struct Shell {
 }
 
 public struct Files {
-
     public var fileExistsAtPath: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
 
     public func fileExists(atPath path: String) -> Bool {
