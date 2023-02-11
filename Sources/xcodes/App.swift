@@ -141,12 +141,7 @@ struct Xcodes: AsyncParsableCommand {
                 installation = .version(versionString)
             }
             
-            var downloader = Downloader.urlSession
-            if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
-               aria2Path.exists,
-               noAria2 == false {
-                downloader = .aria2(aria2Path)
-            }
+            let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
             let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
 
@@ -241,12 +236,7 @@ struct Xcodes: AsyncParsableCommand {
                 installation = .version(versionString)
             }
             
-            var downloader = Downloader.urlSession
-            if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
-               aria2Path.exists,
-               noAria2 == false {
-                downloader = .aria2(aria2Path)
-            }
+            let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
             let destination = getDirectory(possibleDirectory: directory)
 
@@ -368,7 +358,7 @@ struct Xcodes: AsyncParsableCommand {
     struct Runtimes: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "List all simulator runtimes that are available to install",
-            subcommands: [Install.self]
+            subcommands: [Download.self, Install.self]
         )
 
         @Flag(help: "Include beta runtimes available to install")
@@ -406,12 +396,7 @@ struct Xcodes: AsyncParsableCommand {
             func run() async throws {
                 Rainbow.enabled = Rainbow.enabled && globalColor.color
 
-                var downloader = Downloader.urlSession
-                if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
-                   aria2Path.exists,
-                   noAria2 == false {
-                    downloader = .aria2(aria2Path)
-                }
+                let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
                 let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
 
@@ -419,6 +404,41 @@ struct Xcodes: AsyncParsableCommand {
                 Current.logging.log("Finished")
             }
         }
+
+        struct Download: AsyncParsableCommand {
+            static var configuration = CommandConfiguration(
+                abstract: "Download a specific simulator runtime"
+            )
+
+            @Argument(help: "The runtime to download")
+            var version: String
+
+            @Option(help: "The path to an aria2 executable. Searches $PATH by default.",
+                    completion: .file())
+            var aria2: String?
+
+            @Flag(help: "Don't use aria2 to download the runtime, even if its available.")
+            var noAria2: Bool = false
+
+            @Option(help: "The directory to download the runtime archive to. Defaults to ~/Downloads.",
+                    completion: .directory)
+            var directory: String?
+
+            @OptionGroup
+            var globalColor: GlobalColorOption
+
+            func run() async throws {
+                Rainbow.enabled = Rainbow.enabled && globalColor.color
+
+                let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
+
+                let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
+
+                try await runtimeInstaller.downloadRuntime(identifier: version, to: destination, with: downloader)
+                Current.logging.log("Finished")
+            }
+        }
+
     }
 
     struct Select: ParsableCommand {
