@@ -26,14 +26,14 @@ public class FastlaneSessionManager {
 
     private func importFastlaneCookiesFromEnv() {
         guard let cookieString = Current.shell.env(Constants.fastlaneSessionEnvVarName) else {
-            Current.logging.log("\(Constants.fastlaneSessionEnvVarName) not set")
+            Current.logging.log("\(Constants.fastlaneSessionEnvVarName) not set".red)
             return
         }
         do {
             let cookies = try Current.fastlaneCookieParser.parse(cookieString: cookieString)
             cookies.forEach(AppleAPI.Current.network.session.configuration.httpCookieStorage!.setCookie)
         } catch {
-            Current.logging.log("Failed to parse cookies from \(Constants.fastlaneSessionEnvVarName)")
+            Current.logging.log("Failed to parse cookies from \(Constants.fastlaneSessionEnvVarName)".red)
             return
         }
     }
@@ -46,14 +46,14 @@ public class FastlaneSessionManager {
         guard
             let cookieString = try? String(contentsOf: cookieFilePath)
         else {
-            Current.logging.log("Could not read cookies from \(cookieFilePath)")
+            Current.logging.log("Could not read cookies from \(cookieFilePath)".red)
             return
         }
         do {
             let cookies = try Current.fastlaneCookieParser.parse(cookieString: cookieString)
             cookies.forEach(AppleAPI.Current.network.session.configuration.httpCookieStorage!.setCookie)
         } catch {
-            Current.logging.log("Failed to parse cookies from \(cookieFilePath)")
+            Current.logging.log("Failed to parse cookies from \(cookieFilePath)".red)
             return
         }
     }
