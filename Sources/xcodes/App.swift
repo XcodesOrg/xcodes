@@ -65,12 +65,14 @@ struct Xcodes: AsyncParsableCommand {
     static let runtimeList = RuntimeList()
     static var runtimeInstaller: RuntimeInstaller!
     static var xcodeInstaller: XcodeInstaller!
+    static var fastlaneSessionManager: FastlaneSessionManager!
 
     static func main() async {
         try? xcodesConfiguration.load()
         sessionService = AppleSessionService(configuration: xcodesConfiguration)
         xcodeInstaller = XcodeInstaller(xcodeList: xcodeList, sessionService: sessionService)
         runtimeInstaller = RuntimeInstaller(runtimeList: runtimeList, sessionService: sessionService)
+        fastlaneSessionManager = FastlaneSessionManager()
         migrateApplicationSupportFiles()
         do {
             var command = try parseAsRoot()
@@ -120,6 +122,13 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .directory)
         var directory: String?
 
+        @Flag(help: "Use fastlane spaceship session.")
+        var useFastlaneAuth: Bool = false
+
+        @Option(help: "The fastlane spaceship user",
+                completion: .shellCommand("ls \(FastlaneSessionManager.Constants.fastlaneSpaceshipDir)"))
+        var fastlaneUser: String = FastlaneSessionManager.Constants.fastlaneSessionEnvVarName
+
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
@@ -144,6 +153,10 @@ struct Xcodes: AsyncParsableCommand {
             let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
             let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
+
+            if useFastlaneAuth {
+                fastlaneSessionManager.setupFastlaneAuth(fastlaneUser: fastlaneUser)
+            }
 
             xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
@@ -214,6 +227,13 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .directory)
         var directory: String?
 
+        @Flag(help: "Use fastlane spaceship session.")
+        var useFastlaneAuth: Bool = false
+
+        @Option(help: "The fastlane spaceship user.",
+                completion: .shellCommand("ls \(FastlaneSessionManager.Constants.fastlaneSpaceshipDir)"))
+        var fastlaneUser: String = FastlaneSessionManager.Constants.fastlaneSessionEnvVarName
+
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
@@ -258,6 +278,7 @@ struct Xcodes: AsyncParsableCommand {
                              using downloader: Downloader,
                              to destination: Path) {
             firstly { () -> Promise<InstalledXcode> in
+                if useFastlaneAuth { fastlaneSessionManager.setupFastlaneAuth(fastlaneUser: fastlaneUser) }
                 // update the list before installing only for version type because the other types already update internally
                 if update, case .version = installation {
                     Current.logging.log("Updating...")

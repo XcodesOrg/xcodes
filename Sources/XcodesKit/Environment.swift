@@ -18,6 +18,7 @@ public struct Environment {
     public var network = Network()
     public var logging = Logging()
     public var keychain = Keychain()
+    public var fastlaneCookieParser = FastlaneCookieParser()
 }
 
 public var Current = Environment()
