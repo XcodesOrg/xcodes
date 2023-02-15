@@ -16,7 +16,6 @@ extension RandomAccessCollection {
     }
 }
 
-@available(macOS 11, *)
 extension AsyncStream.Continuation {
     func yieldWithBackoff(_ value: Element) async {
         let backoff: UInt64 = 1_000_000
@@ -26,8 +25,7 @@ extension AsyncStream.Continuation {
     }
 }
 
-@available(macOS 11, *)
-struct ConcurrentStream<TaskResult: Sendable> {
+public struct ConcurrentStream<TaskResult: Sendable> {
     let batchSize: Int
     var operations = [@Sendable () async throws -> TaskResult]()
 
@@ -101,7 +99,6 @@ final class Chunk: Sendable {
     }
 }
 
-@available(macOS 11, *)
 struct File {
     let dev: Int
     let ino: Int
@@ -120,7 +117,7 @@ struct File {
         Identifier(dev: dev, ino: ino)
     }
 
-    func writeCompressedIfPossible(usingDescriptor descriptor: CInt) async -> Bool {
+    func compressedData() async -> [UInt8]? {
         let blockSize = 64 << 10  // LZFSE with 64K block size
         var _data = [UInt8]()
         _data.reserveCapacity(self.data.map(\.count).reduce(0, +))
@@ -152,17 +149,17 @@ struct File {
             if let chunk = chunk {
                 chunks.append(chunk)
             } else {
-                return false
+                return nil
             }
         }
 
         let tableSize = (chunks.count + 1) * MemoryLayout<UInt32>.size
         let size = tableSize + chunks.map(\.count).reduce(0, +)
         guard size < data.count else {
-            return false
+            return nil
         }
 
-        let buffer = [UInt8](unsafeUninitializedCapacity: size) { buffer, count in
+        return [UInt8](unsafeUninitializedCapacity: size) { buffer, count in
             var position = tableSize
 
             func writePosition(toTableIndex index: Int) {
@@ -180,19 +177,22 @@ struct File {
             }
             count = size
         }
+    }
 
+    func write(compressedData data: [UInt8], toDescriptor descriptor: CInt) -> Bool {
+        let uncompressedSize = self.data.map(\.count).reduce(0, +)
         let attribute =
             "cmpf".utf8.reversed()  // magic
             + [0x0c, 0x00, 0x00, 0x00]  // LZFSE, 64K chunks
             + ([
-                (data.count >> 0) & 0xff,
-                (data.count >> 8) & 0xff,
-                (data.count >> 16) & 0xff,
-                (data.count >> 24) & 0xff,
-                (data.count >> 32) & 0xff,
-                (data.count >> 40) & 0xff,
-                (data.count >> 48) & 0xff,
-                (data.count >> 56) & 0xff,
+                (uncompressedSize >> 0) & 0xff,
+                (uncompressedSize >> 8) & 0xff,
+                (uncompressedSize >> 16) & 0xff,
+                (uncompressedSize >> 24) & 0xff,
+                (uncompressedSize >> 32) & 0xff,
+                (uncompressedSize >> 40) & 0xff,
+                (uncompressedSize >> 48) & 0xff,
+                (uncompressedSize >> 56) & 0xff,
             ].map(UInt8.init) as [UInt8])
 
         guard fsetxattr(descriptor, "com.apple.decmpfs", attribute, attribute.count, 0, XATTR_SHOWCOMPRESSION) == 0 else {
@@ -210,11 +210,11 @@ struct File {
         var written: Int
         repeat {
             // TODO: handle partial writes smarter
-            written = pwrite(resourceForkDescriptor, buffer, buffer.count, 0)
+            written = pwrite(resourceForkDescriptor, data, data.count, 0)
             guard written >= 0 else {
                 return false
             }
-        } while written != buffer.count
+        } while written != data.count
 
         guard fchflags(descriptor, UInt32(UF_COMPRESSED)) == 0 else {
             return false
@@ -224,24 +224,36 @@ struct File {
     }
 }
 
+extension option {
+    init(name: StaticString, has_arg: CInt, flag: UnsafeMutablePointer<CInt>?, val: StringLiteralType) {
+        let _option = name.withUTF8Buffer {
+            $0.withMemoryRebound(to: CChar.self) {
+                option(name: $0.baseAddress, has_arg: has_arg, flag: flag, val: CInt(UnicodeScalar(val)!.value))
+            }
+        }
+        self = _option
+    }
+}
+
 public struct UnxipOptions {
     var input: URL
     var output: URL?
-
+    var compress: Bool = true
+   
     public init(input: URL, output: URL) {
         self.input = input
         self.output = output
     }
 }
 
-@available(macOS 11, *)
+@available(macOS 11.0, *)
 public struct Unxip {
     let options: UnxipOptions
 
     public init(options: UnxipOptions) {
         self.options = options
     }
-
+    
     func read<Integer: BinaryInteger, Buffer: RandomAccessCollection>(_ type: Integer.Type, from buffer: inout Buffer) -> Integer where Buffer.Element == UInt8, Buffer.SubSequence == Buffer {
         defer {
             buffer = buffer[fromOffset: MemoryLayout<Integer>.size]
@@ -352,7 +364,7 @@ public struct Unxip {
         }
     }
 
-    func parseContent(_ content: UnsafeBufferPointer<UInt8>) async {
+    public func parseContent(_ content: UnsafeBufferPointer<UInt8>) async {
         var taskStream = ConcurrentStream<Void>(batchSize: 64)  // Worst case, should allow for files up to 64 * 16MB = 1GB
         var hardlinks = [File.Identifier: (String, Task<Void, Never>)]()
         var directories = [Substring: Task<Void, Never>]()
@@ -390,6 +402,7 @@ public struct Unxip {
                 assert(task != nil, file.name)
                 _ = taskStream.addRunningTask {
                     _ = await (originalTask.value, task?.value)
+
                     warn(link(original, file.name), "linking")
                 }
                 continue
@@ -403,6 +416,7 @@ public struct Unxip {
                     assert(task != nil, file.name)
                     _ = taskStream.addRunningTask {
                         await task?.value
+
                         warn(symlink(String(data: Data(file.data.map(Array.init).reduce([], +)), encoding: .utf8), file.name), "symlinking")
                         setStickyBit(on: file)
                     }
@@ -411,6 +425,7 @@ public struct Unxip {
                     assert(task != nil || parentDirectory(of: file.name) == ".", file.name)
                     directories[file.name[...]] = taskStream.addRunningTask {
                         await task?.value
+                      
                         warn(mkdir(file.name, mode_t(file.mode & 0o777)), "creating directory at")
                         setStickyBit(on: file)
                     }
@@ -421,7 +436,8 @@ public struct Unxip {
                         file.name,
                         taskStream.addRunningTask {
                             await task?.value
-
+                            let compressedData = options.compress ? await file.compressedData() : nil
+                         
                             let fd = open(file.name, O_CREAT | O_WRONLY, mode_t(file.mode & 0o777))
                             if fd < 0 {
                                 warn(fd, "creating file at")
@@ -432,7 +448,9 @@ public struct Unxip {
                                 setStickyBit(on: file)
                             }
 
-                            if await file.writeCompressedIfPossible(usingDescriptor: fd) {
+                            if let compressedData = compressedData,
+                                file.write(compressedData: compressedData, toDescriptor: fd)
+                            {
                                 return
                             }
 
