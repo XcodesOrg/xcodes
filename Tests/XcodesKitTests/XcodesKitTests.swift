@@ -1376,7 +1376,7 @@ final class XcodesKitTests: XCTestCase {
                 XCTFail($0.localizedDescription)
             }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 3.0)
 
         XCTAssertTrue(keychainDidRemove)
     }

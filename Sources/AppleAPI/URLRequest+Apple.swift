@@ -2,6 +2,7 @@ import Foundation
 
 extension URL {
     static let itcServiceKey = URL(string: "https://appstoreconnect.apple.com/olympus/v1/app/config?hostname=itunesconnect.apple.com")!
+    // uses the get on signin to get the appropriate headers
     static let signIn = URL(string: "https://idmsa.apple.com/appleauth/auth/signin")!
     static let authOptions = URL(string: "https://idmsa.apple.com/appleauth/auth")!
     static let requestSecurityCode = URL(string: "https://idmsa.apple.com/appleauth/auth/verify/phone")!
@@ -15,7 +16,7 @@ extension URLRequest {
         return URLRequest(url: .itcServiceKey)
     }
 
-    static func signIn(serviceKey: String, accountName: String, password: String) -> URLRequest {
+    static func signIn(serviceKey: String, accountName: String, password: String, hashcash: String) -> URLRequest {
         struct Body: Encodable {
             let accountName: String
             let password: String
@@ -28,6 +29,7 @@ extension URLRequest {
         request.allHTTPHeaderFields?["X-Requested-With"] = "XMLHttpRequest"
         request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
         request.allHTTPHeaderFields?["Accept"] = "application/json, text/javascript"
+        request.allHTTPHeaderFields?["X-Apple-HC"] = hashcash
         request.httpMethod = "POST"
         request.httpBody = try! JSONEncoder().encode(Body(accountName: accountName, password: password))
         return request
@@ -116,5 +118,15 @@ extension URLRequest {
 
     static var olympusSession: URLRequest {
         return URLRequest(url: .olympusSession)
+    }
+
+    /// Federate the sign in to get the X-Apple-HC header keys in order to properly mint a hashcash during regular signin
+    static func federate(account: String, serviceKey: String) throws -> URLRequest {
+        var request = URLRequest(url: .signIn)
+        request.allHTTPHeaderFields?["Accept"] = "application/json"
+        request.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        request.httpMethod = "GET"
+        
+        return request
     }
 }
