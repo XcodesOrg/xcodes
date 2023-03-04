@@ -2,6 +2,7 @@ import Foundation
 
 extension URL {
     static let itcServiceKey = URL(string: "https://appstoreconnect.apple.com/olympus/v1/app/config?hostname=itunesconnect.apple.com")!
+    // uses the get on signin to get the appropriate headers
     static let signIn = URL(string: "https://idmsa.apple.com/appleauth/auth/signin")!
     static let authOptions = URL(string: "https://idmsa.apple.com/appleauth/auth")!
     static let requestSecurityCode = URL(string: "https://idmsa.apple.com/appleauth/auth/verify/phone")!
