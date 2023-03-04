@@ -15,7 +15,7 @@ extension URLRequest {
         return URLRequest(url: .itcServiceKey)
     }
 
-    static func signIn(serviceKey: String, accountName: String, password: String) -> URLRequest {
+    static func signIn(serviceKey: String, accountName: String, password: String, hashcash: String) -> URLRequest {
         struct Body: Encodable {
             let accountName: String
             let password: String
@@ -28,6 +28,7 @@ extension URLRequest {
         request.allHTTPHeaderFields?["X-Requested-With"] = "XMLHttpRequest"
         request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
         request.allHTTPHeaderFields?["Accept"] = "application/json, text/javascript"
+        request.allHTTPHeaderFields?["X-Apple-HC"] = hashcash
         request.httpMethod = "POST"
         request.httpBody = try! JSONEncoder().encode(Body(accountName: accountName, password: password))
         return request
@@ -116,5 +117,15 @@ extension URLRequest {
 
     static var olympusSession: URLRequest {
         return URLRequest(url: .olympusSession)
+    }
+
+    /// Federate the sign in to get the X-Apple-HC header keys in order to properly mint a hashcash during regular signin
+    static func federate(account: String, serviceKey: String) throws -> URLRequest {
+        var request = URLRequest(url: .signIn)
+        request.allHTTPHeaderFields?["Accept"] = "application/json"
+        request.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        request.httpMethod = "GET"
+        
+        return request
     }
 }

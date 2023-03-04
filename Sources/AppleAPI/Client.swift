@@ -17,7 +17,8 @@ public class Client {
         case appleIDAndPrivacyAcknowledgementRequired
         case noTrustedPhoneNumbers
         case notAuthenticated
-
+        case invalidHashcash
+        
         public var errorDescription: String? {
             switch self {
             case .invalidUsernameOrPassword(let username):
@@ -30,6 +31,8 @@ public class Client {
                 return "Your account doesn't have any trusted phone numbers, but they're required for two-factor authentication. See https://support.apple.com/en-ca/HT204915."
             case .notAuthenticated:
                 return "You are already signed out"
+            case .invalidHashcash:
+                return "Could not create a hashcash for the session."
             default:
                 return String(describing: self)
             }
@@ -39,48 +42,52 @@ public class Client {
     /// Use the olympus session endpoint to see if the existing session is still valid
     public func validateSession() -> Promise<Void> {
         return Current.network.dataTask(with: URLRequest.olympusSession)
-        .done { data, response in
-            guard
-                let jsonObject = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-                jsonObject["provider"] != nil
-            else { throw Error.invalidSession }
-        }
+            .done { data, response in
+                guard
+                    let jsonObject = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                    jsonObject["provider"] != nil
+                else { throw Error.invalidSession }
+            }
     }
-
+    
     public func login(accountName: String, password: String) -> Promise<Void> {
         var serviceKey: String!
-
+        
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             Current.network.dataTask(with: URLRequest.itcServiceKey)
         }
-        .then { (data, _) -> Promise<(data: Data, response: URLResponse)> in
+        .then { (data, _) -> Promise<(serviceKey: String, hashcash: String)> in
             struct ServiceKeyResponse: Decodable {
                 let authServiceKey: String
             }
-
+            
             let response = try JSONDecoder().decode(ServiceKeyResponse.self, from: data)
             serviceKey = response.authServiceKey
-
-            return Current.network.dataTask(with: URLRequest.signIn(serviceKey: serviceKey, accountName: accountName, password: password))
+            
+            return self.loadHashcash(accountName: accountName, serviceKey: serviceKey).map { (serviceKey, $0) }
+        }
+        .then { (serviceKey, hashcash) -> Promise<(data: Data, response: URLResponse)> in
+            
+            return Current.network.dataTask(with: URLRequest.signIn(serviceKey: serviceKey, accountName: accountName, password: password, hashcash: hashcash))
         }
         .then { (data, response) -> Promise<Void> in
             struct SignInResponse: Decodable {
                 let authType: String?
                 let serviceErrors: [ServiceError]?
-
+                
                 struct ServiceError: Decodable, CustomStringConvertible {
                     let code: String
                     let message: String
-
+                    
                     var description: String {
                         return "\(code): \(message)"
                     }
                 }
             }
-
+            
             let httpResponse = response as! HTTPURLResponse
             let responseBody = try JSONDecoder().decode(SignInResponse.self, from: data)
-
+            
             switch httpResponse.statusCode {
             case 200:
                 return Current.network.dataTask(with: URLRequest.olympusSession).asVoid()
@@ -96,12 +103,12 @@ public class Client {
             }
         }
     }
-
+    
     func handleTwoStepOrFactor(data: Data, response: URLResponse, serviceKey: String) -> Promise<Void> {
         let httpResponse = response as! HTTPURLResponse
         let sessionID = (httpResponse.allHeaderFields["X-Apple-ID-Session-Id"] as! String)
         let scnt = (httpResponse.allHeaderFields["scnt"] as! String)
-
+        
         return firstly { () -> Promise<AuthOptionsResponse> in
             return Current.network.dataTask(with: URLRequest.authOptions(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt))
                 .map { try JSONDecoder().decode(AuthOptionsResponse.self, from: $0.data) }
@@ -123,7 +130,7 @@ public class Client {
     
     func handleTwoFactor(serviceKey: String, sessionID: String, scnt: String, authOptions: AuthOptionsResponse) -> Promise<Void> {
         Current.logging.log("Two-factor authentication is enabled for this account.\n")
-
+        
         // SMS was sent automatically 
         if authOptions.smsAutomaticallySent {
             return firstly { () throws -> Promise<(data: Data, response: URLResponse)> in
@@ -134,10 +141,10 @@ public class Client {
             .then { (data, response) -> Promise<Void>  in
                 self.updateSession(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt)
             }
-        // SMS wasn't sent automatically because user needs to choose a phone to send to
+            // SMS wasn't sent automatically because user needs to choose a phone to send to
         } else if authOptions.canFallBackToSMS {
             return handleWithPhoneNumberSelection(authOptions: authOptions, serviceKey: serviceKey, sessionID: sessionID, scnt: scnt)
-        // Code is shown on trusted devices
+            // Code is shown on trusted devices
         } else {
             let code = Current.shell.readLine("""
             Enter "sms" without quotes to exit this prompt and choose a phone number to send an SMS security code to.
@@ -147,11 +154,11 @@ public class Client {
             if code == "sms" {
                 return handleWithPhoneNumberSelection(authOptions: authOptions, serviceKey: serviceKey, sessionID: sessionID, scnt: scnt)
             }
-
+            
             return firstly {
                 Current.network.dataTask(with: try URLRequest.submitSecurityCode(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt, code: .device(code: code)))
                     .validateSecurityCodeResponse()
-                    
+                
             }
             .then { (data, response) -> Promise<Void>  in
                 self.updateSession(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt)
@@ -172,7 +179,7 @@ public class Client {
             trustedPhoneNumbers.enumerated().forEach { (index, phoneNumber) in
                 Current.logging.log("\(index + 1): \(phoneNumber.numberWithDialCode)")
             }
-
+            
             let possibleSelectionNumberString = Current.shell.readLine("Select a trusted phone number to receive a code via SMS: ")
             guard
                 let selectionNumberString = possibleSelectionNumberString,
@@ -181,7 +188,7 @@ public class Client {
             else {
                 throw Error.invalidPhoneNumberIndex(min: 1, max: trustedPhoneNumbers.count, given: possibleSelectionNumberString)
             }
-
+            
             return .value(trustedPhoneNumbers[selectionNumber - 1])
         }
         .recover { error throws -> Promise<AuthOptionsResponse.TrustedPhoneNumber> in
@@ -218,6 +225,32 @@ public class Client {
         }
         .then { (data, response) -> Promise<Void>  in
             self.updateSession(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt)
+        }
+    }
+    
+    // Fixes issue https://github.com/RobotsAndPencils/XcodesApp/issues/360
+    // On 2023-02-23, Apple added a custom implementation of hashcash to their auth flow
+    // Without this addition, Apple ID's would get set to locked
+    func loadHashcash(accountName: String, serviceKey: String) -> Promise<String> {
+        return firstly{ () -> Promise<(data: Data, response: URLResponse)> in
+            Current.network.dataTask(with: try URLRequest.federate(account: accountName, serviceKey: serviceKey))
+        }
+        .then { (_ response) -> Promise<String> in
+            guard let urlResponse = response.response as? HTTPURLResponse else {
+                throw Client.Error.invalidSession
+            }
+            
+            guard let bitString = urlResponse.allHeaderFields["X-Apple-HC-Bits"] as? String, let bits = UInt(bitString) else {
+                throw Client.Error.invalidHashcash
+            }
+            guard let challenge = urlResponse.allHeaderFields["X-Apple-HC-Challenge"] as? String else {
+                throw Client.Error.invalidHashcash
+            }
+            guard let hashcash = Hashcash().mint(resource: challenge, bits: bits) else {
+                throw Client.Error.invalidHashcash
+            }
+            
+            return .value(hashcash)
         }
     }
 }
