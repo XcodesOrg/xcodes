@@ -1,9 +1,6 @@
 import Foundation
 import ArgumentParser
-import Version
-import PromiseKit
 import XcodesKit
-import LegibleError
 import Path
 import Rainbow
 
@@ -86,7 +83,7 @@ struct Xcodes: AsyncParsableCommand {
         }
     }
 
-    struct Download: ParsableCommand {
+    struct Download: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Download a specific version of Xcode",
             discussion: """
@@ -135,7 +132,7 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let versionString = version.joined(separator: " ")
@@ -158,16 +155,15 @@ struct Xcodes: AsyncParsableCommand {
                 fastlaneSessionManager.setupFastlaneAuth(fastlaneUser: fastlaneUser)
             }
 
-            xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
-                .catch { error in
-                    Install.processDownloadOrInstall(error: error)
-                }
-
-            RunLoop.current.run()
+            do {
+                try await xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination).async()
+            } catch {
+                Self.processDownloadOrInstall(error: error)
+            }
         }
     }
 
-    struct Install: ParsableCommand {
+    struct Install: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Download and install a specific version of Xcode",
             discussion: """
@@ -240,7 +236,7 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let versionString = version.joined(separator: " ")
@@ -261,52 +257,40 @@ struct Xcodes: AsyncParsableCommand {
             let destination = getDirectory(possibleDirectory: directory)
 
             if select, case .version(let version) = installation {
-                firstly {
-                    selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false)
-                }
-                .catch { _ in
-                    install(installation, using: downloader, to: destination)
+                do {
+                    try await selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false).async()
+                } catch {
+                    await install(installation, using: downloader, to: destination)
                 }
             } else {
-                install(installation, using: downloader, to: destination)
+                await install(installation, using: downloader, to: destination)
             }
-
-            RunLoop.current.run()
         }
 
         private func install(_ installation: XcodeInstaller.InstallationType,
                              using downloader: Downloader,
-                             to destination: Path) {
-            firstly { () -> Promise<InstalledXcode> in
+                             to destination: Path) async {
+            do {
                 if useFastlaneAuth { fastlaneSessionManager.setupFastlaneAuth(fastlaneUser: fastlaneUser) }
                 // update the list before installing only for version type because the other types already update internally
                 if update, case .version = installation {
                     Current.logging.log("Updating...")
-                    return xcodeList.update(dataSource: globalDataSource.dataSource)
-                        .then { _ -> Promise<InstalledXcode> in
-                            xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-                        }
-                } else {
-                    return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                    try await xcodeList.update(dataSource: globalDataSource.dataSource).asVoid().async()
                 }
-            }
-            .then { xcode -> Promise<Void> in
+
+                let xcode = try await xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser).async()
+
                 if select {
-                    return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
-                } else {
-                    return .init()
+                    try await selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false).async()
                 }
-            }
-            .done {
-                Install.exit()
-            }
-            .catch { error in
-                Install.processDownloadOrInstall(error: error)
+
+            } catch {
+                Self.processDownloadOrInstall(error: error)
             }
         }
     }
 
-    struct Installed: ParsableCommand {
+    struct Installed: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "List the versions of Xcode that are installed"
         )
@@ -321,28 +305,33 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws  {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            xcodeInstaller.printXcodePath(ofVersion: version.joined(separator: " "), searchingIn: directory)
-                .recover { error -> Promise<Void> in
-                    switch error {
-                    case XcodeInstaller.Error.invalidVersion:
-                        return xcodeInstaller.printInstalledXcodes(directory: directory)
-                    default:
-                        throw error
-                    }
+            do {
+                do {
+                    try await xcodeInstaller.printXcodePath(ofVersion: version.joined(separator: " "), searchingIn: directory).async()
+                } catch {
+                    try await recover(from: error, with: directory)
                 }
-                .done { Installed.exit() }
-                .catch { error in Installed.exit(withLegibleError: error) }
+            } catch {
+                Self.exit(withLegibleError: error)
+            }
+        }
 
-            RunLoop.current.run()
+        private func recover(from error: Error, with directory: Path) async throws {
+            switch error {
+                case XcodeInstaller.Error.invalidVersion:
+                    try await xcodeInstaller.printInstalledXcodes(directory: directory).async()
+                default:
+                    throw error
+            }
         }
     }
 
-    struct List: ParsableCommand {
+    struct List: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "List all versions of Xcode that are available to install"
         )
@@ -356,23 +345,20 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            firstly { () -> Promise<Void> in
+            do {
                 if xcodeList.shouldUpdateBeforeListingVersions {
-                    return xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
+                    try await xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory).async()
+                } else {
+                    try await xcodeInstaller.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory)).async()
                 }
-                else {
-                    return xcodeInstaller.printAvailableXcodes(xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
-                }
+            } catch {
+                Self.exit(withLegibleError: error)
             }
-            .done { List.exit() }
-            .catch { error in List.exit(withLegibleError: error) }
-
-            RunLoop.current.run()
         }
     }
 
@@ -462,7 +448,7 @@ struct Xcodes: AsyncParsableCommand {
 
     }
 
-    struct Select: ParsableCommand {
+    struct Select: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Change the selected Xcode",
             discussion: """
@@ -488,21 +474,21 @@ struct Xcodes: AsyncParsableCommand {
 
         @OptionGroup
         var globalColor: GlobalColorOption
-
-        func run() {
+        
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            selectXcode(shouldPrint: print, pathOrVersion: versionOrPath.joined(separator: " "), directory: directory)
-                .done { Select.exit() }
-                .catch { error in Select.exit(withLegibleError: error) }
-
-            RunLoop.current.run()
+            do {
+                try await selectXcode(shouldPrint: print, pathOrVersion: versionOrPath.joined(separator: " "), directory: directory).async()
+            } catch {
+                Self.exit(withLegibleError: error)
+            }
         }
     }
 
-    struct Uninstall: ParsableCommand {
+    struct Uninstall: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Uninstall a version of Xcode",
             discussion: """
@@ -527,20 +513,20 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            xcodeInstaller.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash)
-                .done { Uninstall.exit() }
-                .catch { error in Uninstall.exit(withLegibleError: error) }
-
-            RunLoop.current.run()
+            do {
+                try await xcodeInstaller.uninstallXcode(version.joined(separator: " "), directory: directory, emptyTrash: emptyTrash).async()
+            } catch {
+                Self.exit(withLegibleError: error)
+            }
         }
     }
 
-    struct Update: ParsableCommand {
+    struct Update: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Update the list of available versions of Xcode"
         )
@@ -554,20 +540,20 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
-                .done { Update.exit() }
-                .catch { error in Update.exit(withLegibleError: error) }
-
-            RunLoop.current.run()
+            do {
+                try await xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory).async()
+            } catch {
+                Self.exit(withLegibleError: error)
+            }
         }
     }
 
-    struct Version: ParsableCommand {
+    struct Version: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Print the version number of xcodes itself"
         )
@@ -575,14 +561,14 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
 
             Current.logging.log(XcodesKit.version.description)
         }
     }
 
-    struct Signout: ParsableCommand {
+    struct Signout: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "Clears the stored username and password"
         )
@@ -590,20 +576,15 @@ struct Xcodes: AsyncParsableCommand {
         @OptionGroup
         var globalColor: GlobalColorOption
 
-        func run() {
+        func run() async throws {
             Rainbow.enabled = Rainbow.enabled && globalColor.color
-            
-            sessionService.logout()
-                .done {
-                    Current.logging.log("Successfully signed out".green)
-                    Signout.exit()
-                }
-                .recover { error in
-                    Current.logging.log(error.legibleLocalizedDescription)
-                    Signout.exit()
-                }
 
-            RunLoop.current.run()
+            do {
+                try await sessionService.logout().async()
+                Current.logging.log("Successfully signed out".green)
+            } catch {
+                Self.exit(withLegibleError: error)
+            }
         }
     }
 }

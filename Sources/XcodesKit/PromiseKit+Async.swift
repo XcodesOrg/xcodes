@@ -1,7 +1,7 @@
 import PromiseKit
 
 extension Promise {
-    func async() async throws -> T {
+    public func async() async throws -> T {
         return try await withCheckedThrowingContinuation { continuation in
             done { value in
                 continuation.resume(returning: value)
@@ -13,7 +13,7 @@ extension Promise {
 }
 
 extension Guarantee {
-    func async() async -> T {
+    public func async() async -> T {
         return await withCheckedContinuation { continuation in
             done { value in
                 continuation.resume(returning: value)
