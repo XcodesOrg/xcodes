@@ -18,6 +18,7 @@ public struct Environment {
     public var network = Network()
     public var logging = Logging()
     public var keychain = Keychain()
+    public var fastlaneCookieParser = FastlaneCookieParser()
 }
 
 public var Current = Environment()
@@ -95,6 +96,10 @@ public struct Shell {
         process.standardError = stdErrPipe
 
         var progress = Progress(totalUnitCount: 100)
+        
+        // We hold on to the unauthorized status
+        // So that we can properly throw error from inside the promise
+        var unauthorized = false
 
         let observer = NotificationCenter.default.addObserver(
             forName: .NSFileHandleDataAvailable,
@@ -110,6 +115,13 @@ public struct Shell {
             defer { handle.waitForDataInBackgroundAndNotify() }
 
             let string = String(decoding: handle.availableData, as: UTF8.self)
+            
+            /// If the operation is unauthorized, the download page redirects to https://developer.apple.com/unauthorized/
+            /// with 200 status. After that the html page is downloaded as a xip and subsequent unxipping fails
+            if !unauthorized && string.contains("Redirecting to https://developer.apple.com/unauthorized/") {
+                unauthorized = true
+            }
+            
             let regex = try! NSRegularExpression(pattern: #"((?<percent>\d+)%\))"#)
             let range = NSRange(location: 0, length: string.utf16.count)
 
@@ -143,6 +155,9 @@ public struct Shell {
                     } else {
                         return seal.reject(Process.PMKError.execution(process: process, standardOutput: "", standardError: ""))
                     }
+                }
+                guard !unauthorized else {
+                    return seal.reject(XcodeInstaller.Error.unauthorized)
                 }
                 seal.fulfill(())
             }

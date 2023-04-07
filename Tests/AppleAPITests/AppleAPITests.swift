@@ -34,6 +34,7 @@ final class AppleAPITests: XCTestCase {
         }
 
         Current.network.dataTask = { convertible in
+         
             switch convertible.pmkRequest.url! {
             case .itcServiceKey:
                 return fixture(for: .itcServiceKey, 
@@ -41,12 +42,22 @@ final class AppleAPITests: XCTestCase {
                                statusCode: 200,
                                headers: ["Content-Type": "application/json"])
             case .signIn:
-                return fixture(for: .signIn, 
-                               fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
-                               statusCode: 409,
-                               headers: ["Content-Type": "application/json",
-                                         "X-Apple-ID-Session-Id": "",
-                                         "scnt": ""])
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 409,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
             case .authOptions:
                 return fixture(for: .authOptions, 
                                fileURL: Bundle.module.url(forResource: "AuthOptions", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
@@ -72,6 +83,7 @@ final class AppleAPITests: XCTestCase {
                                          "X-Apple-ID-Session-Id": "",
                                          "scnt": ""])
             default:
+                print(convertible.pmkRequest.url!)
                 XCTFail()
                 return .init(error: PMKError.invalidCallingConvention)
             }
@@ -123,12 +135,22 @@ final class AppleAPITests: XCTestCase {
                                statusCode: 200,
                                headers: ["Content-Type": "application/json"])
             case .signIn:
-                return fixture(for: .signIn, 
-                               fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_2FA_IncorrectPassword")!,
-                               statusCode: 401,
-                               headers: ["Content-Type": "application/json",
-                                         "X-Apple-ID-Session-Id": "",
-                                         "scnt": ""])
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_2FA_IncorrectPassword")!,
+                                   statusCode: 401,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
             default:
                 XCTFail()
                 return .init(error: PMKError.invalidCallingConvention)
@@ -176,12 +198,22 @@ final class AppleAPITests: XCTestCase {
                                statusCode: 200,
                                headers: ["Content-Type": "application/json"])
             case .signIn:
-                return fixture(for: .signIn, 
-                               fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_SentAutomatically_Succeeds")!,
-                               statusCode: 409,
-                               headers: ["Content-Type": "application/json",
-                                         "X-Apple-ID-Session-Id": "",
-                                         "scnt": ""])
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_SentAutomatically_Succeeds")!,
+                                   statusCode: 409,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
             case .authOptions:
                 return fixture(for: .authOptions, 
                                fileURL: Bundle.module.url(forResource: "AuthOptions", withExtension: "json", subdirectory: "Fixtures/Login_SMS_SentAutomatically_Succeeds")!,
@@ -263,12 +295,22 @@ final class AppleAPITests: XCTestCase {
                                statusCode: 200,
                                headers: ["Content-Type": "application/json"])
             case .signIn:
-                return fixture(for: .signIn, 
-                               fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_SentAutomatically_IncorrectCode")!,
-                               statusCode: 409,
-                               headers: ["Content-Type": "application/json",
-                                         "X-Apple-ID-Session-Id": "",
-                                         "scnt": ""])
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_SentAutomatically_IncorrectCode")!,
+                                   statusCode: 409,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
             case .authOptions:
                 return fixture(for: .authOptions, 
                                fileURL: Bundle.module.url(forResource: "AuthOptions", withExtension: "json", subdirectory: "Fixtures/Login_SMS_SentAutomatically_IncorrectCode")!,
@@ -352,12 +394,22 @@ final class AppleAPITests: XCTestCase {
                                statusCode: 200,
                                headers: ["Content-Type": "application/json"])
             case .signIn:
-                return fixture(for: .signIn, 
-                               fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_MultipleNumbers_Succeeds")!,
-                               statusCode: 409,
-                               headers: ["Content-Type": "application/json",
-                                         "X-Apple-ID-Session-Id": "",
-                                         "scnt": ""])
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_MultipleNumbers_Succeeds")!,
+                                   statusCode: 409,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
             case .authOptions:
                 return fixture(for: .authOptions, 
                                fileURL: Bundle.module.url(forResource: "AuthOptions", withExtension: "json", subdirectory: "Fixtures/Login_SMS_MultipleNumbers_Succeeds")!,
@@ -454,12 +506,22 @@ final class AppleAPITests: XCTestCase {
                                statusCode: 200,
                                headers: ["Content-Type": "application/json"])
             case .signIn:
-                return fixture(for: .signIn, 
-                               fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_MultipleNumbers_IncorrectCode")!,
-                               statusCode: 409,
-                               headers: ["Content-Type": "application/json",
-                                         "X-Apple-ID-Session-Id": "",
-                                         "scnt": ""])
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_MultipleNumbers_IncorrectCode")!,
+                                   statusCode: 409,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
             case .authOptions:
                 return fixture(for: .authOptions, 
                                fileURL: Bundle.module.url(forResource: "AuthOptions", withExtension: "json", subdirectory: "Fixtures/Login_SMS_MultipleNumbers_IncorrectCode")!,
@@ -547,12 +609,22 @@ final class AppleAPITests: XCTestCase {
                                statusCode: 200,
                                headers: ["Content-Type": "application/json"])
             case .signIn:
-                return fixture(for: .signIn, 
-                               fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_NoNumbers")!,
-                               statusCode: 409,
-                               headers: ["Content-Type": "application/json",
-                                         "X-Apple-ID-Session-Id": "",
-                                         "scnt": ""])
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_2FA_Succeeds")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_SMS_NoNumbers")!,
+                                   statusCode: 409,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
             case .authOptions:
                 return fixture(for: .authOptions, 
                                fileURL: Bundle.module.url(forResource: "AuthOptions", withExtension: "json", subdirectory: "Fixtures/Login_SMS_NoNumbers")!,
@@ -587,5 +659,22 @@ final class AppleAPITests: XCTestCase {
 
 
         """)
+    }
+    
+    func testValidHashCashMint() {
+        let bits: UInt = 11
+        let resource = "4d74fb15eb23f465f1f6fcbf534e5877"
+        let testDate = "20230223170600"
+ 
+        let stamp = Hashcash().mint(resource: resource, bits: bits, date: testDate)
+        XCTAssertEqual(stamp, "1:11:20230223170600:4d74fb15eb23f465f1f6fcbf534e5877::6373")
+    }
+    func testValidHashCashMint2() {
+        let bits: UInt = 10
+        let resource = "bb63edf88d2f9c39f23eb4d6f0281158"
+        let testDate = "20230224001754"
+ 
+        let stamp = Hashcash().mint(resource: resource, bits: bits, date: testDate)
+        XCTAssertEqual(stamp, "1:10:20230224001754:bb63edf88d2f9c39f23eb4d6f0281158::866")
     }
 }

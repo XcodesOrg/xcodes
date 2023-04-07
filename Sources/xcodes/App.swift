@@ -65,12 +65,14 @@ struct Xcodes: AsyncParsableCommand {
     static let runtimeList = RuntimeList()
     static var runtimeInstaller: RuntimeInstaller!
     static var xcodeInstaller: XcodeInstaller!
+    static var fastlaneSessionManager: FastlaneSessionManager!
 
     static func main() async {
         try? xcodesConfiguration.load()
         sessionService = AppleSessionService(configuration: xcodesConfiguration)
         xcodeInstaller = XcodeInstaller(xcodeList: xcodeList, sessionService: sessionService)
         runtimeInstaller = RuntimeInstaller(runtimeList: runtimeList, sessionService: sessionService)
+        fastlaneSessionManager = FastlaneSessionManager()
         migrateApplicationSupportFiles()
         do {
             var command = try parseAsRoot()
@@ -103,7 +105,7 @@ struct Xcodes: AsyncParsableCommand {
                   completion: .custom { args in xcodeList.availableXcodes.sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var version: [String] = []
 
-        @Flag(help: "Update and then download the latest non-prerelease version available.")
+        @Flag(help: "Update and then download the latest release version available.")
         var latest: Bool = false
 
         @Flag(help: "Update and then download the latest prerelease version available, including GM seeds and GMs.")
@@ -119,6 +121,13 @@ struct Xcodes: AsyncParsableCommand {
         @Option(help: "The directory to download Xcode to. Defaults to ~/Downloads.",
                 completion: .directory)
         var directory: String?
+
+        @Flag(help: "Use fastlane spaceship session.")
+        var useFastlaneAuth: Bool = false
+
+        @Option(help: "The fastlane spaceship user",
+                completion: .shellCommand("ls \(FastlaneSessionManager.Constants.fastlaneSpaceshipDir)"))
+        var fastlaneUser: String = FastlaneSessionManager.Constants.fastlaneSessionEnvVarName
 
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
@@ -141,14 +150,13 @@ struct Xcodes: AsyncParsableCommand {
                 installation = .version(versionString)
             }
             
-            var downloader = Downloader.urlSession
-            if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
-               aria2Path.exists,
-               noAria2 == false {
-                downloader = .aria2(aria2Path)
-            }
+            let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
             let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
+
+            if useFastlaneAuth {
+                fastlaneSessionManager.setupFastlaneAuth(fastlaneUser: fastlaneUser)
+            }
 
             xcodeInstaller.download(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destinationDirectory: destination)
                 .catch { error in
@@ -184,7 +192,7 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .file(extensions: ["xip"]))
         var pathString: String?
 
-        @Flag(help: "Update and then install the latest non-prerelease version available.")
+        @Flag(help: "Update and then install the latest release version available.")
         var latest: Bool = false
 
         @Flag(help: "Update and then install the latest prerelease version available, including GM seeds and GMs.")
@@ -222,6 +230,13 @@ struct Xcodes: AsyncParsableCommand {
         @Flag(help: "Expands (decompress) Xcode .xip on the same directory it's downloaded, instead of using a temporal directory.")
         var expandXipInplace: Bool = false
         
+        @Flag(help: "Use fastlane spaceship session.")
+        var useFastlaneAuth: Bool = false
+
+        @Option(help: "The fastlane spaceship user.",
+                completion: .shellCommand("ls \(FastlaneSessionManager.Constants.fastlaneSpaceshipDir)"))
+        var fastlaneUser: String = FastlaneSessionManager.Constants.fastlaneSessionEnvVarName
+
         @OptionGroup
         var globalDataSource: GlobalDataSourceOption
 
@@ -244,12 +259,7 @@ struct Xcodes: AsyncParsableCommand {
                 installation = .version(versionString)
             }
             
-            var downloader = Downloader.urlSession
-            if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
-               aria2Path.exists,
-               noAria2 == false {
-                downloader = .aria2(aria2Path)
-            }
+            let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
             let destination = getDirectory(possibleDirectory: directory)
 
@@ -271,6 +281,7 @@ struct Xcodes: AsyncParsableCommand {
                              using downloader: Downloader,
                              to destination: Path) {
             firstly { () -> Promise<InstalledXcode> in
+                if useFastlaneAuth { fastlaneSessionManager.setupFastlaneAuth(fastlaneUser: fastlaneUser) }
                 // update the list before installing only for version type because the other types already update internally
                 if update, case .version = installation {
                     Current.logging.log("Updating...")
@@ -371,7 +382,7 @@ struct Xcodes: AsyncParsableCommand {
     struct Runtimes: AsyncParsableCommand {
         static var configuration = CommandConfiguration(
             abstract: "List all simulator runtimes that are available to install",
-            subcommands: [Install.self]
+            subcommands: [Download.self, Install.self]
         )
 
         @Flag(help: "Include beta runtimes available to install")
@@ -409,12 +420,7 @@ struct Xcodes: AsyncParsableCommand {
             func run() async throws {
                 Rainbow.enabled = Rainbow.enabled && globalColor.color
 
-                var downloader = Downloader.urlSession
-                if let aria2Path = aria2.flatMap(Path.init) ?? Current.shell.findExecutable("aria2c"),
-                   aria2Path.exists,
-                   noAria2 == false {
-                    downloader = .aria2(aria2Path)
-                }
+                let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
                 let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
 
@@ -422,6 +428,41 @@ struct Xcodes: AsyncParsableCommand {
                 Current.logging.log("Finished")
             }
         }
+
+        struct Download: AsyncParsableCommand {
+            static var configuration = CommandConfiguration(
+                abstract: "Download a specific simulator runtime"
+            )
+
+            @Argument(help: "The runtime to download")
+            var version: String
+
+            @Option(help: "The path to an aria2 executable. Searches $PATH by default.",
+                    completion: .file())
+            var aria2: String?
+
+            @Flag(help: "Don't use aria2 to download the runtime, even if its available.")
+            var noAria2: Bool = false
+
+            @Option(help: "The directory to download the runtime archive to. Defaults to ~/Downloads.",
+                    completion: .directory)
+            var directory: String?
+
+            @OptionGroup
+            var globalColor: GlobalColorOption
+
+            func run() async throws {
+                Rainbow.enabled = Rainbow.enabled && globalColor.color
+
+                let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
+
+                let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
+
+                try await runtimeInstaller.downloadRuntime(identifier: version, to: destination, with: downloader)
+                Current.logging.log("Finished")
+            }
+        }
+
     }
 
     struct Select: ParsableCommand {
