@@ -17,6 +17,12 @@ extension Shell {
 
     static var mock = Shell(
         unxip: { _, _ in return Promise.value(Shell.processOutputMock) },
+        mountDmg: { _ in return Promise.value(Shell.processOutputMock) },
+        unmountDmg: { _ in return Promise.value(Shell.processOutputMock) },
+        expandPkg: { _, _ in return Promise.value(Shell.processOutputMock) },
+        createPkg: { _, _ in return Promise.value(Shell.processOutputMock) },
+        installPkg: { _, _ in return Promise.value(Shell.processOutputMock) },
+        installRuntimeImage: { _ in return Promise.value(Shell.processOutputMock) },
         spctlAssess: { _ in return Promise.value(Shell.processOutputMock) },
         codesignVerify: { _ in return Promise.value(Shell.processOutputMock) },
         devToolsSecurityEnable: { _ in return Promise.value(Shell.processOutputMock) },
@@ -32,6 +38,7 @@ extension Shell {
         // Deliberately using real implementation of authenticateSudoerIfNecessary since it depends on others that can be mocked
         xcodeSelectPrintPath: { return Promise.value(Shell.processOutputMock) },
         xcodeSelectSwitch: { _, _ in return Promise.value(Shell.processOutputMock) },
+        isRoot: { true },
         readLine: { _ in return nil },
         readSecureLine: { _, _ in return nil },
         env: { _ in nil },
@@ -64,6 +71,7 @@ extension Files {
         createFile: { _, _, _ in return true },
         createDirectory: { _, _, _ in },
         temporalDirectory: { _ in return URL(fileURLWithPath: NSTemporaryDirectory()) },
+        contentsOfDirectory: { _ in [] },
         installedXcodes: { _ in [] }
     )
 }

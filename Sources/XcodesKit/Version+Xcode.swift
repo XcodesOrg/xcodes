@@ -1,4 +1,5 @@
 import Foundation
+import Path
 import Version
 
 public extension Version {
@@ -53,6 +54,21 @@ public extension Version {
                                         .filter { !$0.isEmpty }
 
         self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers, buildMetadataIdentifiers: [buildMetadataIdentifier].compactMap { $0 })
+    }
+
+    /// Attempt to instatiate a `Version` using the `.xcode-version` file in the provided directory
+    static func fromXcodeVersionFile(inDirectory: Path = Path.cwd) -> Version? {
+        let xcodeVersionFilePath = inDirectory.join(".xcode-version")
+        guard
+            Current.files.fileExists(atPath: xcodeVersionFilePath.string),
+            let contents = Current.files.contents(atPath: xcodeVersionFilePath.string),
+            let versionString = String(data: contents, encoding: .utf8),
+            let version = Version(gemVersion: versionString)
+        else {
+            return nil
+        }
+
+        return version
     }
 
     /// The intent here is to match Apple's marketing version

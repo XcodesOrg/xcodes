@@ -23,7 +23,6 @@ public final class XcodeInstaller {
         case unavailableVersion(Version)
         case noNonPrereleaseVersionAvailable
         case noPrereleaseVersionAvailable
-        case missingUsernameOrPassword
         case versionAlreadyInstalled(InstalledXcode)
         case invalidVersion(String)
         case versionNotInstalled(Version)
@@ -65,8 +64,6 @@ public final class XcodeInstaller {
                 return "No non-prerelease versions available."
             case .noPrereleaseVersionAvailable:
                 return "No prerelease versions available."
-            case .missingUsernameOrPassword:
-                return "Missing username or a password. Please try again."
             case let .versionAlreadyInstalled(installedXcode):
                 return "\(installedXcode.version.appleDescription) is already installed at \(installedXcode.path)"
             case let .invalidVersion(version):
@@ -140,30 +137,25 @@ public final class XcodeInstaller {
         static var downloadStepCount: Int {
             return 1
         }
-        
+
         static var installStepCount: Int {
             return 6
         }
     }
 
-    private var configuration: Configuration
+    private var sessionService: AppleSessionService
     private var xcodeList: XcodeList
 
-    public init(configuration: Configuration, xcodeList: XcodeList) {
-        self.configuration = configuration
+    public init(xcodeList: XcodeList, sessionService: AppleSessionService) {
         self.xcodeList = xcodeList
+        self.sessionService = sessionService
     }
-    
+
     public enum InstallationType {
         case version(String)
         case path(String, Path)
         case latest
         case latestPrerelease
-    }
-    
-    public enum Downloader {
-        case urlSession
-        case aria2(Path)
     }
 
     public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, shouldExpandXipInplace: Bool, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
@@ -175,7 +167,7 @@ public final class XcodeInstaller {
             return xcode
         }
     }
-    
+
     private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, shouldExpandXipInplace: Bool, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<(Xcode, URL)> in
             return self.getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
@@ -206,7 +198,7 @@ public final class XcodeInstaller {
             }
         }
     }
-    
+
     public func download(_ installation: InstallationType, dataSource: DataSource, downloader: Downloader, destinationDirectory: Path) -> Promise<Void> {
         return firstly { () -> Promise<(Xcode, URL)> in
             return self.getXcodeArchive(installation, dataSource: dataSource, downloader: downloader, destination: destinationDirectory, willInstall: false)
@@ -227,14 +219,14 @@ public final class XcodeInstaller {
             switch installationType {
             case .latest:
                 Current.logging.log("Updating...")
-                
+
                 return update(dataSource: dataSource)
                     .then { availableXcodes -> Promise<(Xcode, URL)> in
                         guard let latestNonPrereleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
                         Current.logging.log("Latest non-prerelease version available is \(latestNonPrereleaseXcode.version.appleDescription)")
-                        
+
                         if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestNonPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
@@ -243,7 +235,7 @@ public final class XcodeInstaller {
                     }
             case .latestPrerelease:
                 Current.logging.log("Updating...")
-                
+
                 return update(dataSource: dataSource)
                     .then { availableXcodes -> Promise<(Xcode, URL)> in
                         guard let latestPrereleaseXcode = availableXcodes
@@ -255,21 +247,21 @@ public final class XcodeInstaller {
                             throw Error.noNonPrereleaseVersionAvailable
                         }
                         Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.appleDescription)")
-                        
+
                         if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestPrereleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
-                        
+
                         return self.downloadXcode(version: latestPrereleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
                     }
             case .path(let versionString, let path):
-                guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
+                guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
                 let xcode = Xcode(version: version, url: path.url, filename: String(path.string.suffix(fromLast: "/")), releaseDate: nil)
                 return Promise.value((xcode, path.url))
             case .version(let versionString):
-                guard let version = Version(xcodeVersion: versionString) ?? versionFromXcodeVersionFile() else {
+                guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
                 if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
@@ -280,29 +272,21 @@ public final class XcodeInstaller {
         }
     }
 
-    private func versionFromXcodeVersionFile() -> Version? {
-        let xcodeVersionFilePath = Path.cwd.join(".xcode-version")
-        let version = (try? Data(contentsOf: xcodeVersionFilePath.url))
-            .flatMap { String(data: $0, encoding: .utf8) }
-            .flatMap(Version.init(gemVersion:))
-        return version
-    }
-
     private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<Void> in
             switch dataSource {
             case .apple:
-                // When using the Apple data source, an authenticated session is required for both
-                // downloading the list of Xcodes as well as to actually download Xcode, so we'll
-                // establish our session right at the start.
-                return loginIfNeeded()
+                    // When using the Apple data source, an authenticated session is required for both
+                    // downloading the list of Xcodes as well as to actually download Xcode, so we'll
+                    // establish our session right at the start.
+                    return sessionService.loginIfNeeded()
 
             case .xcodeReleases:
-                // When using the Xcode Releases data source, we only need to establish an anonymous
-                // session once we're ready to download Xcode. Doing that requires us to know the
-                // URL we want to download though (and we may not know that yet), so we don't need
-                // to do anything session-related quite yet.
-                return Promise()
+                    // When using the Xcode Releases data source, we only need to establish an anonymous
+                    // session once we're ready to download Xcode. Doing that requires us to know the
+                    // URL we want to download though (and we may not know that yet), so we don't need
+                    // to do anything session-related quite yet.
+                    return sessionService.loginIfNeeded()
             }
         }
         .then { () -> Promise<Void> in
@@ -322,14 +306,19 @@ public final class XcodeInstaller {
         .then { xcode -> Promise<Xcode> in
             switch dataSource {
             case .apple:
-                /// We already established a session for the Apple data source at the beginning of
-                /// this download, so we don't need to do anything session-related at this point.
-                return Promise.value(xcode)
+                    /// We already established a session for the Apple data source at the beginning of
+                    /// this download, so we don't need to do anything session-related at this point.
+                    return Promise.value(xcode)
 
             case .xcodeReleases:
-                /// Now that we've used Xcode Releases to determine what URL we should use to
-                /// download Xcode, we can use that to establish an anonymous session with Apple.
-                return self.validateADCSession(path: xcode.downloadPath).map { xcode }
+                    /// Now that we've used Xcode Releases to determine what URL we should use to
+                    /// download Xcode, we can use that to establish an anonymous session with Apple.
+                    // As of Nov 2022, the `validateADCSession` return 403 forbidden for Xcode versions (works with runtimes)
+                    // return self.sessionService.validateADCSession(path: xcode.downloadPath).map { xcode }
+                    // -------
+                    // We need the cookies from its response in order to download Xcodes though,
+                    // so perform it here first just to be sure.
+                    return Current.network.dataTask(with: URLRequest.downloads).map { _ in xcode }
             }
         }
         .then { xcode -> Promise<(Xcode, URL)> in
@@ -357,125 +346,6 @@ public final class XcodeInstaller {
                 .map { return (xcode, $0) }
         }
     }
-    
-    func validateADCSession(path: String) -> Promise<Void> {
-        return Current.network.dataTask(with: URLRequest.downloadADCAuth(path: path)).asVoid()
-    }
-    
-    func loginIfNeeded(withUsername providedUsername: String? = nil, shouldPromptForPassword: Bool = false) -> Promise<Void> {
-        return firstly { () -> Promise<Void> in
-            return Current.network.validateSession()
-        }
-        // Don't have a valid session, so we'll need to log in
-        .recover { error -> Promise<Void> in
-            var possibleUsername = providedUsername ?? self.findUsername()
-            var hasPromptedForUsername = false
-            if possibleUsername == nil {
-                possibleUsername = Current.shell.readLine(prompt: "Apple ID: ")
-                hasPromptedForUsername = true
-            }
-            guard let username = possibleUsername else { throw Error.missingUsernameOrPassword } 
-            
-            let passwordPrompt: String 
-            if hasPromptedForUsername {
-                passwordPrompt = "Apple ID Password: "
-            } else {
-                // If the user wasn't prompted for their username, also explain which Apple ID password they need to enter
-                passwordPrompt = "Apple ID Password (\(username)): " 
-            }
-            var possiblePassword = self.findPassword(withUsername: username)
-            if possiblePassword == nil || shouldPromptForPassword {
-                possiblePassword = Current.shell.readSecureLine(prompt: passwordPrompt)
-            }
-            guard let password = possiblePassword else { throw Error.missingUsernameOrPassword }
-
-            return firstly { () -> Promise<Void> in
-                self.login(username, password: password)
-            }
-            .recover { error -> Promise<Void> in
-                Current.logging.log(error.legibleLocalizedDescription.red)
-
-                if case Client.Error.invalidUsernameOrPassword = error {
-                    Current.logging.log("Try entering your password again")
-                    // Prompt for the password next time to avoid being stuck in a loop of using an incorrect XCODES_PASSWORD environment variable
-                    return self.loginIfNeeded(withUsername: username, shouldPromptForPassword: true)
-                }
-                else {
-                    return Promise(error: error)
-                }
-            }
-        }
-    }
-
-    func login(_ username: String, password: String) -> Promise<Void> {
-        return firstly { () -> Promise<Void> in
-            Current.network.login(accountName: username, password: password)
-        }
-        .recover { error -> Promise<Void> in
-
-            if let error = error as? Client.Error {
-              switch error  {
-              case .invalidUsernameOrPassword(_):
-                  // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
-                  try? Current.keychain.remove(username)
-              default:
-                  break
-              }
-            }
-
-            return Promise(error: error)
-        }
-        .done { _ in
-            try? Current.keychain.set(password, key: username)
-
-            if self.configuration.defaultUsername != username {
-                self.configuration.defaultUsername = username
-                try? self.configuration.save()
-            }
-        }
-    }
-    
-    public func logout() -> Promise<Void> {
-        guard let username = findUsername() else { return Promise<Void>(error: Client.Error.notAuthenticated) }
-        
-        return Promise { seal in
-            // Remove cookies in the shared URLSession
-            AppleAPI.Current.network.session.reset {
-                seal.fulfill(())
-            }
-        }
-        .done {
-            // Remove all keychain items
-            try Current.keychain.remove(username)
-
-            // Set `defaultUsername` in Configuration to nil
-            self.configuration.defaultUsername = nil
-            try self.configuration.save()
-        }
-    }
-
-    let xcodesUsername = "XCODES_USERNAME"
-    let xcodesPassword = "XCODES_PASSWORD"
-
-    func findUsername() -> String? {
-        if let username = Current.shell.env(xcodesUsername) {
-            return username
-        }
-        else if let username = configuration.defaultUsername {
-            return username
-        }
-        return nil
-    }
-
-    func findPassword(withUsername username: String) -> String? {
-        if let password = Current.shell.env(xcodesPassword) {
-            return password
-        }
-        else if let password = try? Current.keychain.getString(username){
-            return password
-        }
-        return nil
-    }
 
     public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         // Check to see if the archive is in the expected path in case it was downloaded but failed to install
@@ -495,63 +365,7 @@ public final class XcodeInstaller {
             return Promise.value(expectedArchivePath.url)
         }
         else {
-            let destination = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
-            switch downloader {
-            case .aria2(let aria2Path):
-                 if Current.shell.isatty() {
-                    Current.logging.log("Downloading with aria2".green)
-                    // Add 1 extra line as we are overwriting with download progress
-                    Current.logging.log("")
-                }
-                return downloadXcodeWithAria2(
-                    xcode,
-                    to: destination,
-                    aria2Path: aria2Path,
-                    progressChanged: progressChanged
-                )
-            case .urlSession:
-                if Current.shell.isatty() {
-                    Current.logging.log("Downloading with urlSession - for faster downloads install aria2 (`brew install aria2`)".black.onYellow)
-                    // Add 1 extra line as we are overwriting with download progress
-                    Current.logging.log("")
-                }
-                return downloadXcodeWithURLSession(
-                    xcode,
-                    to: destination,
-                    progressChanged: progressChanged
-                )
-            }
-        }
-    }
-    
-    public func downloadXcodeWithAria2(_ xcode: Xcode, to destination: Path, aria2Path: Path, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
-        let cookies = AppleAPI.Current.network.session.configuration.httpCookieStorage?.cookies(for: xcode.url) ?? []
-    
-        return attemptRetryableTask(maximumRetryCount: 3) {
-            let (progress, promise) = Current.shell.downloadWithAria2(
-                aria2Path, 
-                xcode.url,
-                destination,
-                cookies
-            )
-            progressChanged(progress)
-            return promise.map { _ in destination.url }
-        }
-    }
-
-    public func downloadXcodeWithURLSession(_ xcode: Xcode, to destination: Path, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
-        let resumeDataPath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).resumedata"
-        let persistedResumeData = Current.files.contents(atPath: resumeDataPath.string)
-        
-        return attemptResumableTask(maximumRetryCount: 3) { resumeData in
-            let (progress, promise) = Current.network.downloadTask(with: xcode.url,
-                                                                   to: destination.url,
-                                                                   resumingWith: resumeData ?? persistedResumeData)
-            progressChanged(progress)
-            return promise.map { $0.saveLocation }
-        }
-        .tap { result in
-            self.persistOrCleanUpResumeData(at: resumeDataPath, for: result)
+            return downloader.download(url: xcode.url, to: expectedArchivePath, progressChanged: progressChanged)
         }
     }
 
@@ -561,7 +375,7 @@ public final class XcodeInstaller {
             switch archiveURL.pathExtension {
             case "xip":
                 return unarchiveAndMoveXIP(at: archiveURL, to: destinationURL, experimentalUnxip: experimentalUnxip, shouldExpandXipInplace: shouldExpandXipInplace).map { xcodeURL in
-                    guard 
+                    guard
                         let path = Path(url: xcodeURL),
                         Current.files.fileExists(atPath: path.string),
                         let installedXcode = InstalledXcode(path: path)
@@ -671,7 +485,7 @@ public final class XcodeInstaller {
     func update(dataSource: DataSource) -> Promise<[Xcode]> {
         if dataSource == .apple {
             return firstly { () -> Promise<Void> in
-                loginIfNeeded()
+                sessionService.loginIfNeeded()
             }
             .then { () -> Promise<[Xcode]> in
                 self.xcodeList.update(dataSource: dataSource)
@@ -713,7 +527,7 @@ public final class XcodeInstaller {
                 allXcodeVersions[index] = ReleasedVersion(version: installedXcode.version, releaseDate: nil)
             }
         }
-        
+
         return Current.shell.xcodeSelectPrintPath()
             .done { output in
                 let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
@@ -740,24 +554,24 @@ public final class XcodeInstaller {
                     }
             }
     }
-    
+
     public func printInstalledXcodes(directory: Path) -> Promise<Void> {
         Current.shell.xcodeSelectPrintPath()
             .done { pathOutput in
                 let installedXcodes = Current.files.installedXcodes(directory)
                     .sorted { $0.version < $1.version }
                 let selectedString = "(Selected)"
-                
+
                 let lines = installedXcodes.map { installedXcode -> String in
                     var line = installedXcode.version.appleDescriptionWithBuildIdentifier
-                    
+
                     if pathOutput.out.hasPrefix(installedXcode.path.string) {
                         line += " " + selectedString
                     }
-                    
+
                     return line
                 }
-                
+
                 // Add one so there's always at least one space between columns
                 let maxWidthOfFirstColumn = (lines.map(\.count).max() ?? 0) + 1
 
@@ -765,9 +579,9 @@ public final class XcodeInstaller {
                     var line = lines[index]
                     let widthOfFirstColumnInThisRow = line.count
                     let spaceBetweenFirstAndSecondColumns = maxWidthOfFirstColumn - widthOfFirstColumnInThisRow
-                    
+
                     line = line.replacingOccurrences(of: selectedString, with: selectedString.green)
-                    
+
                     // If outputting to an interactive terminal, align the columns so they're easier for a human to read
                     // Otherwise, separate columns by a tab character so it's easier for a computer to split up
                     if Current.shell.isatty() {
@@ -776,7 +590,7 @@ public final class XcodeInstaller {
                     } else {
                         line += "\t\(installedXcode.path.string)"
                     }
-                    
+
                     Current.logging.log(line)
                 }
             }
@@ -801,7 +615,7 @@ public final class XcodeInstaller {
         let xcodeExpansionDirectory = Current.files.xcodeExpansionDirectory(archiveURL: source, xcodeURL: destination, shouldExpandInplace: shouldExpandXipInplace)
         return firstly { () -> Promise<Void> in
             Current.logging.log(InstallationStep.unarchiving(experimentalUnxip: experimentalUnxip).description)
-            
+
             if experimentalUnxip, #available(macOS 11, *) {
                 return Promise { seal in
                     Task.detached {

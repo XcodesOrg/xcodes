@@ -22,17 +22,25 @@ public struct DownloadableRuntime: Decodable {
     let name: String
     let authentication: Authentication?
 
-    var betaVersion: Int? {
+    var betaNumber: Int? {
         enum Regex { static let shared = try! NSRegularExpression(pattern: "b[0-9]+$") }
         guard var foundString = Regex.shared.firstString(in: identifier) else { return nil }
         foundString.removeFirst()
         return Int(foundString)!
     }
 
-    var visibleName: String {
-        let betaSuffix = betaVersion.flatMap { "-beta\($0)" } ?? ""
-        return platform.shortName + " " + simulatorVersion.version + betaSuffix
+    var completeVersion: String {
+        makeVersion(for: simulatorVersion.version, betaNumber: betaNumber)
     }
+
+    var visibleIdentifier: String {
+        return platform.shortName + " " + completeVersion
+    }
+}
+
+func makeVersion(for osVersion: String, betaNumber: Int?) -> String {
+    let betaSuffix = betaNumber.flatMap { "-beta\($0)" } ?? ""
+    return osVersion + betaSuffix
 }
 
 struct SDKToSeedMapping: Decodable {
@@ -126,5 +134,13 @@ extension InstalledRuntime {
         case tvOS = "com.apple.platform.appletvsimulator"
         case iOS = "com.apple.platform.iphonesimulator"
         case watchOS = "com.apple.platform.watchsimulator"
+
+        var asPlatformOS: DownloadableRuntime.Platform {
+            switch self {
+                case .watchOS: return .watchOS
+                case .iOS: return .iOS
+                case .tvOS: return .tvOS
+            }
+        }
     }
 }

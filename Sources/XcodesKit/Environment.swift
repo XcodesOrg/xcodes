@@ -24,6 +24,12 @@ public var Current = Environment()
 
 public struct Shell {
     public var unxip: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, workingDirectory: $1, "--expand", "\($0.path)") }
+    public var mountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "attach", "-nobrowse", "-plist", $0.path) }
+    public var unmountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "detach", $0.path) }
+    public var expandPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--expand", $0.path, $1.path) }
+    public var createPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--flatten", $0.path, $1.path) }
+    public var installPkg: (URL, String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("installer"), "-pkg", $0.path, "-target", $1) }
+    public var installRuntimeImage: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcrun"), "simctl", "runtime", "add", $0.path) }
     public var spctlAssess: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.spctl, "--assess", "--verbose", "--type", "execute", "\($0.path)") }
     public var codesignVerify: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.codesign, "-vv", "-d", "\($0.path)") }
     public var devToolsSecurityEnable: (String?) -> Promise<ProcessOutput> = { Process.sudo(password: $0, Path.root.usr.sbin.DevToolsSecurity, "-enable") }
@@ -54,7 +60,8 @@ public struct Shell {
     public func xcodeSelectSwitch(password: String?, path: String) -> Promise<ProcessOutput> {
         xcodeSelectSwitch(password, path)
     }
-    
+    public var isRoot: () -> Bool = { NSUserName() == "root" }
+
     /// Returns the path of an executable within the directories in the PATH environment variable.
     public var findExecutable: (_ executableName: String) -> Path? = { executableName in
         guard let path = ProcessInfo.processInfo.environment["PATH"] else { return nil }
@@ -64,15 +71,16 @@ public struct Shell {
                 return executable
             }
         }
-        
+
         return nil
     }
-    
+
     public var downloadWithAria2: (Path, URL, Path, [HTTPCookie]) -> (Progress, Promise<Void>) = { aria2Path, url, destination, cookies in
+        precondition(Thread.isMainThread, "Aria must be called on the main queue")
         let process = Process()
         process.executableURL = aria2Path.url
         process.arguments = [
-            "--header=Cookie: \(cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; "))",     
+            "--header=Cookie: \(cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; "))",
             "--max-connection-per-server=16",
             "--split=16",
             "--summary-interval=1",
@@ -85,12 +93,12 @@ public struct Shell {
         process.standardOutput = stdOutPipe
         let stdErrPipe = Pipe()
         process.standardError = stdErrPipe
-        
+
         var progress = Progress(totalUnitCount: 100)
 
         let observer = NotificationCenter.default.addObserver(
-            forName: .NSFileHandleDataAvailable, 
-            object: nil, 
+            forName: .NSFileHandleDataAvailable,
+            object: nil,
             queue: OperationQueue.main
         ) { note in
             guard
@@ -116,7 +124,7 @@ public struct Shell {
 
         stdOutPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
         stdErrPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
-        
+
         do {
             try process.run()
         } catch {
@@ -126,7 +134,7 @@ public struct Shell {
         let promise = Promise<Void> { seal in
             DispatchQueue.global(qos: .default).async {
                 process.waitUntilExit()
-                
+
                 NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
 
                 guard process.terminationReason == .exit, process.terminationStatus == 0 else {
@@ -139,7 +147,7 @@ public struct Shell {
                 seal.fulfill(())
             }
         }
-        
+
         return (progress, promise)
     }
 
@@ -191,7 +199,7 @@ public struct Shell {
     }
 
     public var exit: (Int32) -> Void = { Darwin.exit($0) }
-    
+
     public var isatty: () -> Bool = { Foundation.isatty(fileno(stdout)) != 0 }
 }
 
@@ -238,9 +246,9 @@ public struct Files {
     public func trashItem(at URL: URL) throws -> URL {
         return try trashItem(URL)
     }
-    
+
     public var createFile: (String, Data?, [FileAttributeKey: Any]?) -> Bool = { FileManager.default.createFile(atPath: $0, contents: $1, attributes: $2) }
-    
+
     @discardableResult
     public func createFile(atPath path: String, contents data: Data?, attributes attr: [FileAttributeKey : Any]? = nil) -> Bool {
         return createFile(path, data, attr)
@@ -264,13 +272,14 @@ public struct Files {
         return (try? Current.files.temporalDirectory(for: xcodeURL)) ?? archiveURL.deletingLastPathComponent()
     }
 
-    public var installedXcodes = XcodesKit.installedXcodes
-}
-private func installedXcodes(directory: Path) -> [InstalledXcode] {
-    ((try? directory.ls()) ?? [])
-        .filter { $0.isAppBundle && $0.infoPlist?.bundleID == "com.apple.dt.Xcode" }
-        .map { $0.path }
-        .compactMap(InstalledXcode.init)
+    public var contentsOfDirectory: (URL) throws -> [URL] = { try FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil, options: []) }
+
+    public var installedXcodes: (Path) -> [InstalledXcode] = { directory in
+        return ((try? directory.ls()) ?? [])
+            .filter { $0.isAppBundle && $0.infoPlist?.bundleID == "com.apple.dt.Xcode" }
+            .map { $0.path }
+            .compactMap(InstalledXcode.init)
+    }
 }
 
 public struct Network {
