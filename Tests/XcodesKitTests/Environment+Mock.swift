@@ -27,6 +27,7 @@ extension Shell {
         xcodeBuildVersion: { _ in return Promise.value(Shell.processOutputMock) },
         getUserCacheDir: { return Promise.value(Shell.processOutputMock) },
         touchInstallCheck: { _, _, _ in return Promise.value(Shell.processOutputMock) },
+        installedRuntimes: { return Promise.value(Shell.processOutputMock) },
         validateSudoAuthentication: { return Promise.value(Shell.processOutputMock) },
         // Deliberately using real implementation of authenticateSudoerIfNecessary since it depends on others that can be mocked
         xcodeSelectPrintPath: { return Promise.value(Shell.processOutputMock) },
@@ -42,6 +43,7 @@ extension Shell {
 extension Files {
     static var mock = Files(
         fileExistsAtPath: { _ in return true },
+        attributesOfItemAtPath: { _ in [:] },
         moveItem: { _, _ in return },
         contentsAtPath: { path in
             if path.contains("Info.plist") {
@@ -56,6 +58,7 @@ extension Files {
                 return nil
             }
         },
+        write: { _, _ in },
         removeItem: { _ in },
         trashItem: { _ in return URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash") },
         createFile: { _, _, _ in return true },

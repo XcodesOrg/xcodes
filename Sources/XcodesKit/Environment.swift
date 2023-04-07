@@ -34,6 +34,7 @@ public struct Shell {
     public var xcodeBuildVersion: (InstalledXcode) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.libexec.PlistBuddy, "-c", "Print :ProductBuildVersion", "\($0.path.string)/Contents/version.plist") }
     public var getUserCacheDir: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.getconf, "DARWIN_USER_CACHE_DIR") }
     public var touchInstallCheck: (String, String, String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin/"touch", "\($0)com.apple.dt.Xcode.InstallCheckCache_\($1)_\($2)") }
+    public var installedRuntimes: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcrun"), "simctl", "runtime", "list", "-j") }
 
     public var validateSudoAuthentication: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, "-nv") }
     public var authenticateSudoerIfNecessary: (@escaping () -> Promise<String>) -> Promise<String?> = { passwordInput in
@@ -201,6 +202,12 @@ public struct Files {
         return fileExistsAtPath(path)
     }
 
+    public var attributesOfItemAtPath: (String) throws -> [FileAttributeKey: Any] = { try FileManager.default.attributesOfItem(atPath: $0) }
+
+    public func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
+        return try attributesOfItemAtPath(path)
+    }
+
     public var moveItem: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }
 
     public func moveItem(at srcURL: URL, to dstURL: URL) throws {
@@ -211,6 +218,12 @@ public struct Files {
 
     public func contents(atPath path: String) -> Data? {
         return contentsAtPath(path)
+    }
+
+    public var write: (Data, URL) throws -> Void = { try $0.write(to: $1) }
+
+    public func write(_ data: Data, to url: URL) throws {
+        try write(data, url)
     }
 
     public var removeItem: (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }

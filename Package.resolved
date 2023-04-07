@@ -1,97 +1,94 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "XcodeReleases",
-        "repositoryURL": "https://github.com/xcodereleases/data",
-        "state": {
-          "branch": null,
-          "revision": "b47228c688b608e34b3b84079ab6052a24c7a981",
-          "version": null
-        }
-      },
-      {
-        "package": "PMKFoundation",
-        "repositoryURL": "https://github.com/PromiseKit/Foundation.git",
-        "state": {
-          "branch": null,
-          "revision": "1a276e598dac59489ed904887e0740fa75e571e0",
-          "version": "3.3.4"
-        }
-      },
-      {
-        "package": "KeychainAccess",
-        "repositoryURL": "https://github.com/kishikawakatsumi/KeychainAccess.git",
-        "state": {
-          "branch": null,
-          "revision": "8d33ffd6f74b3bcfc99af759d4204c6395a3f918",
-          "version": "3.2.1"
-        }
-      },
-      {
-        "package": "LegibleError",
-        "repositoryURL": "https://github.com/mxcl/LegibleError.git",
-        "state": {
-          "branch": null,
-          "revision": "909e9bab3ded97350b28a5ab41dd745dd8aa9710",
-          "version": "1.0.4"
-        }
-      },
-      {
-        "package": "Path.swift",
-        "repositoryURL": "https://github.com/mxcl/Path.swift.git",
-        "state": {
-          "branch": null,
-          "revision": "dac007e907a4f4c565cfdc55a9ce148a761a11d5",
-          "version": "0.16.3"
-        }
-      },
-      {
-        "package": "PromiseKit",
-        "repositoryURL": "https://github.com/mxcl/PromiseKit.git",
-        "state": {
-          "branch": null,
-          "revision": "1c296a8637838901d2b01e4c46875ee749506133",
-          "version": "6.8.5"
-        }
-      },
-      {
-        "package": "Rainbow",
-        "repositoryURL": "https://github.com/onevcat/Rainbow.git",
-        "state": {
-          "branch": null,
-          "revision": "626c3d4b6b55354b4af3aa309f998fae9b31a3d9",
-          "version": "3.2.0"
-        }
-      },
-      {
-        "package": "swift-argument-parser",
-        "repositoryURL": "https://github.com/apple/swift-argument-parser",
-        "state": {
-          "branch": null,
-          "revision": "9564d61b08a5335ae0a36f789a7d71493eacadfc",
-          "version": "0.3.2"
-        }
-      },
-      {
-        "package": "SwiftSoup",
-        "repositoryURL": "https://github.com/scinfu/SwiftSoup.git",
-        "state": {
-          "branch": null,
-          "revision": "aeb5b4249c273d1783a5299e05be1b26e061ea81",
-          "version": "2.0.0"
-        }
-      },
-      {
-        "package": "Version",
-        "repositoryURL": "https://github.com/mxcl/Version.git",
-        "state": {
-          "branch": null,
-          "revision": "087c91fedc110f9f833b14ef4c32745dabca8913",
-          "version": "1.0.3"
-        }
+  "pins" : [
+    {
+      "identity" : "data",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/xcodereleases/data.git",
+      "state" : {
+        "revision" : "fcf527b187817f67c05223676341f3ab69d4214d"
       }
-    ]
-  },
-  "version": 1
+    },
+    {
+      "identity" : "foundation",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/PromiseKit/Foundation.git",
+      "state" : {
+        "revision" : "985f17fa69ee0e5b7eb3ff9be87ffc4e05fc0927",
+        "version" : "3.4.0"
+      }
+    },
+    {
+      "identity" : "keychainaccess",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kishikawakatsumi/KeychainAccess.git",
+      "state" : {
+        "revision" : "8d33ffd6f74b3bcfc99af759d4204c6395a3f918",
+        "version" : "3.2.1"
+      }
+    },
+    {
+      "identity" : "legibleerror",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mxcl/LegibleError.git",
+      "state" : {
+        "revision" : "909e9bab3ded97350b28a5ab41dd745dd8aa9710",
+        "version" : "1.0.4"
+      }
+    },
+    {
+      "identity" : "path.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mxcl/Path.swift.git",
+      "state" : {
+        "revision" : "dac007e907a4f4c565cfdc55a9ce148a761a11d5",
+        "version" : "0.16.3"
+      }
+    },
+    {
+      "identity" : "promisekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mxcl/PromiseKit.git",
+      "state" : {
+        "revision" : "1c296a8637838901d2b01e4c46875ee749506133",
+        "version" : "6.8.5"
+      }
+    },
+    {
+      "identity" : "rainbow",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/onevcat/Rainbow.git",
+      "state" : {
+        "revision" : "626c3d4b6b55354b4af3aa309f998fae9b31a3d9",
+        "version" : "3.2.0"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "9f39744e025c7d377987f30b03770805dcb0bcd1",
+        "version" : "1.1.4"
+      }
+    },
+    {
+      "identity" : "swiftsoup",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/scinfu/SwiftSoup.git",
+      "state" : {
+        "revision" : "aeb5b4249c273d1783a5299e05be1b26e061ea81",
+        "version" : "2.0.0"
+      }
+    },
+    {
+      "identity" : "version",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mxcl/Version.git",
+      "state" : {
+        "revision" : "087c91fedc110f9f833b14ef4c32745dabca8913",
+        "version" : "1.0.3"
+      }
+    }
+  ],
+  "version" : 2
 }

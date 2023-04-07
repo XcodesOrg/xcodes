@@ -4,7 +4,7 @@ import Path
 import Version
 import Rainbow
 
-public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Path) -> Promise<Void> {
+public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Path, fallbackToInteractive: Bool = true) -> Promise<Void> {
     firstly { () -> Promise<ProcessOutput> in
         Current.shell.xcodeSelectPrintPath()
     }
@@ -22,8 +22,16 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
             }
         }
 
+        let installedXcodes = Current.files.installedXcodes(directory)
         if let version = Version(xcodeVersion: pathOrVersion),
-           let installedXcode = Current.files.installedXcodes(directory).first(withVersion: version) {
+           let installedXcode = installedXcodes.first(withVersion: version) {
+            let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
+            if installedXcode.version == selectedInstalledXcodeVersion {
+                Current.logging.log("Xcode \(version) is already selected".green)
+                Current.shell.exit(0)
+                return Promise.value(())
+            }
+
             return selectXcodeAtPath(installedXcode.path.string)
                 .done { output in
                     Current.logging.log("Selected \(output.out)".green)
@@ -31,18 +39,32 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
                 }
         }
         else {
-            return selectXcodeAtPath(pathOrVersion)
+            let pathToSelect = pathOrVersion.trimmingCharacters(in: .whitespacesAndNewlines)
+            let currentPath = output.out.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if pathToSelect == currentPath {
+                Current.logging.log("Xcode at path \(pathOrVersion) is already selected".green)
+                Current.shell.exit(0)
+                return Promise.value(())
+            }
+
+            let selectPromise = selectXcodeAtPath(pathToSelect)
                 .done { output in
                     Current.logging.log("Selected \(output.out)".green)
                     Current.shell.exit(0)
                 }
-                .recover { _ in
-                    selectXcodeInteractively(currentPath: output.out, directory: directory)
-                        .done { output in
-                            Current.logging.log("Selected \(output.out)".green)
-                            Current.shell.exit(0)
-                        }
-                }
+            if fallbackToInteractive {
+                return selectPromise
+                    .recover { _ in
+                        selectXcodeInteractively(currentPath: output.out, directory: directory)
+                            .done { output in
+                                Current.logging.log("Selected \(output.out)".green)
+                                Current.shell.exit(0)
+                            }
+                    }
+            } else {
+                return selectPromise
+            }
         }
     }
 }
@@ -94,7 +116,7 @@ public func chooseFromInstalledXcodesInteractively(currentPath: String, director
         return Promise(error: error)
     }
 
-    return Promise.value(sortedInstalledXcodes[selectionNumber - 1]) 
+    return Promise.value(sortedInstalledXcodes[selectionNumber - 1])
 }
 
 public func selectXcodeInteractively(currentPath: String, directory: Path) -> Promise<ProcessOutput> {

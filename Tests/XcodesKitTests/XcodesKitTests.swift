@@ -8,7 +8,10 @@ import Rainbow
 @testable import XcodesKit
 
 final class XcodesKitTests: XCTestCase {
+    static let mockXcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
+
     var installer: XcodeInstaller!
+    var runtimeList: RuntimeList!
 
     override class func setUp() {
         super.setUp()
@@ -21,6 +24,7 @@ final class XcodesKitTests: XCTestCase {
         Rainbow.outputTarget = .unknown
         Rainbow.enabled = false
         installer = XcodeInstaller(configuration: Configuration(), xcodeList: XcodeList())
+        runtimeList = .init()
     }
 
     func test_ParseCertificateInfo_Succeeds() throws {
@@ -903,6 +907,74 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(removedItemAtURL, Path.applicationSupport.join("ca.brandonevans.xcodes").url)
     }
 
+    func test_installedRuntimes() async throws {
+        Current.shell.installedRuntimes = {
+            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
+            return Promise.value((0, try! String(contentsOf: url), ""))
+        }
+        let values = try await runtimeList.installedRuntimes()
+        let givenIDs = [
+            UUID(uuidString: "2A6068A0-7FCF-4DB9-964D-21145EB98498")!,
+            UUID(uuidString: "6DE6B631-9439-4737-A65B-73F675EB77D1")!,
+            UUID(uuidString: "7A032D54-0D93-4E04-80B9-4CB207136C3F")!,
+            UUID(uuidString: "91B92361-CD02-4AF7-8DFE-DE8764AA949F")!,
+            UUID(uuidString: "630146EA-A027-42B1-AC25-BE4EA018DE90")!,
+            UUID(uuidString: "AAD753FE-A798-479C-B6D6-41259B063DD6")!,
+            UUID(uuidString: "BE68168B-7AC8-4A1F-A344-15DFCC375457")!,
+            UUID(uuidString: "F8D81829-354C-4EB0-828D-83DC765B27E1")!,
+        ]
+        XCTAssertEqual(givenIDs, values.map(\.identifier))
+    }
+
+    func test_downloadableRuntimes() async throws {
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == .downloadableRuntimes {
+                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
+                let downloadsData = try! Data(contentsOf: url)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            fatalError("wrong url")
+        }
+        let values = try await runtimeList.downloadableRuntimes(includeBetas: true)
+
+        XCTAssertEqual(values.count, 57)
+    }
+
+    func test_downloadableRuntimesNoBetas() async throws {
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == .downloadableRuntimes {
+                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
+                let downloadsData = try! Data(contentsOf: url)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            fatalError("wrong url")
+        }
+        let values = try await runtimeList.downloadableRuntimes(includeBetas: false)
+        XCTAssertFalse(values.contains { $0.name.lowercased().contains("beta") })
+        XCTAssertEqual(values.count, 45)
+    }
+
+    func test_printAvailableRuntimes() async throws {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.shell.installedRuntimes = {
+            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
+            return Promise.value((0, try! String(contentsOf: url), ""))
+        }
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == .downloadableRuntimes {
+                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
+                let downloadsData = try! Data(contentsOf: url)
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            fatalError("wrong url")
+        }
+        try await runtimeList.printAvailableRuntimes(includeBetas: true)
+
+        let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtimes", withExtension: "txt", subdirectory: "Fixtures")!
+        XCTAssertEqual(log, try String(contentsOf: outputUrl))
+    }
+
     func test_MigrateApplicationSupport_OnlyNewSupportFiles() {
         Current.files.fileExistsAtPath = { return $0.contains("com.robotsandpencils") }
         var source: URL?
@@ -1212,6 +1284,84 @@ final class XcodesKitTests: XCTestCase {
             """
         )
     }
+
+    func test_Installed_WithValidVersion_PrintsXcodePath() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+        ]
+        Current.files.installedXcodes = { _ in installedXcodes }
+
+        // One is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: ""))
+        }
+
+        // Standard output is not an interactive terminal
+        Current.shell.isatty = { false }
+
+        installer.printXcodePath(ofVersion: "2", searchingIn: Path.root/"Applications")
+            .cauterize()
+
+        XCTAssertEqual(
+            log,
+            """
+            /Applications/Xcode-2.0.0.app
+
+            """
+        )
+    }
+
+    func test_Installed_WithUninstalledVersion_ThrowsError() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-2.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        let installedXcodes = [
+            InstalledXcode(path: Path("/Applications/Xcode-2.0.0.app")!)!,
+        ]
+        Current.files.installedXcodes = { _ in installedXcodes }
+
+        // One is selected
+        Current.shell.xcodeSelectPrintPath = {
+            Promise.value((status: 0, out: "/Applications/Xcode-2.0.0.app/Contents/Developer", err: ""))
+        }
+
+        // Standard output is not an interactive terminal
+        Current.shell.isatty = { false }
+
+        installer.printXcodePath(ofVersion: "3", searchingIn: Path.root/"Applications")
+            .catch { error in XCTAssertEqual(error as! XcodeInstaller.Error, XcodeInstaller.Error.versionNotInstalled(Version(xcodeVersion: "3")!)) }
+    }
     
     func test_Signout_WithExistingSession() {
         var keychainDidRemove = false
@@ -1255,4 +1405,54 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(capturedError as? Client.Error, Client.Error.notAuthenticated)
     }
 
+    func test_XcodeList_ShouldUpdate_NotWhenCacheFileIsRecent() {
+        Current.files.contentsAtPath = { _ in try! JSONEncoder().encode([Self.mockXcode]) }
+        Current.files.attributesOfItemAtPath = { _ in [.modificationDate: Date(timeIntervalSinceNow: -3600*12)] }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertFalse(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsOld() {
+        Current.files.contentsAtPath = { _ in try! JSONEncoder().encode([Self.mockXcode]) }
+        Current.files.attributesOfItemAtPath = { _ in [.modificationDate: Date(timeIntervalSinceNow: -3600*24*2)] }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsMissing() {
+        Current.files.contentsAtPath = { _ in nil }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsEmpty() {
+        Current.files.contentsAtPath = { _ in "[]".data(using: .utf8) }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_ShouldUpdate_WhenCacheFileIsCorrupt() {
+        Current.files.contentsAtPath = { _ in "[".data(using: .utf8) }
+
+        let xcodesList = XcodeList()
+
+        XCTAssertTrue(xcodesList.shouldUpdateBeforeListingVersions)
+    }
+
+    func test_XcodeList_LoadsCacheEvenIfAttributesFailToLoad() {
+        Current.files.contentsAtPath = { _ in try! JSONEncoder().encode([Self.mockXcode]) }
+        Current.files.attributesOfItemAtPath = { _ in throw NSError(domain: "com.robotsandpencils.xcodes", code: 0) }
+
+        let xcodesList = XcodeList()
+
+        XCTAssert(xcodesList.availableXcodes == [Self.mockXcode])
+    }
 }

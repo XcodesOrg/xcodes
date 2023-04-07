@@ -3,7 +3,7 @@ import Path
 import Version
 import PromiseKit
 import SwiftSoup
-import XCModel
+import struct XCModel.Xcode
 
 /// Provides lists of available and installed Xcodes
 public final class XcodeList {
@@ -12,9 +12,14 @@ public final class XcodeList {
     }
 
     public private(set) var availableXcodes: [Xcode] = []
+    public private(set) var lastUpdated: Date?
 
-    public var shouldUpdate: Bool {
-        return availableXcodes.isEmpty
+    public var shouldUpdateBeforeListingVersions: Bool {
+        return availableXcodes.isEmpty || (cacheAge ?? 0) > Self.maxCacheAge
+    }
+
+    public func shouldUpdateBeforeDownloading(version: Version) -> Bool {
+        return availableXcodes.first(withVersion: version) == nil
     }
 
     public func update(dataSource: DataSource) -> Promise<[Xcode]> {
@@ -30,6 +35,7 @@ public final class XcodeList {
                         prereleaseXcodes.contains { $0.version.isEquivalent(to: releasedXcode.version) } == false
                     } + prereleaseXcodes
                     self.availableXcodes = xcodes
+                    self.lastUpdated = Date()
                     try? self.cacheAvailableXcodes(xcodes)
                     return xcodes
                 }
@@ -37,6 +43,7 @@ public final class XcodeList {
             return xcodeReleases()
                 .map { xcodes in
                     self.availableXcodes = xcodes
+                    self.lastUpdated = Date()
                     try? self.cacheAvailableXcodes(xcodes)
                     return xcodes
                 }
@@ -45,17 +52,29 @@ public final class XcodeList {
 }
 
 extension XcodeList {
+    private static let maxCacheAge = TimeInterval(86400) // 24 hours
+
+    private var cacheAge: TimeInterval? {
+        guard let lastUpdated = lastUpdated else { return nil }
+        return -lastUpdated.timeIntervalSinceNow
+    }
+
     private func loadCachedAvailableXcodes() throws {
         guard let data = Current.files.contents(atPath: Path.cacheFile.string) else { return }
         let xcodes = try JSONDecoder().decode([Xcode].self, from: data)
+
+        let attributes = try? Current.files.attributesOfItem(atPath: Path.cacheFile.string)
+        let lastUpdated = attributes?[.modificationDate] as? Date
+
         self.availableXcodes = xcodes
+        self.lastUpdated = lastUpdated
     }
 
     private func cacheAvailableXcodes(_ xcodes: [Xcode]) throws {
         let data = try JSONEncoder().encode(xcodes)
         try FileManager.default.createDirectory(at: Path.cacheFile.url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-        try data.write(to: Path.cacheFile.url)
+        try Current.files.write(data, to: Path.cacheFile.url)
     }
 }
 
