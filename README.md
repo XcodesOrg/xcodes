@@ -8,6 +8,10 @@ _If you're looking for an app version of `xcodes`, try [Xcodes.app](https://gith
 
 ![Header Image](Header.png)
 
+### :tada: Announcment
+
+Xcodes is now part of the `XcodesOrg` - [read more here](nextstep.md)
+
 ## Installation
 
 ### Homebrew (Preferred)
