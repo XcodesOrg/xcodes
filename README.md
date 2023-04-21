@@ -2,9 +2,9 @@
 
 The best command-line tool to install and switch between multiple versions of Xcode.
 
-_If you're looking for an app version of `xcodes`, try [Xcodes.app](https://github.com/RobotsAndPencils/XcodesApp)._
+_If you're looking for an app version of `xcodes`, try [Xcodes.app](https://github.com/XcodesOrg/XcodesApp)._
 
-![CI Status](https://github.com/RobotsAndPencils/xcodes/workflows/CI/badge.svg)
+![CI Status](https://github.com/XcodesOrg/xcodes/workflows/CI/badge.svg)
 
 ![Header Image](Header.png)
 
@@ -17,7 +17,7 @@ Xcodes is now part of the `XcodesOrg` - [read more here](nextstep.md)
 ### Homebrew (Preferred)
 
 ```sh
-brew install robotsandpencils/made/xcodes
+brew install xcodesorg/made/xcodes
 ```
 
 These are Developer ID-signed and notarized release builds and don't require Xcode to already be installed in order to use.
@@ -27,14 +27,14 @@ These are Developer ID-signed and notarized release builds and don't require Xco
 <details>
 <summary>Download a release</summary>
 
-Download the latest release from the [Releases](https://github.com/RobotsAndPencils/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+Download the latest release from the [Releases](https://github.com/XcodesOrg/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
 </details>
 
 <details>
 <summary>Using <a href="https://github.com/yonaskolb/Mint">Mint</a></summary>
 
 ```sh
-mint install RobotsAndPencils/xcodes
+mint install XcodesOrg/xcodes
 ```
 
 </details>
@@ -45,7 +45,7 @@ mint install RobotsAndPencils/xcodes
 Building from source requires Xcode 12.0 or later, so it's not an option for setting up a computer from scratch.
 
 ```sh
-git clone https://github.com/RobotsAndPencils/xcodes
+git clone https://github.com/XcodesOrg/xcodes
 cd xcodes
 make install
 # or, if /usr/local/ isn't in your PATH
@@ -201,7 +201,7 @@ git push --follow-tags
 # Add the xcodes.zip and xcodes-$VERSION.mojave.tar.gz files to the release
 # Publish the release
 
-# Update the Homebrew Bottle: https://github.com/RobotsAndPencils/homebrew-made/blob/master/Formula/xcodes.rb
+# Update the Homebrew Bottle: https://github.com/XcodesOrg/homebrew-made/blob/master/Formula/xcodes.rb
 ```
 
 </details>
@@ -210,10 +210,6 @@ Notable design decisions are recorded in [DECISIONS.md](./DECISIONS.md). The App
 
 [`xcode-install`](https://github.com/xcpretty/xcode-install) and [fastlane/spaceship](https://github.com/fastlane/fastlane/tree/master/spaceship) both deserve credit for figuring out the hard parts of what makes this possible.
 
-## Contact
+## Maintainers
 
-<a href="http://www.robotsandpencils.com"><img src="R&PLogo.png" width="153" height="74" /></a>
-
-Made with ❤️ by [Robots & Pencils](http://www.robotsandpencils.com)
-
-[Twitter](https://twitter.com/robotsNpencils) | [GitHub](https://github.com/robotsandpencils)
+[Matt Kiazyk](https://github.com/mattkiazyk) - [Twitter](https://www.twitter.com/mattkiazyk)
