@@ -64,6 +64,8 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 
 ## Usage
 
+### Install Xcode : 
+
 Install a specific version of Xcode using a command like one of these:
 
 ```sh
@@ -98,6 +100,20 @@ Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 If you have [aria2](https://aria2.github.io) installed (it's available in Homebrew, `brew install aria2`), then xcodes will default to use it for downloads. It uses up to 16 connections to download Xcode 3-5x faster than URLSession.
 
 Xcode will be installed to /Applications by default, but you can provide the path to a different directory with the `--directory` option or the `XCODES_DIRECTORY` environment variable. All of the xcodes commands support this option, like `select` and `uninstall`, so you can manage Xcode versions that aren't in /Applications. xcodes supports having all of your Xcode versions installed in _one_ directory, wherever that may be.
+
+### Install Runtimes : 
+
+Run this command line to display the available runtimes 
+
+```sh
+xcodes runtimes --include-betas
+```
+
+Install the wanted Runtime (ex. iOS 17.0-beta1)
+
+```sh
+xcodes runtimes install "iOS 17.0-beta1"
+```
 
 ### `.xcode-version`
 
