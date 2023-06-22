@@ -20,6 +20,11 @@ iOS 15.4
 iOS 15.5 (Bundled with selected Xcode)
 iOS 15.5 (Installed)
 iOS 16.0
+iOS 16.1
+iOS 16.2
+iOS 16.4
+iOS 17.0-beta1
+iOS 17.0-beta2
 -- watchOS --
 watchOS 6.0
 watchOS 6.1.1
@@ -31,14 +36,13 @@ watchOS 7.4
 watchOS 8.0
 watchOS 8.3
 watchOS 8.5 (Bundled with selected Xcode)
-watchOS 9.0-beta1
-watchOS 9.0-beta2
-watchOS 9.0-beta3
 watchOS 9.0-beta4 (Installed)
-watchOS 9.0-beta5
 watchOS 9.0 (20R362)
 watchOS 9.0 (UnknownBuildNumber) (Installed)
-watchOS 9.1-beta1
+watchOS 9.1
+watchOS 9.4
+watchOS 10.0-beta1
+watchOS 10.0-beta2
 -- tvOS --
 tvOS 12.4
 tvOS 13.0
@@ -53,12 +57,12 @@ tvOS 14.5
 tvOS 15.0
 tvOS 15.2
 tvOS 15.4 (Bundled with selected Xcode)
-tvOS 16.0-beta1
-tvOS 16.0-beta2
-tvOS 16.0-beta3
-tvOS 16.0-beta4
-tvOS 16.0-beta5
 tvOS 16.0
-tvOS 16.1-beta1
+tvOS 16.1
+tvOS 16.4
+tvOS 17.0-beta1
+tvOS 17.0-beta2
+-- visionOS --
+visionOS 1.0-beta1
 
 Note: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)

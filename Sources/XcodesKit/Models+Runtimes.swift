@@ -86,6 +86,7 @@ extension DownloadableRuntime {
         case macOS = "com.apple.platform.macosx"
         case watchOS = "com.apple.platform.watchos"
         case tvOS = "com.apple.platform.appletvos"
+        case visionOS = "com.apple.platform.xros"
 
         var order: Int {
             switch self {
@@ -93,6 +94,7 @@ extension DownloadableRuntime {
                 case .macOS: return 2
                 case .watchOS: return 3
                 case .tvOS: return 4
+                case .visionOS: return 5
             }
         }
 
@@ -102,6 +104,7 @@ extension DownloadableRuntime {
                 case .macOS: return "macOS"
                 case .watchOS: return "watchOS"
                 case .tvOS: return "tvOS"
+                case .visionOS: return "visionOS"
             }
         }
     }
