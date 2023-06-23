@@ -137,12 +137,14 @@ extension InstalledRuntime {
         case tvOS = "com.apple.platform.appletvsimulator"
         case iOS = "com.apple.platform.iphonesimulator"
         case watchOS = "com.apple.platform.watchsimulator"
+        case visionOS = "com.apple.platform.visionsimulator"
 
         var asPlatformOS: DownloadableRuntime.Platform {
             switch self {
                 case .watchOS: return .watchOS
                 case .iOS: return .iOS
                 case .tvOS: return .tvOS
+                case .visionOS: return .visionOS
             }
         }
     }
