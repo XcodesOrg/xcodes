@@ -627,7 +627,7 @@ public final class XcodeInstaller {
                 return Promise { seal in
                     Task.detached {
                         let output = source.deletingLastPathComponent()
-                        let options = UnxipOptions(input: source, output: output)
+                        let options = UnxipOptions(input: source.absoluteString, output: output.absoluteString)
 
                         do {
                             try await Unxip(options: options).run()
