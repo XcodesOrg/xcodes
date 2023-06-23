@@ -80,14 +80,14 @@ final class RuntimeTests: XCTestCase {
     func test_downloadableRuntimes() async throws {
         mockDownloadables()
         let values = try await runtimeList.downloadableRuntimes().downloadables
-        XCTAssertEqual(values.count, 57)
+        XCTAssertEqual(values.count, 59)
     }
 
     func test_downloadableRuntimesNoBetas() async throws {
         mockDownloadables()
         let values = try await runtimeList.downloadableRuntimes().downloadables.filter { $0.betaNumber == nil }
         XCTAssertFalse(values.contains { $0.name.lowercased().contains("beta") })
-        XCTAssertEqual(values.count, 45)
+        XCTAssertEqual(values.count, 52)
     }
 
     func test_printAvailableRuntimes() async throws {
