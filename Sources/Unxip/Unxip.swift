@@ -568,11 +568,11 @@ extension option {
 }
 
 public struct UnxipOptions {
-    var input: String?
-    var output: String?
+    var input: URL
+    var output: URL?
     var compress: Bool = true
    
-    public init(input: String?, output: String?) {
+    public init(input: URL, output: URL?) {
         self.input = input
         self.output = output
     }
@@ -891,14 +891,11 @@ public struct Unxip {
     }
 
     public func run() async throws {
-        let handle =
-            try options.input.flatMap {
-                try FileHandle(forReadingFrom: URL(fileURLWithPath: $0))
-            } ?? FileHandle.standardInput
+        let handle = try FileHandle(forReadingFrom: options.input)
 
         if let output = options.output {
-            guard chdir(output) == 0 else {
-                fputs("Failed to access output directory at \(output): \(String(cString: strerror(errno)))", stderr)
+            guard chdir(output.path) == 0 else {
+                fputs("Failed to access output directory at \(output.path): \(String(cString: strerror(errno)))", stderr)
                 exit(EXIT_FAILURE)
             }
         }
