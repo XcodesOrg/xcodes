@@ -91,6 +91,10 @@ final class ModelsFirstWithVersionTests: XCTestCase {
             installedXcodes.first(withVersion: Version(xcodeVersion: "1.2.3 Beta 2")!),
             InstalledXcode(path: Path("/Applications/Xcode-1.2.3-beta.2.app")!, version: Version(xcodeVersion: "1.2.3 Beta 2")!)
         )
+        XCTAssertEqual(
+            installedXcodes.first(withVersion: Version(xcodeVersion: "1.2.3b2")!),
+            InstalledXcode(path: Path("/Applications/Xcode-1.2.3-beta.2.app")!, version: Version(xcodeVersion: "1.2.3 Beta 2")!)
+        )
         
         // With build metadata
         XCTAssertEqual(
