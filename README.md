@@ -2,18 +2,22 @@
 
 The best command-line tool to install and switch between multiple versions of Xcode.
 
-_If you're looking for an app version of `xcodes`, try [Xcodes.app](https://github.com/RobotsAndPencils/XcodesApp)._
+_If you're looking for an app version of `xcodes`, try [Xcodes.app](https://github.com/XcodesOrg/XcodesApp)._
 
-![CI Status](https://github.com/RobotsAndPencils/xcodes/workflows/CI/badge.svg)
+![CI Status](https://github.com/XcodesOrg/xcodes/workflows/CI/badge.svg)
 
 ![Header Image](Header.png)
+
+### :tada: Announcment
+
+Xcodes is now part of the `XcodesOrg` - [read more here](nextstep.md)
 
 ## Installation
 
 ### Homebrew (Preferred)
 
 ```sh
-brew install robotsandpencils/made/xcodes
+brew install xcodesorg/made/xcodes
 ```
 
 These are Developer ID-signed and notarized release builds and don't require Xcode to already be installed in order to use.
@@ -23,14 +27,14 @@ These are Developer ID-signed and notarized release builds and don't require Xco
 <details>
 <summary>Download a release</summary>
 
-Download the latest release from the [Releases](https://github.com/RobotsAndPencils/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
+Download the latest release from the [Releases](https://github.com/XcodesOrg/xcodes/releases) page. These are Developer ID-signed release builds and don't require Xcode to already be installed in order to use.
 </details>
 
 <details>
 <summary>Using <a href="https://github.com/yonaskolb/Mint">Mint</a></summary>
 
 ```sh
-mint install RobotsAndPencils/xcodes
+mint install XcodesOrg/xcodes
 ```
 
 </details>
@@ -41,7 +45,7 @@ mint install RobotsAndPencils/xcodes
 Building from source requires Xcode 12.0 or later, so it's not an option for setting up a computer from scratch.
 
 ```sh
-git clone https://github.com/RobotsAndPencils/xcodes
+git clone https://github.com/XcodesOrg/xcodes
 cd xcodes
 make install
 # or, if /usr/local/ isn't in your PATH
@@ -59,6 +63,8 @@ If that occurs, it means you need to select a version of Xcode. You can do this 
 </details>
 
 ## Usage
+
+### Install Xcode : 
 
 Install a specific version of Xcode using a command like one of these:
 
@@ -94,6 +100,20 @@ Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 If you have [aria2](https://aria2.github.io) installed (it's available in Homebrew, `brew install aria2`), then xcodes will default to use it for downloads. It uses up to 16 connections to download Xcode 3-5x faster than URLSession.
 
 Xcode will be installed to /Applications by default, but you can provide the path to a different directory with the `--directory` option or the `XCODES_DIRECTORY` environment variable. All of the xcodes commands support this option, like `select` and `uninstall`, so you can manage Xcode versions that aren't in /Applications. xcodes supports having all of your Xcode versions installed in _one_ directory, wherever that may be.
+
+### Install Runtimes : 
+
+Run this command line to display the available runtimes 
+
+```sh
+xcodes runtimes --include-betas
+```
+
+Install the wanted Runtime (ex. iOS 17.0-beta1)
+
+```sh
+xcodes runtimes install "iOS 17.0-beta1"
+```
 
 ### `.xcode-version`
 
@@ -197,7 +217,7 @@ git push --follow-tags
 # Add the xcodes.zip and xcodes-$VERSION.mojave.tar.gz files to the release
 # Publish the release
 
-# Update the Homebrew Bottle: https://github.com/RobotsAndPencils/homebrew-made/blob/master/Formula/xcodes.rb
+# Update the Homebrew Bottle: https://github.com/XcodesOrg/homebrew-made/blob/master/Formula/xcodes.rb
 ```
 
 </details>
@@ -206,10 +226,6 @@ Notable design decisions are recorded in [DECISIONS.md](./DECISIONS.md). The App
 
 [`xcode-install`](https://github.com/xcpretty/xcode-install) and [fastlane/spaceship](https://github.com/fastlane/fastlane/tree/master/spaceship) both deserve credit for figuring out the hard parts of what makes this possible.
 
-## Contact
+## Maintainers
 
-<a href="http://www.robotsandpencils.com"><img src="R&PLogo.png" width="153" height="74" /></a>
-
-Made with ❤️ by [Robots & Pencils](http://www.robotsandpencils.com)
-
-[Twitter](https://twitter.com/robotsNpencils) | [GitHub](https://github.com/robotsandpencils)
+[Matt Kiazyk](https://github.com/mattkiazyk) - [Twitter](https://www.twitter.com/mattkiazyk)

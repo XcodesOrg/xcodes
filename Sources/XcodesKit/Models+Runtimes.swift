@@ -86,6 +86,7 @@ extension DownloadableRuntime {
         case macOS = "com.apple.platform.macosx"
         case watchOS = "com.apple.platform.watchos"
         case tvOS = "com.apple.platform.appletvos"
+        case visionOS = "com.apple.platform.xros"
 
         var order: Int {
             switch self {
@@ -93,6 +94,7 @@ extension DownloadableRuntime {
                 case .macOS: return 2
                 case .watchOS: return 3
                 case .tvOS: return 4
+                case .visionOS: return 5
             }
         }
 
@@ -102,6 +104,7 @@ extension DownloadableRuntime {
                 case .macOS: return "macOS"
                 case .watchOS: return "watchOS"
                 case .tvOS: return "tvOS"
+                case .visionOS: return "visionOS"
             }
         }
     }
@@ -134,12 +137,14 @@ extension InstalledRuntime {
         case tvOS = "com.apple.platform.appletvsimulator"
         case iOS = "com.apple.platform.iphonesimulator"
         case watchOS = "com.apple.platform.watchsimulator"
+        case visionOS = "com.apple.platform.xrsimulator"
 
         var asPlatformOS: DownloadableRuntime.Platform {
             switch self {
                 case .watchOS: return .watchOS
                 case .iOS: return .iOS
                 case .tvOS: return .tvOS
+                case .visionOS: return .visionOS
             }
         }
     }

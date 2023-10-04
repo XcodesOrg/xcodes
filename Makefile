@@ -29,8 +29,8 @@ xcodes: $(SOURCES)
 .PHONY: sign
 sign: xcodes
 	@codesign \
-		--sign "Developer ID Application: Robots and Pencils Inc. (PBH8V487HB)" \
-		--prefix com.robotsandpencils. \
+		--sign "Developer ID Application: Matt Kiazyk (ZU6GR6B2FY)" \
+		--prefix com.xcodesorg. \
 		--options runtime \
 		--timestamp \
 		"$(RELEASEBUILDDIR)"

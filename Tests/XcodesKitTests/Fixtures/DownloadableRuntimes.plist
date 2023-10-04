@@ -148,7 +148,7 @@
                         <string>arm64</string>
                     </array>
                     <key>maxHostVersion</key>
-                    <string>12.99.0</string>
+                    <string>12.99</string>
                 </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.WatchSimulatorSDK6_0</string>
@@ -312,7 +312,7 @@
                         <string>arm64</string>
                     </array>
                     <key>maxHostVersion</key>
-                    <string>12.99.0</string>
+                    <string>12.99</string>
                 </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.WatchSimulatorSDK6_1</string>
@@ -439,6 +439,11 @@
                 <integer>1587361125</integer>
                 <key>identifier</key>
                 <string>com.apple.pkg.AppleTVSimulatorSDK13_4</string>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>12.99</string>
+                </dict>
                 <key>name</key>
                 <string>tvOS 13.4 Simulator</string>
                 <key>platform</key>
@@ -470,6 +475,8 @@
                     <array>
                         <string>arm64</string>
                     </array>
+                  <key>maxHostVersion</key>
+                    <string>12.99</string>
                 </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.WatchSimulatorSDK6_2</string>
@@ -530,6 +537,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>3373020521</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>12.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.iPhoneSimulatorSDK13_7</string>
                 <key>name</key>
@@ -557,6 +569,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>4713624934</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.iPhoneSimulatorSDK14_0</string>
                 <key>name</key>
@@ -611,6 +628,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>4879693158</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.iPhoneSimulatorSDK14_1</string>
                 <key>name</key>
@@ -638,6 +660,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>2558604649</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.AppleTVSimulatorSDK14_0</string>
                 <key>name</key>
@@ -665,6 +692,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>4913771875</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.iPhoneSimulatorSDK14_2</string>
                 <key>name</key>
@@ -719,6 +751,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>2582001001</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.AppleTVSimulatorSDK14_2</string>
                 <key>name</key>
@@ -746,6 +783,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>2641311079</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.AppleTVSimulatorSDK14_3</string>
                 <key>name</key>
@@ -773,6 +815,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>4995102054</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.iPhoneSimulatorSDK14_3</string>
                 <key>name</key>
@@ -831,6 +878,8 @@
                 <dict>
                     <key>minHostVersion</key>
                     <string>12.0</string>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
                     <key>minXcodeVersion</key>
                     <string>13.0</string>
                 </dict>
@@ -861,6 +910,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>2641114477</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.AppleTVSimulatorSDK14_4</string>
                 <key>name</key>
@@ -888,6 +942,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>2680763745</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.AppleTVSimulatorSDK14_5</string>
                 <key>name</key>
@@ -915,6 +974,11 @@
                 <integer>2</integer>
                 <key>fileSize</key>
                 <integer>5038290278</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>maxHostVersion</key>
+                    <string>13.99</string>
+                </dict>
                 <key>identifier</key>
                 <string>com.apple.pkg.iPhoneSimulatorSDK14_5</string>
                 <key>name</key>
@@ -1231,284 +1295,6 @@
                 <string>15.5.1.1653527639</string>
             </dict>
             <dict>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3221390293</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.AppleTVSimulatorSDK16_0b1</string>
-                <key>name</key>
-                <string>tvOS 16 beta Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.appletvos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20J5299n</string>
-                    <key>version</key>
-                    <string>16.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://devimages-cdn.apple.com/downloads/xcode/simulators/tvOS%2016%20beta%20Simulator%20Runtime.dmg</string>
-                <key>version</key>
-                <string>16.0.0.1</string>
-            </dict>
-            <dict>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3085745062</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.WatchSimulatorSDK9_0b1</string>
-                <key>name</key>
-                <string>watchOS 9 beta Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.watchos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20R5287p</string>
-                    <key>version</key>
-                    <string>9.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://devimages-cdn.apple.com/downloads/xcode/simulators/watchOS%209%20beta%20Simulator%20Runtime.dmg</string>
-                <key>version</key>
-                <string>9.0.0.1</string>
-            </dict>
-            <dict>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3337749440</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.AppleTVSimulatorSDK16_0b2</string>
-                <key>name</key>
-                <string>tvOS 16 beta 2 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.appletvos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20J5319f</string>
-                    <key>version</key>
-                    <string>16.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://devimages-cdn.apple.com/downloads/xcode/simulators/tvOS%2016%20beta%202%20Simulator%20Runtime.dmg</string>
-                <key>version</key>
-                <string>16.0.0.2</string>
-            </dict>
-            <dict>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3197699949</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.WatchSimulatorSDK9_0b2</string>
-                <key>name</key>
-                <string>watchOS 9 beta 2 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.watchos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20R5307f</string>
-                    <key>version</key>
-                    <string>9.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://devimages-cdn.apple.com/downloads/xcode/simulators/watchOS%209%20beta%202%20Simulator%20Runtime.dmg</string>
-                <key>version</key>
-                <string>9.0.0.2</string>
-            </dict>
-            <dict>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3298800785</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.AppleTVSimulatorSDK16_0b3</string>
-                <key>name</key>
-                <string>tvOS 16 beta 3 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.appletvos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20J5328e</string>
-                    <key>version</key>
-                    <string>16.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://devimages-cdn.apple.com/downloads/xcode/simulators/tvOS%2016%20beta%203%20Simulator%20Runtime.dmg</string>
-                <key>version</key>
-                <string>16.0.0.3</string>
-            </dict>
-            <dict>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3242624768</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.WatchSimulatorSDK9_0b3</string>
-                <key>name</key>
-                <string>watchOS 9 beta 3 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.watchos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20R5316e</string>
-                    <key>version</key>
-                    <string>9.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://devimages-cdn.apple.com/downloads/xcode/simulators/watchOS%209%20beta%203%20Simulator%20Runtime.dmg</string>
-                <key>version</key>
-                <string>9.0.0.3</string>
-            </dict>
-            <dict>
-                <key>authentication</key>
-                <string>virtual</string>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3278650917</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.AppleTVSimulatorSDK16_0b4</string>
-                <key>name</key>
-                <string>tvOS 16 beta 4 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.appletvos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20J5344e</string>
-                    <key>version</key>
-                    <string>16.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://download.developer.apple.com/Developer_Tools/tvOS_16_beta_4_Simulator_Runtime/tvOS_16_beta_4_Simulator_Runtime.dmg</string>
-                <key>version</key>
-                <string>16.0.0.4</string>
-            </dict>
-            <dict>
-                <key>authentication</key>
-                <string>virtual</string>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3228397551</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.WatchSimulatorSDK9_0b4</string>
-                <key>name</key>
-                <string>watchOS 9 beta 4 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.watchos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20R5332f</string>
-                    <key>version</key>
-                    <string>9.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://download.developer.apple.com/Developer_Tools/watchOS_9_beta_4_Simulator_Runtime/watchOS_9_beta_4_Simulator_Runtime.dmg</string>
-                <key>version</key>
-                <string>9.0.0.4</string>
-            </dict>
-            <dict>
-                <key>authentication</key>
-                <string>virtual</string>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3300627519</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.AppleTVSimulatorSDK16_0b5</string>
-                <key>name</key>
-                <string>tvOS 16 beta 5 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.appletvos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20J5355f</string>
-                    <key>version</key>
-                    <string>16.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://download.developer.apple.com/Developer_Tools/tvOS_16_beta_5_Simulator_Runtime/tvOS_16_beta_5_Simulator_Runtime.dmg</string>
-                <key>version</key>
-                <string>16.0.0.5</string>
-            </dict>
-            <dict>
-                <key>authentication</key>
-                <string>virtual</string>
-                <key>category</key>
-                <string>simulator</string>
-                <key>contentType</key>
-                <string>diskImage</string>
-                <key>dictionaryVersion</key>
-                <integer>2</integer>
-                <key>fileSize</key>
-                <integer>3231273872</integer>
-                <key>identifier</key>
-                <string>com.apple.dmg.WatchSimulatorSDK9_0b5</string>
-                <key>name</key>
-                <string>watchOS 9 beta 5 Simulator Runtime</string>
-                <key>platform</key>
-                <string>com.apple.platform.watchos</string>
-                <key>simulatorVersion</key>
-                <dict>
-                    <key>buildUpdate</key>
-                    <string>20R5343e</string>
-                    <key>version</key>
-                    <string>9.0</string>
-                </dict>
-                <key>source</key>
-                <string>https://download.developer.apple.com/Developer_Tools/watchOS_9_beta_5_Simulator_Runtime/watchOS_9_beta_5_Simulator_Runtime.dmg</string>
-                <key>version</key>
-                <string>9.0.0.5</string>
-            </dict>
-            <dict>
                 <key>authentication</key>
                 <string>virtual</string>
                 <key>category</key>
@@ -1605,24 +1391,24 @@
                 <key>dictionaryVersion</key>
                 <integer>2</integer>
                 <key>fileSize</key>
-                <integer>3326848916</integer>
+                <integer>3363890340</integer>
                 <key>identifier</key>
-                <string>com.apple.dmg.AppleTVSimulatorSDK16_1_b1</string>
+                <string>com.apple.dmg.AppleTVSimulatorSDK16_1</string>
                 <key>name</key>
-                <string>tvOS 16.1 Simulator Runtime Beta</string>
+                <string>tvOS 16.1 Simulator Runtime</string>
                 <key>platform</key>
                 <string>com.apple.platform.appletvos</string>
                 <key>simulatorVersion</key>
                 <dict>
                     <key>buildUpdate</key>
-                    <string>20K5041d</string>
+                    <string>20K67</string>
                     <key>version</key>
                     <string>16.1</string>
                 </dict>
                 <key>source</key>
-                <string>https://download.developer.apple.com/Developer_Tools/tvOS_16.1_beta_Simulator_Runtime/tvOS_16.1_beta_Simulator_Runtime.dmg</string>
+                <string>https://download.developer.apple.com/Developer_Tools/tvOS_16.1_Simulator_Runtime/tvOS_16.1_Simulator_Runtime.dmg</string>
                 <key>version</key>
-                <string>16.1.0.1</string>
+                <string>16.1.0.0</string>
             </dict>
             <dict>
                 <key>authentication</key>
@@ -1634,26 +1420,381 @@
                 <key>dictionaryVersion</key>
                 <integer>2</integer>
                 <key>fileSize</key>
-                <integer>3619633292</integer>
+                <integer>3627381860</integer>
                 <key>identifier</key>
-                <string>com.apple.dmg.WatchSimulatorSDK9_1_b1</string>
+                <string>com.apple.dmg.WatchSimulatorSDK9_1</string>
                 <key>name</key>
-                <string>watchOS 9.1 Simulator Runtime Beta</string>
+                <string>watchOS 9.1 Simulator Runtime</string>
                 <key>platform</key>
                 <string>com.apple.platform.watchos</string>
                 <key>simulatorVersion</key>
                 <dict>
                     <key>buildUpdate</key>
-                    <string>20S5044e</string>
+                    <string>20S75</string>
                     <key>version</key>
                     <string>9.1</string>
                 </dict>
                 <key>source</key>
-                <string>https://download.developer.apple.com/Developer_Tools/watchOS_9.1_beta_Simulator_Runtime/watchOS_9.1_beta_Simulator_Runtime.dmg</string>
+                <string>https://download.developer.apple.com/Developer_Tools/watchOS_9.1_Simulator_Runtime/watchOS_9.1_Simulator_Runtime.dmg</string>
                 <key>version</key>
-                <string>9.1.0.1</string>
+                <string>9.1.0.0</string>
             </dict>
-        </array>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>6325927910</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.iPhoneSimulatorSDK16_1</string>
+                <key>name</key>
+                <string>iOS 16.1 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>20B72</string>
+                    <key>version</key>
+                    <string>16.1</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/iOS_16.1_Simulator_Runtime/iOS_16.1_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>16.1.0.0</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>6407069874</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.iPhoneSimulatorSDK16_2</string>
+                <key>name</key>
+                <string>iOS 16.2 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>20C52</string>
+                    <key>version</key>
+                    <string>16.2</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/iOS_16.2_Simulator_Runtime/iOS_16.2_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>16.2.0.0</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>3457045786</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.AppleTVSimulatorSDK16_4</string>
+                <key>name</key>
+                <string>tvOS 16.4 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>20L494</string>
+                    <key>version</key>
+                    <string>16.4</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/tvOS_16.4_Simulator_Runtime/tvOS_16.4_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>16.4.0.0</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>3597497121</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.WatchSimulatorSDK9_4</string>
+                <key>name</key>
+                <string>watchOS 9.4 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>20T253</string>
+                    <key>version</key>
+                    <string>9.4</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/watchOS_9.4_Simulator_Runtime/watchOS_9.4_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>9.4.0.0</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>6182486138</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.iPhoneSimulatorSDK16_4</string>
+                <key>name</key>
+                <string>iOS 16.4 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>20E247</string>
+                    <key>version</key>
+                    <string>16.4</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/iOS_16.4_Simulator_Runtime/iOS_16.4_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>16.4.0.0</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>3717677009</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.AppleTVSimulatorSDK17_0_b1</string>
+                <key>name</key>
+                <string>tvOS 17.0 beta Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>21J5273p</string>
+                    <key>version</key>
+                    <string>17.0</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/tvOS_17_beta/tvOS_17_beta_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>17.0.0.1</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>3912372147</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.WatchSimulatorSDK10_0_b1</string>
+                <key>name</key>
+                <string>watchOS 10.0 beta Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>21R5275s</string>
+                    <key>version</key>
+                    <string>10.0</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/watchOS_10_beta/watchOS_10_beta_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>10.0.0.1</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>7534187147</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.iPhoneSimulatorSDK17_0_b1</string>
+                <key>name</key>
+                <string>iOS 17.0 beta Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>21A5248u</string>
+                    <key>version</key>
+                    <string>17.0</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/iOS_17_beta/iOS_17_beta_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>17.0.0.1</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>3729832117</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.AppleTVSimulatorSDK17_0_b2</string>
+                <key>name</key>
+                <string>tvOS 17.0 beta 2 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>21J5293g</string>
+                    <key>version</key>
+                    <string>17.0</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/tvOS_17_beta_2/tvOS_17_beta_2_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>17.0.0.2</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>3932198802</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.WatchSimulatorSDK10_0_b2</string>
+                <key>name</key>
+                <string>watchOS 10.0 beta 2 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>21R5295g</string>
+                    <key>version</key>
+                    <string>10.0</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/watchOS_10_beta_2/watchOS_10_beta_2_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>10.0.0.2</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>7529869240</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.iPhoneSimulatorSDK17_0_b2</string>
+                <key>name</key>
+                <string>iOS 17.0 beta 2 Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>21A5268h</string>
+                    <key>version</key>
+                    <string>17.0</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/iOS_17_beta_2/iOS_17_beta_2_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>17.0.0.2</string>
+            </dict>
+            <dict>
+                <key>authentication</key>
+                <string>virtual</string>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>diskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>fileSize</key>
+                <integer>7354535384</integer>
+                <key>hostRequirements</key>
+                <dict>
+                    <key>minHostVersion</key>
+                    <string>13.4</string>
+                    <key>minXcodeVersion</key>
+                    <string>15.0</string>
+                </dict>
+                <key>identifier</key>
+                <string>com.apple.dmg.xrSimulatorSDK1_0_b1</string>
+                <key>name</key>
+                <string>xrOS 1 beta Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.xros</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>21N5165g</string>
+                    <key>version</key>
+                    <string>1.0</string>
+                </dict>
+                <key>source</key>
+                <string>https://download.developer.apple.com/Developer_Tools/visionOS_1_beta/visionOS_1_beta_Simulator_Runtime.dmg</string>
+                <key>version</key>
+                <string>1.0.0.1</string>
+            </dict>
+	</array>
         <key>refreshInterval</key>
         <integer>86400</integer>
         <key>sdkToSeedMappings</key>
@@ -1858,6 +1999,254 @@
                 <key>seedNumber</key>
                 <integer>1</integer>
             </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>22A5358d</string>
+                <key>platform</key>
+                <string>com.apple.platform.macosx</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20B5056e</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20K5052c</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20S5055d</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20S5055e</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>22E5219e</string>
+                <key>platform</key>
+                <string>com.apple.platform.macosx</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20E5212f</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20L5463g</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20T5222f</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>22E5230e</string>
+                <key>platform</key>
+                <string>com.apple.platform.macosx</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20E5223f</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20L5474e</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20T5233d</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>22E5245a</string>
+                <key>platform</key>
+                <string>com.apple.platform.macosx</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20E5238a</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20E5239a</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20L5489a</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>20T5248a</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>3</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>23A5257p</string>
+                <key>platform</key>
+                <string>com.apple.platform.macosx</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21A5248u</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21J5273p</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21R5275s</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>23A5276e</string>
+                <key>platform</key>
+                <string>com.apple.platform.macosx</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21A5268f</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21J5293e</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21R5295e</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21N5165f</string>
+                <key>platform</key>
+                <string>com.apple.platform.xros</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21A5268h</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21J5293g</string>
+                <key>platform</key>
+                <string>com.apple.platform.appletvos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21R5295g</string>
+                <key>platform</key>
+                <string>com.apple.platform.watchos</string>
+                <key>seedNumber</key>
+                <integer>2</integer>
+            </dict>
+            <dict>
+                <key>buildUpdate</key>
+                <string>21N5165g</string>
+                <key>platform</key>
+                <string>com.apple.platform.xros</string>
+                <key>seedNumber</key>
+                <integer>1</integer>
+            </dict>
         </array>
         <key>sdkToSimulatorMappings</key>
         <array>
@@ -2044,6 +2433,214 @@
                 <string>watchos9.1</string>
                 <key>simulatorBuildUpdate</key>
                 <string>20S5044e</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20B5056e</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos16.1</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20B5056e</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20K5052c</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos16.1</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20K5052c</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20S5055d</string>
+                <key>sdkIdentifier</key>
+                <string>watchos9.1</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20S5055e</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20B71</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos16.1</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20B72</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20K67</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos16.1</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20K67</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20S71</string>
+                <key>sdkIdentifier</key>
+                <string>watchos9.1</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20S75</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20C52</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos16.2</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20C52</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20E5212f</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20E5212f</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20L5463g</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20L5463g</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20T5222f</string>
+                <key>sdkIdentifier</key>
+                <string>watchos9.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20T5222f</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20E5223f</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20E5223f</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20L5474e</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20L5474e</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20T5233d</string>
+                <key>sdkIdentifier</key>
+                <string>watchos9.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20T5233d</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20E5238a</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20E5239a</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20L5489a</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20L5489a</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20T5248a</string>
+                <key>sdkIdentifier</key>
+                <string>watchos9.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20T5248a</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20E238</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20E247</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20L489</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos16.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20L494</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>20T248</string>
+                <key>sdkIdentifier</key>
+                <string>watchos9.4</string>
+                <key>simulatorBuildUpdate</key>
+                <string>20T253</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>21A5248u</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos17.0</string>
+                <key>simulatorBuildUpdate</key>
+                <string>21A5248u</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>21J5273p</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos17.0</string>
+                <key>simulatorBuildUpdate</key>
+                <string>21J5273p</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>21R5275s</string>
+                <key>sdkIdentifier</key>
+                <string>watchos10.0</string>
+                <key>simulatorBuildUpdate</key>
+                <string>21R5275s</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>21A5268f</string>
+                <key>sdkIdentifier</key>
+                <string>iphoneos17.0</string>
+                <key>simulatorBuildUpdate</key>
+                <string>21A5268h</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>21J5293e</string>
+                <key>sdkIdentifier</key>
+                <string>appletvos17.0</string>
+                <key>simulatorBuildUpdate</key>
+                <string>21J5293g</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>21R5295e</string>
+                <key>sdkIdentifier</key>
+                <string>watchos10.0</string>
+                <key>simulatorBuildUpdate</key>
+                <string>21R5295g</string>
+            </dict>
+            <dict>
+                <key>sdkBuildUpdate</key>
+                <string>21N5165f</string>
+                <key>sdkIdentifier</key>
+                <string>xros1.0</string>
+                <key>simulatorBuildUpdate</key>
+                <string>21N5165g</string>
             </dict>
         </array>
         <key>version</key>
