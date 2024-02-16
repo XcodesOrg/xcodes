@@ -290,6 +290,16 @@ struct Xcodes: AsyncParsableCommand {
                     return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                 }
             }
+            .recover { error -> Promise<InstalledXcode> in
+                if select, case let XcodeInstaller.Error.versionAlreadyInstalled(installedXcode) = error {
+                    Current.logging.log(error.legibleLocalizedDescription.green)
+                    return Promise { seal in
+                        seal.fulfill(installedXcode)
+                    }
+                } else {
+                    throw error
+                }
+            }
             .then { xcode -> Promise<Void> in
                 if select {
                     return selectXcode(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
