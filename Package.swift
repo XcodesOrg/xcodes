@@ -15,7 +15,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.1.4")),
         .package(url: "https://github.com/mxcl/Path.swift.git", .upToNextMinor(from: "0.16.0")),
         .package(url: "https://github.com/mxcl/Version.git", .upToNextMinor(from: "1.0.3")),
-        .package(url: "https://github.com/mxcl/PromiseKit.git", .upToNextMinor(from: "6.8.3")),
+        .package(url: "https://github.com/mxcl/PromiseKit.git", .upToNextMinor(from: "6.22.1")),
         .package(url: "https://github.com/PromiseKit/Foundation.git", .upToNextMinor(from: "3.4.0")),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", .upToNextMinor(from: "2.0.0")),
         .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
