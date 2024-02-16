@@ -43,6 +43,8 @@ public extension Version {
 
                     optionalPrereleaseIdentifiers[lastIndex] = "\(lastItem)-seed"
                 }
+            } else if type == "b" {
+                optionalPrereleaseIdentifiers.append("beta")
             } else {
                 optionalPrereleaseIdentifiers.append(type)
             }
