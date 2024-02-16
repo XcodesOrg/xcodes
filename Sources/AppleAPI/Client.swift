@@ -18,6 +18,8 @@ public class Client {
         case noTrustedPhoneNumbers
         case notAuthenticated
         case invalidHashcash
+        case missingSecurityCodeInfo
+        case accountUsesHardwareKey
         
         public var errorDescription: String? {
             switch self {
@@ -33,6 +35,10 @@ public class Client {
                 return "You are already signed out"
             case .invalidHashcash:
                 return "Could not create a hashcash for the session."
+            case .missingSecurityCodeInfo:
+                return "Expected security code info but didn't receive any."
+            case .accountUsesHardwareKey:
+                return "Account uses a hardware key for authentication but this is not supported yet."
             default:
                 return String(describing: self)
             }
@@ -58,7 +64,7 @@ public class Client {
         }
         .then { (data, _) -> Promise<(serviceKey: String, hashcash: String)> in
             struct ServiceKeyResponse: Decodable {
-                let authServiceKey: String
+                let authServiceKey: String?
             }
             
             let response = try JSONDecoder().decode(ServiceKeyResponse.self, from: data)
@@ -120,6 +126,8 @@ public class Client {
                 return Promise.value(())
             case .twoFactor:
                 return self.handleTwoFactor(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt, authOptions: authOptions)
+            case .hardwareKey:
+                throw Error.accountUsesHardwareKey
             case .unknown:
                 Current.logging.log("Received a response from Apple that indicates this account has two-step or two-factor authentication enabled, but xcodes is unsure how to handle this response:".red)
                 String(data: data, encoding: .utf8).map { Current.logging.log($0) }
@@ -134,7 +142,8 @@ public class Client {
         // SMS was sent automatically 
         if authOptions.smsAutomaticallySent {
             return firstly { () throws -> Promise<(data: Data, response: URLResponse)> in
-                let code = self.promptForSMSSecurityCode(length: authOptions.securityCode.length, for: authOptions.trustedPhoneNumbers!.first!)
+                guard let securityCode = authOptions.securityCode else { throw Error.missingSecurityCodeInfo }
+                let code = self.promptForSMSSecurityCode(length: securityCode.length, for: authOptions.trustedPhoneNumbers!.first!)
                 return Current.network.dataTask(with: try URLRequest.submitSecurityCode(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt, code: code))
                     .validateSecurityCodeResponse()
             }
@@ -146,9 +155,10 @@ public class Client {
             return handleWithPhoneNumberSelection(authOptions: authOptions, serviceKey: serviceKey, sessionID: sessionID, scnt: scnt)
             // Code is shown on trusted devices
         } else {
+            let securityCodeLength: Int = authOptions.securityCode?.length ?? 0
             let code = Current.shell.readLine("""
             Enter "sms" without quotes to exit this prompt and choose a phone number to send an SMS security code to.
-            Enter the \(authOptions.securityCode.length) digit code from one of your trusted devices: 
+            Enter the \(securityCodeLength) digit code from one of your trusted devices: 
             """) ?? ""
             
             if code == "sms" {
@@ -216,7 +226,8 @@ public class Client {
         .then { trustedPhoneNumber in
             Current.network.dataTask(with: try URLRequest.requestSecurityCode(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt, trustedPhoneID: trustedPhoneNumber.id))
                 .map { _ in
-                    self.promptForSMSSecurityCode(length: authOptions.securityCode.length, for: trustedPhoneNumber)
+                    guard let securityCodeLength = authOptions.securityCode?.length else { throw Error.missingSecurityCodeInfo }
+                    return self.promptForSMSSecurityCode(length: securityCodeLength, for: trustedPhoneNumber)
                 }
         }
         .then { code in
@@ -276,15 +287,18 @@ public extension Promise where T == (data: Data, response: URLResponse) {
 struct AuthOptionsResponse: Decodable {
     let trustedPhoneNumbers: [TrustedPhoneNumber]?
     let trustedDevices: [TrustedDevice]?
-    let securityCode: SecurityCodeInfo
+    let securityCode: SecurityCodeInfo?
     let noTrustedDevices: Bool?
     let serviceErrors: [ServiceError]?
+    let fsaChallenge: FSAChallenge?
     
     var kind: Kind {
         if trustedDevices != nil {
             return .twoStep
         } else if trustedPhoneNumbers != nil {
             return .twoFactor
+        } else if fsaChallenge != nil {
+            return .hardwareKey
         } else {
             return .unknown
         }
@@ -321,8 +335,15 @@ struct AuthOptionsResponse: Decodable {
         let securityCodeCooldown: Bool
     }
     
+    struct FSAChallenge: Decodable {
+        let challenge: String
+        let keyHandles: [String]
+        let rpId: String
+        let allowedCredentials: String
+    }
+    
     enum Kind {
-        case twoStep, twoFactor, unknown
+        case twoStep, twoFactor, hardwareKey, unknown
     }
 }
 
