@@ -116,6 +116,19 @@ final class RuntimeTests: XCTestCase {
         XCTAssertEqual(log, try String(contentsOf: outputUrl))
     }
 
+    func test_printAvailableRuntimes_WithUnusable() async throws {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+        mockDownloadables()
+        Current.shell.installedRuntimes = {
+            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes_WithUnusable", withExtension: "json", subdirectory: "Fixtures")!
+            return Promise.value((0, try! String(contentsOf: url), ""))
+        }
+        try await runtimeInstaller.printAvailableRuntimes(includeBetas: false)
+        let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtimes_WithUnusable", withExtension: "txt", subdirectory: "Fixtures")!
+        XCTAssertEqual(log, try String(contentsOf: outputUrl))
+    }
+    
     func test_wrongIdentifier() async throws {
         mockDownloadables()
         var resultError: RuntimeInstaller.Error? = nil
