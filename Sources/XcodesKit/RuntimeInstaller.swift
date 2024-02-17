@@ -137,7 +137,7 @@ public class RuntimeInstaller {
         // 1-Mount DMG and get the mounted path
         let mountedUrl = try await mountDMG(dmgUrl: dmgUrl)
         // 2-Get the first path under the mounted path, should be a .pkg
-        let pkgPath = try! Path(url: mountedUrl)!.ls().first!.path
+        let pkgPath = Path(url: mountedUrl)!.ls().first!
         // 3-Create a caches directory (if it doesn't exist), and
         // 4-Set its ownership to the current user (important because under sudo it would be owned by root)
         try Path.xcodesCaches.mkdir().setCurrentUserAsOwner()

@@ -40,8 +40,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mxcl/Path.swift.git",
       "state" : {
-        "revision" : "dac007e907a4f4c565cfdc55a9ce148a761a11d5",
-        "version" : "0.16.3"
+        "revision" : "8e355c28e9393c42e58b18c54cace2c42c98a616",
+        "version" : "1.4.1"
       }
     },
     {

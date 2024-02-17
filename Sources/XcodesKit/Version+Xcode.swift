@@ -59,7 +59,7 @@ public extension Version {
     }
 
     /// Attempt to instatiate a `Version` using the `.xcode-version` file in the provided directory
-    static func fromXcodeVersionFile(inDirectory: Path = Path.cwd) -> Version? {
+    static func fromXcodeVersionFile(inDirectory: some Pathish = Path.cwd) -> Version? {
         let xcodeVersionFilePath = inDirectory.join(".xcode-version")
         guard
             Current.files.fileExists(atPath: xcodeVersionFilePath.string),
