@@ -313,17 +313,17 @@ public struct Logging {
 public struct Keychain {
     private static let keychain = KeychainAccess.Keychain(service: "com.robotsandpencils.xcodes")
 
-    public var getString: (String) throws -> String? = keychain.getString(_:)
+    public var getString: (String) throws -> String? = { try keychain.getString($0) }
     public func getString(_ key: String) throws -> String? {
         try getString(key)
     }
 
-    public var set: (String, String) throws -> Void = keychain.set(_:key:)
+    public var set: (String, String) throws -> Void = { try keychain.set($0, key: $1) }
     public func set(_ value: String, key: String) throws {
         try set(value, key)
     }
 
-    public var remove: (String) throws -> Void = keychain.remove(_:)
+    public var remove: (String) throws -> Void = { try keychain.remove($0) }
     public func remove(_ key: String) throws -> Void {
         try remove(key)
     }
