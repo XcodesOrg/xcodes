@@ -24,6 +24,13 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
 
         let versionToSelect = pathOrVersion.isEmpty ? Version.fromXcodeVersionFile() : Version(xcodeVersion: pathOrVersion)
         let installedXcodes = Current.files.installedXcodes(directory)
+
+        if installedXcodes.isEmpty {
+            Current.logging.log("No Xcode version installed. Please run 'xcodes install' and try again.".red)
+            Current.shell.exit(1)
+            return Promise(error: XcodeSelectError.noInstalledXcodes)
+        }
+
         if let version = versionToSelect,
            let installedXcode = installedXcodes.first(withVersion: version) {
             let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
@@ -153,6 +160,7 @@ public func selectXcodeAtPath(_ pathString: String) -> Promise<ProcessOutput> {
 public enum XcodeSelectError: LocalizedError {
     case invalidPath(String)
     case invalidIndex(min: Int, max: Int, given: String?)
+    case noInstalledXcodes
 
     public var errorDescription: String? {
         switch self {
@@ -160,6 +168,8 @@ public enum XcodeSelectError: LocalizedError {
             return "Not a valid Xcode path: \(pathString)"
         case .invalidIndex(let min, let max, let given):
             return "Not a valid number. Expecting a whole number between \(min)-\(max), but given \(given ?? "nothing")."
+        case .noInstalledXcodes:
+            return "No Xcode version installed. Please run 'xcodes install' and try again."
         }
     }
 }
