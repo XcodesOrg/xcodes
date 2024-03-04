@@ -954,6 +954,22 @@ final class XcodesKitTests: XCTestCase {
         """)
     }
 
+    func test_SelectXcode_WithNoInstalledVersions_LogsError() {
+        var log = ""
+        Current.files.installedXcodes = { _ in [] } // Simulate no installed Xcodes
+        XcodesKit.Current.logging.log = { log = $0 }
+
+        let expectation = XCTestExpectation(description: "Select Xcode")
+        selectXcode(shouldPrint: false, pathOrVersion: "", directory: Path.root.join("Applications"))
+            .ensure {
+                XCTAssertEqual(log, "No Xcode version installed. Please run 'xcodes install' and try again.")
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 0.5)
+    }
+
     func test_SelectPath() {
         var log = ""
         XcodesKit.Current.logging.log = { log.append($0 + "\n") }
