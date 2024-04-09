@@ -94,8 +94,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpsim/Yams",
       "state" : {
-        "revision" : "01835dc202670b5bb90d07f3eae41867e9ed29f6",
-        "version" : "5.0.1"
+        "revision" : "23b6264b9a822b961f480dfa31a1a0ee9114c052",
+        "version" : "5.1.1"
       }
     }
   ],
