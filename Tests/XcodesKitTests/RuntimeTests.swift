@@ -80,7 +80,7 @@ final class RuntimeTests: XCTestCase {
     func test_downloadableRuntimes() async throws {
         mockDownloadables()
         let values = try await runtimeList.downloadableRuntimes().downloadables
-        XCTAssertEqual(values.count, 59)
+        XCTAssertEqual(values.count, 60)
     }
 
     func test_downloadableRuntimesNoBetas() async throws {
@@ -171,7 +171,7 @@ final class RuntimeTests: XCTestCase {
         }
 
         let url = try await runtimeInstaller.downloadOrUseExistingArchive(runtime: runtime, to: .xcodesCaches, downloader: .urlSession)
-        let fileName = URL(string: runtime.source)!.lastPathComponent
+        let fileName = URL(string: runtime.source!)!.lastPathComponent
         XCTAssertEqual(url, Path.xcodesCaches.join(fileName).url)
         XCTAssertNil(xcodeDownloadURL)
     }
@@ -185,10 +185,10 @@ final class RuntimeTests: XCTestCase {
             return (Progress(), Promise.value((destination, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)))
         }
         let runtime = try await runtimeList.downloadableRuntimes().downloadables.first { $0.visibleIdentifier == "iOS 15.5" }!
-        let fileName = URL(string: runtime.source)!.lastPathComponent
+        let fileName = URL(string: runtime.source!)!.lastPathComponent
         let url = try await runtimeInstaller.downloadOrUseExistingArchive(runtime: runtime, to: .xcodesCaches, downloader: .urlSession)
         XCTAssertEqual(url, Path.xcodesCaches.join(fileName).url)
-        XCTAssertEqual(xcodeDownloadURL, URL(string: runtime.source)!)
+        XCTAssertEqual(xcodeDownloadURL, URL(string: runtime.source!)!)
     }
 
     func test_installStepsForPackage() async throws {
