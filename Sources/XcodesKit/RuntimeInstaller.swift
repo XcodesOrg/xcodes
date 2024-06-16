@@ -112,6 +112,8 @@ public class RuntimeInstaller {
                 try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
             case .diskImage:
                 try await installFromImage(dmgUrl: dmgUrl)
+            default:
+                break
         }
         if shouldDelete {
             Current.logging.log("Deleting Archive")
@@ -183,7 +185,7 @@ public class RuntimeInstaller {
 
     @MainActor
     public func downloadOrUseExistingArchive(runtime: DownloadableRuntime, to destinationDirectory: Path, downloader: Downloader) async throws -> URL {
-        let url = URL(string: runtime.source)!
+        let url = URL(string: runtime.source!)!
         let destination = destinationDirectory/url.lastPathComponent
         let aria2DownloadMetadataPath = destination.parent/(destination.basename() + ".aria2")
         var aria2DownloadIsIncomplete = false
