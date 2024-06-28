@@ -243,7 +243,7 @@ extension RuntimeInstaller {
                 case .rootNeeded:
                     return "Must be run as root to install the specified runtime"
                 case let .missingRuntimeSource(identifier):
-                    return "Runtime \(identifier) is missing source url."
+                    return "Runtime \(identifier) is missing source url. Downloading of iOS 18 runtimes are not supported. Please install manually see https://developer.apple.com/documentation/xcode/installing-additional-simulator-runtimes"
                 case .unsupportedCryptexDiskImage:
                     return "Cryptex Disk Image is not yet supported."
             }
