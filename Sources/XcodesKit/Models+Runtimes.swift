@@ -11,7 +11,7 @@ struct DownloadableRuntimesResponse: Decodable {
 public struct DownloadableRuntime: Decodable {
     let category: Category
     let simulatorVersion: SimulatorVersion
-    let source: String
+    let source: String?
     let dictionaryVersion: Int
     let contentType: ContentType
     let platform: Platform
@@ -79,6 +79,7 @@ extension DownloadableRuntime {
     enum ContentType: String, Decodable {
         case diskImage = "diskImage"
         case package = "package"
+        case cryptexDiskImage = "cryptexDiskImage"
     }
 
     enum Platform: String, Decodable {
