@@ -112,18 +112,18 @@ extension DownloadableRuntime {
 }
 
 public struct InstalledRuntime: Decodable {
-    let build: String
+    let build: String? // does not apply for unusable runtimes
     let deletable: Bool
     let identifier: UUID
     let kind: Kind
     let lastUsedAt: Date?
     let path: String
-    let platformIdentifier: Platform
-    let runtimeBundlePath: String
-    let runtimeIdentifier: String
+    let platformIdentifier: Platform?
+    let runtimeBundlePath: String? // does not apply for unusable runtimes
+    let runtimeIdentifier: String? // does not apply for unusable runtimes
     let signatureState: String
     let state: String
-    let version: String
+    let version: String? // does not apply for unusable runtimes
     let sizeBytes: Int?
 }
 

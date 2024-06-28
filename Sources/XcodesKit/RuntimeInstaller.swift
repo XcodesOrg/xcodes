@@ -38,18 +38,16 @@ public class RuntimeInstaller {
             }
         }
 
-
-
-
+        let unusableCount = installed.removeAll { $0.state == "Unusable" }.count
         installed.forEach { runtime in
             let resolvedBetaNumber = downloadablesResponse.sdkToSeedMappings.first {
-                $0.buildUpdate == runtime.build
+                $0.buildUpdate == runtime.build!
             }?.seedNumber
 
-            var result = PrintableRuntime(platform: runtime.platformIdentifier.asPlatformOS,
+            var result = PrintableRuntime(platform: runtime.platformIdentifier!.asPlatformOS,
                                           betaNumber: resolvedBetaNumber,
-                                          version: runtime.version,
-                                          build: runtime.build,
+                                          version: runtime.version!,
+                                          build: runtime.build!,
                                           state: runtime.kind)
 
             mappedRuntimes.indices {
@@ -90,6 +88,9 @@ public class RuntimeInstaller {
             }
         }
         Current.logging.log("\nNote: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)")
+        if unusableCount > 0 {
+            Current.logging.log("Note: Found \(unusableCount) unknown downloaded runtime(s). For more info run `xcrun simctl runtime list -j`.")
+        }
     }
 
     public func downloadRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader) async throws {
