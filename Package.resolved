@@ -22,8 +22,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kishikawakatsumi/KeychainAccess.git",
       "state" : {
-        "revision" : "8d33ffd6f74b3bcfc99af759d4204c6395a3f918",
-        "version" : "3.2.1"
+        "revision" : "84e546727d66f1adc5439debad16270d0fdd04e7",
+        "version" : "4.2.2"
       }
     },
     {
