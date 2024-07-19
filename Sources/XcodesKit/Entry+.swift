@@ -1,15 +1,15 @@
 import Foundation
 import Path
 
-extension Entry {
+extension Path {
     var isAppBundle: Bool {
-        kind == .directory &&
-        path.extension == "app" &&
-        !path.isSymlink
+        type == .directory &&
+        `extension` == "app" &&
+        !isSymlink
     }
 
     var infoPlist: InfoPlist? {
-        let infoPlistPath = path.join("Contents").join("Info.plist")
+        let infoPlistPath = join("Contents").join("Info.plist")
         guard
             let infoPlistData = try? Data(contentsOf: infoPlistPath.url),
             let infoPlist = try? PropertyListDecoder().decode(InfoPlist.self, from: infoPlistData)

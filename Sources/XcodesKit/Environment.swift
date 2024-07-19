@@ -277,9 +277,8 @@ public struct Files {
     public var contentsOfDirectory: (URL) throws -> [URL] = { try FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil, options: []) }
 
     public var installedXcodes: (Path) -> [InstalledXcode] = { directory in
-        return ((try? directory.ls()) ?? [])
+        return directory.ls()
             .filter { $0.isAppBundle && $0.infoPlist?.bundleID == "com.apple.dt.Xcode" }
-            .map { $0.path }
             .compactMap(InstalledXcode.init)
     }
 }
