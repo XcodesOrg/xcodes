@@ -540,26 +540,48 @@ public final class XcodeInstaller {
             .done { output in
                 let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
 
-                allXcodeVersions
-                    .sorted { first, second -> Bool in
-                        // Sort prereleases by release date, otherwise sort by version
-                        if first.version.isPrerelease, second.version.isPrerelease, let firstDate = first.releaseDate, let secondDate = second.releaseDate {
-                            return firstDate < secondDate
-                        }
-                        return first.version < second.version
+                // unique and sorted all xcode versions
+                allXcodeVersions.enumerated().filter { index, releasedVersion -> Bool in
+                    index == allXcodeVersions.firstIndex {
+                        releasedVersion.version == $0.version &&
+                        releasedVersion.version.isPrerelease == $0.version.isPrerelease &&
+                        releasedVersion.version.appleDescriptionWithBuildIdentifier == $0.version.appleDescriptionWithBuildIdentifier
                     }
-                    .forEach { releasedVersion in
-                        var output = releasedVersion.version.appleDescriptionWithBuildIdentifier
-                        if installedXcodes.contains(where: { releasedVersion.version.isEquivalent(to: $0.version) }) {
-                            if releasedVersion.version == selectedInstalledXcodeVersion {
-                                output += " (\("Installed".blue), \("Selected".green))"
-                            }
-                            else {
-                                output += " (\("Installed".blue))"
+                }.map{
+                    $0.element
+                }.sorted { first, second -> Bool in
+                    
+                    let predicates: [(ReleasedVersion, ReleasedVersion) -> Bool] = [
+                        { $0.version < $1.version },
+                        {
+                            if let firstDate = $0.releaseDate, let secondDate = $1.releaseDate {
+                                return firstDate < secondDate
+                            } else {
+                                return false
                             }
                         }
-                        Current.logging.log(output)
+                    ]
+                    
+                    for predicate in predicates {
+                        if !predicate(first, second) && !predicate(second, first) {
+                            continue
+                        }
+                        return predicate(first, second)
                     }
+                    
+                    return false
+                }.forEach { releasedVersion in
+                    var output = releasedVersion.version.appleDescriptionWithBuildIdentifier
+                    if installedXcodes.contains(where: { releasedVersion.version.isEquivalent(to: $0.version) }) {
+                        if releasedVersion.version == selectedInstalledXcodeVersion {
+                            output += " (\("Installed".blue), \("Selected".green))"
+                        }
+                        else {
+                            output += " (\("Installed".blue))"
+                        }
+                    }
+                    Current.logging.log(output)
+                }
             }
     }
 
