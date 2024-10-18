@@ -1,10 +1,10 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.9
 import PackageDescription
 
 let package = Package(
     name: "xcodes",
     platforms: [
-       .macOS(.v10_15)
+        .macOS(.v13)
     ],
     products: [
         .executable(name: "xcodes", targets: ["xcodes"]),
@@ -23,6 +23,7 @@ let package = Package(
         .package(url: "https://github.com/xcodereleases/data", revision: "fcf527b187817f67c05223676341f3ab69d4214d"),
         .package(url: "https://github.com/onevcat/Rainbow.git", .upToNextMinor(from: "3.2.0")),
         .package(url: "https://github.com/jpsim/Yams", .upToNextMinor(from: "5.0.1")),
+        .package(url: "https://github.com/kinoroy/LibFido2Swift.git", .upToNextMinor(from: "0.1.0")),
     ],
     targets: [
         .executableTarget(
@@ -68,6 +69,7 @@ let package = Package(
                 "PromiseKit",
                 .product(name: "PMKFoundation", package: "Foundation"),
                 "Rainbow",
+                .product(name: "LibFido2Swift", package: "LibFido2Swift")
             ]),
         .testTarget(
             name: "AppleAPITests",

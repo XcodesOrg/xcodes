@@ -2,6 +2,7 @@ import Foundation
 import PromiseKit
 import PMKFoundation
 import Rainbow
+import LibFido2Swift
 
 public class Client {
     private static let authTypes = ["sa", "hsa", "non-sa", "hsa2"]
