@@ -70,7 +70,7 @@ public class Client {
                 let authServiceKey: String?
             }
             
-            let response = try! JSONDecoder().decode(ServiceKeyResponse.self, from: data)
+            let response = try JSONDecoder().decode(ServiceKeyResponse.self, from: data)
             serviceKey = response.authServiceKey
             
             return self.loadHashcash(accountName: accountName, serviceKey: serviceKey).map { (serviceKey, $0) }
