@@ -102,23 +102,20 @@ public class RuntimeInstaller {
     public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
         let matchedRuntime = try await getMatchingRuntime(identifier: identifier)
 
-        if matchedRuntime.contentType == .package && !Current.shell.isRoot() {
-            throw Error.rootNeeded
-        }
-
-        let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
-        switch matchedRuntime.contentType {
-            case .package:
-                try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
-            case .diskImage:
-                try await installFromImage(dmgUrl: dmgUrl)
-            case .cryptexDiskImage:
-                throw Error.unsupportedCryptexDiskImage
-        }
-        if shouldDelete {
-            Current.logging.log("Deleting Archive")
-            try? Current.files.removeItem(at: dmgUrl)
-        }
+		switch matchedRuntime.contentType {
+		case .package:
+			guard Current.shell.isRoot() else {
+				throw Error.rootNeeded
+			}
+			let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
+			try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
+		case .diskImage:
+			let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
+			try await installFromImage(dmgUrl: dmgUrl)
+		case .cryptexDiskImage:
+			//
+			try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime, to: destinationDirectory)
+		}
     }
 
     private func getMatchingRuntime(identifier: String) async throws -> DownloadableRuntime {
@@ -224,6 +221,86 @@ public class RuntimeInstaller {
         destination.setCurrentUserAsOwner()
         return result
     }
+
+	private func downloadAndInstallUsingXcodeBuild(runtime: DownloadableRuntime, to destinationDirectory: Path) async throws {
+
+		let downloadRuntime: (String, String) -> AsyncThrowingStream<Progress, Swift.Error> = { platform, version in
+			return AsyncThrowingStream<Progress, Swift.Error> { continuation in
+				Task {
+					// Assume progress will not have data races, so we manually opt-out isolation checks.
+					let progress = Progress()
+					progress.kind = .file
+					progress.fileOperationKind = .downloading
+
+					let process = Process()
+					let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild").url
+
+					process.executableURL = xcodeBuildPath
+					process.arguments = [
+						"-downloadPlatform",
+						"\(platform)",
+						"-buildVersion",
+						"\(version)"
+					]
+
+					let stdOutPipe = Pipe()
+					process.standardOutput = stdOutPipe
+					let stdErrPipe = Pipe()
+					process.standardError = stdErrPipe
+
+					let observer = NotificationCenter.default.addObserver(
+						forName: .NSFileHandleDataAvailable,
+						object: nil,
+						queue: OperationQueue.main
+					) { note in
+						guard
+							// This should always be the case for Notification.Name.NSFileHandleDataAvailable
+							let handle = note.object as? FileHandle,
+							handle === stdOutPipe.fileHandleForReading || handle === stdErrPipe.fileHandleForReading
+						else { return }
+
+						defer { handle.waitForDataInBackgroundAndNotify() }
+
+						let string = String(decoding: handle.availableData, as: UTF8.self)
+						progress.updateFromXcodebuild(text: string)
+						continuation.yield(progress)
+					}
+
+					stdOutPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
+					stdErrPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
+
+					continuation.onTermination = { @Sendable _ in
+						process.terminate()
+						NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
+					}
+
+					do {
+						try process.run()
+					} catch {
+						continuation.finish(throwing: error)
+					}
+
+					process.waitUntilExit()
+
+					NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
+
+					guard process.terminationReason == .exit, process.terminationStatus == 0 else {
+						struct ProcessExecutionError: Swift.Error {}
+						continuation.finish(throwing: ProcessExecutionError())
+						return
+					}
+					continuation.finish()
+				}
+			}
+		}
+
+		for try await progress in downloadRuntime(runtime.platform.shortName, runtime.simulatorVersion.buildUpdate) {
+			let formatter = NumberFormatter(numberStyle: .percent)
+			guard Current.shell.isatty() else { return }
+			// These escape codes move up a line and then clear to the end
+			Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)")
+		}
+	}
 }
 
 extension RuntimeInstaller {
@@ -232,7 +309,6 @@ extension RuntimeInstaller {
         case failedMountingDMG
         case rootNeeded
         case missingRuntimeSource(String)
-        case unsupportedCryptexDiskImage
 
         public var errorDescription: String? {
             switch self {
@@ -243,9 +319,7 @@ extension RuntimeInstaller {
                 case .rootNeeded:
                     return "Must be run as root to install the specified runtime"
                 case let .missingRuntimeSource(identifier):
-                    return "Runtime \(identifier) is missing source url. Downloading of iOS 18 runtimes are not supported. Please install manually see https://developer.apple.com/documentation/xcode/installing-additional-simulator-runtimes"
-                case .unsupportedCryptexDiskImage:
-                    return "Cryptex Disk Image is not yet supported."
+                    return "Runtime \(identifier) is missing source url. Downloading of iOS 18 runtimes are only supported using Xcode 16.1+ and can only be installed, not just downloaded."
             }
         }
     }
@@ -293,4 +367,40 @@ extension Array {
 
         return result
     }
+}
+
+
+private extension Progress {
+	func updateFromXcodebuild(text: String) {
+		self.totalUnitCount = 100
+		self.completedUnitCount = 0
+		self.localizedAdditionalDescription = "" // to not show the addtional
+
+		do {
+
+			let downloadPattern = #"(\d+\.\d+)% \(([\d.]+ (?:MB|GB)) of ([\d.]+ GB)\)"#
+			let downloadRegex = try NSRegularExpression(pattern: downloadPattern)
+
+			// Search for matches in the text
+			if let match = downloadRegex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) {
+				// Extract the percentage - simpler then trying to extract size MB/GB and convert to bytes.
+				if let percentRange = Range(match.range(at: 1), in: text), let percentDouble = Double(text[percentRange]) {
+					let percent = Int64(percentDouble.rounded())
+					self.completedUnitCount = percent
+				}
+			}
+
+			// "Downloading tvOS 18.1 Simulator (22J5567a): Installing..." or
+			// "Downloading tvOS 18.1 Simulator (22J5567a): Installing (registering download)..."
+			if text.range(of: "Installing") != nil {
+				// sets the progress to indeterminite to show animating progress
+				self.totalUnitCount = 0
+				self.completedUnitCount = 0
+			}
+
+		} catch {
+			print("Invalid regular expression")
+		}
+
+	}
 }
