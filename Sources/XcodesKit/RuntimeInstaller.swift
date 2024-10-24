@@ -38,9 +38,6 @@ public class RuntimeInstaller {
             }
         }
 
-
-
-
         installed.forEach { runtime in
             let resolvedBetaNumber = downloadablesResponse.sdkToSeedMappings.first {
                 $0.buildUpdate == runtime.build
@@ -242,6 +239,8 @@ public class RuntimeInstaller {
         }
     }
 
+    /// Checks the existing `xcodebuild -version` to ensure that the version is appropriate to use for downloading the cryptex style 16.1+ downloads
+    /// otherwise will throw an error
     private func ensureSelectedXcodeVersionForDownload() async throws {
         let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild")
         let versionString = try await Process.run(xcodeBuildPath, "-version").async()
@@ -255,6 +254,7 @@ public class RuntimeInstaller {
             throw Error.noXcodeSelectedFound
         }
 
+        // actually compare the version against version 16.1 to ensure it's equal or greater
         guard version >= Version(16, 1, 0) else {
             throw Error.xcode16_1OrGreaterRequired(version)
         }
@@ -262,6 +262,7 @@ public class RuntimeInstaller {
         // If we made it here, we're gucci and 16.1 or greater is selected
     }
 
+    // Creates and invokes the xcodebuild install command and converts it to a stream of Progress
     private func createXcodebuildDownloadStream(runtime: DownloadableRuntime) -> AsyncThrowingStream<Progress, Swift.Error> {
         let platform = runtime.platform.shortName
         let version = runtime.simulatorVersion.buildUpdate
