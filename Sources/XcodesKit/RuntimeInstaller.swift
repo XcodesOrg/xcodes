@@ -113,8 +113,7 @@ public class RuntimeInstaller {
 			let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
 			try await installFromImage(dmgUrl: dmgUrl)
 		case .cryptexDiskImage:
-			//
-			try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime, to: destinationDirectory)
+			try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime)
 		}
     }
 
@@ -222,83 +221,117 @@ public class RuntimeInstaller {
         return result
     }
 
-	private func downloadAndInstallUsingXcodeBuild(runtime: DownloadableRuntime, to destinationDirectory: Path) async throws {
+	// MARK: Xcode 16.1 Runtime installation helpers
+	/// Downloads and installs the runtime using xcodebuild, requires Xcode 16.1+ to download a runtime using a given directory
+	/// - Parameters:
+	///   - runtime: The runtime to download and install to identify the platform and version numbers
+	private func downloadAndInstallUsingXcodeBuild(runtime: DownloadableRuntime) async throws {
 
-		let downloadRuntime: (String, String) -> AsyncThrowingStream<Progress, Swift.Error> = { platform, version in
-			return AsyncThrowingStream<Progress, Swift.Error> { continuation in
-				Task {
-					// Assume progress will not have data races, so we manually opt-out isolation checks.
-					let progress = Progress()
-					progress.kind = .file
-					progress.fileOperationKind = .downloading
+		// Make sure that we are using a version of xcode that supports this
+		try await ensureSelectedXcodeVersionForDownload()
 
-					let process = Process()
-					let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild").url
+		// Kick off the download/install process and get an async stream of the progress
+		let downloadStream = createXcodebuildDownloadStream(runtime: runtime)
 
-					process.executableURL = xcodeBuildPath
-					process.arguments = [
-						"-downloadPlatform",
-						"\(platform)",
-						"-buildVersion",
-						"\(version)"
-					]
-
-					let stdOutPipe = Pipe()
-					process.standardOutput = stdOutPipe
-					let stdErrPipe = Pipe()
-					process.standardError = stdErrPipe
-
-					let observer = NotificationCenter.default.addObserver(
-						forName: .NSFileHandleDataAvailable,
-						object: nil,
-						queue: OperationQueue.main
-					) { note in
-						guard
-							// This should always be the case for Notification.Name.NSFileHandleDataAvailable
-							let handle = note.object as? FileHandle,
-							handle === stdOutPipe.fileHandleForReading || handle === stdErrPipe.fileHandleForReading
-						else { return }
-
-						defer { handle.waitForDataInBackgroundAndNotify() }
-
-						let string = String(decoding: handle.availableData, as: UTF8.self)
-						progress.updateFromXcodebuild(text: string)
-						continuation.yield(progress)
-					}
-
-					stdOutPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
-					stdErrPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
-
-					continuation.onTermination = { @Sendable _ in
-						process.terminate()
-						NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
-					}
-
-					do {
-						try process.run()
-					} catch {
-						continuation.finish(throwing: error)
-					}
-
-					process.waitUntilExit()
-
-					NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
-
-					guard process.terminationReason == .exit, process.terminationStatus == 0 else {
-						struct ProcessExecutionError: Swift.Error {}
-						continuation.finish(throwing: ProcessExecutionError())
-						return
-					}
-					continuation.finish()
-				}
-			}
-		}
-
-		for try await progress in downloadRuntime(runtime.platform.shortName, runtime.simulatorVersion.buildUpdate) {
+		// Observe the progress and update the console from it
+		for try await progress in downloadStream {
 			let formatter = NumberFormatter(numberStyle: .percent)
 			guard Current.shell.isatty() else { return }
 			// These escape codes move up a line and then clear to the end
 			Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)")
+		}
+	}
+
+	private func ensureSelectedXcodeVersionForDownload() async throws {
+		let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild")
+		let versionString = try await Process.run(xcodeBuildPath, "-version").async()
+		let versionPattern = #"Xcode (\d+\.\d+)"#
+		let versionRegex = try NSRegularExpression(pattern: versionPattern)
+
+		// parse out the version string (e.g. 16.1) from the xcodebuild version command and convert it to a `Version`
+		guard let match = versionRegex.firstMatch(in: versionString.out, range: NSRange(versionString.out.startIndex..., in: versionString.out)),
+		   let versionRange = Range(match.range(at: 1), in: versionString.out),
+		   let version = Version(tolerant: String(versionString.out[versionRange])) else {
+			throw Error.noXcodeSelectedFound
+		}
+
+		guard version >= Version(16, 1, 0) else {
+			throw Error.xcode16_1OrGreaterRequired(version)
+		}
+
+		// If we made it here, we're gucci and 16.1 or greater is selected
+	}
+
+	private func createXcodebuildDownloadStream(runtime: DownloadableRuntime) -> AsyncThrowingStream<Progress, Swift.Error> {
+		let platform = runtime.platform.shortName
+		let version = runtime.simulatorVersion.buildUpdate
+
+		return AsyncThrowingStream<Progress, Swift.Error> { continuation in
+			Task {
+				// Assume progress will not have data races, so we manually opt-out isolation checks.
+				let progress = Progress()
+				progress.kind = .file
+				progress.fileOperationKind = .downloading
+
+				let process = Process()
+				let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild").url
+
+				process.executableURL = xcodeBuildPath
+				process.arguments = [
+					"-downloadPlatform",
+					"\(platform)",
+					"-buildVersion",
+					"\(version)"
+				]
+
+				let stdOutPipe = Pipe()
+				process.standardOutput = stdOutPipe
+				let stdErrPipe = Pipe()
+				process.standardError = stdErrPipe
+
+				let observer = NotificationCenter.default.addObserver(
+					forName: .NSFileHandleDataAvailable,
+					object: nil,
+					queue: OperationQueue.main
+				) { note in
+					guard
+						// This should always be the case for Notification.Name.NSFileHandleDataAvailable
+						let handle = note.object as? FileHandle,
+						handle === stdOutPipe.fileHandleForReading || handle === stdErrPipe.fileHandleForReading
+					else { return }
+
+					defer { handle.waitForDataInBackgroundAndNotify() }
+
+					let string = String(decoding: handle.availableData, as: UTF8.self)
+					progress.updateFromXcodebuild(text: string)
+					continuation.yield(progress)
+				}
+
+				stdOutPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
+				stdErrPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
+
+				continuation.onTermination = { @Sendable _ in
+					process.terminate()
+					NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
+				}
+
+				do {
+					try process.run()
+				} catch {
+					continuation.finish(throwing: error)
+				}
+
+				process.waitUntilExit()
+
+				NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
+
+				guard process.terminationReason == .exit, process.terminationStatus == 0 else {
+					struct ProcessExecutionError: Swift.Error {}
+					continuation.finish(throwing: ProcessExecutionError())
+					return
+				}
+				continuation.finish()
+			}
 		}
 	}
 }
@@ -309,6 +342,8 @@ extension RuntimeInstaller {
         case failedMountingDMG
         case rootNeeded
         case missingRuntimeSource(String)
+		case xcode16_1OrGreaterRequired(Version)
+		case noXcodeSelectedFound
 
         public var errorDescription: String? {
             switch self {
@@ -320,6 +355,10 @@ extension RuntimeInstaller {
                     return "Must be run as root to install the specified runtime"
                 case let .missingRuntimeSource(identifier):
                     return "Runtime \(identifier) is missing source url. Downloading of iOS 18 runtimes are only supported using Xcode 16.1+ and can only be installed, not just downloaded."
+                case let .xcode16_1OrGreaterRequired(version):
+                    return "Installing this runtime requires Xcode 16.1 or greater to be selected, but is currently \(version.description)"
+                case .noXcodeSelectedFound:
+                    return "No Xcode is currently selected, please make sure that you have one selected and installed before trying to install this runtime"
             }
         }
     }
