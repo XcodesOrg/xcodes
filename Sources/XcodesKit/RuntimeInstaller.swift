@@ -102,19 +102,19 @@ public class RuntimeInstaller {
     public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
         let matchedRuntime = try await getMatchingRuntime(identifier: identifier)
 
-		switch matchedRuntime.contentType {
-		case .package:
-			guard Current.shell.isRoot() else {
-				throw Error.rootNeeded
-			}
-			let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
-			try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
-		case .diskImage:
-			let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
-			try await installFromImage(dmgUrl: dmgUrl)
-		case .cryptexDiskImage:
-			try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime)
-		}
+        switch matchedRuntime.contentType {
+        case .package:
+            guard Current.shell.isRoot() else {
+                throw Error.rootNeeded
+            }
+            let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
+            try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
+        case .diskImage:
+            let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
+            try await installFromImage(dmgUrl: dmgUrl)
+        case .cryptexDiskImage:
+            try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime)
+        }
     }
 
     private func getMatchingRuntime(identifier: String) async throws -> DownloadableRuntime {
@@ -221,119 +221,119 @@ public class RuntimeInstaller {
         return result
     }
 
-	// MARK: Xcode 16.1 Runtime installation helpers
-	/// Downloads and installs the runtime using xcodebuild, requires Xcode 16.1+ to download a runtime using a given directory
-	/// - Parameters:
-	///   - runtime: The runtime to download and install to identify the platform and version numbers
-	private func downloadAndInstallUsingXcodeBuild(runtime: DownloadableRuntime) async throws {
+    // MARK: Xcode 16.1 Runtime installation helpers
+    /// Downloads and installs the runtime using xcodebuild, requires Xcode 16.1+ to download a runtime using a given directory
+    /// - Parameters:
+    ///   - runtime: The runtime to download and install to identify the platform and version numbers
+    private func downloadAndInstallUsingXcodeBuild(runtime: DownloadableRuntime) async throws {
 
-		// Make sure that we are using a version of xcode that supports this
-		try await ensureSelectedXcodeVersionForDownload()
+        // Make sure that we are using a version of xcode that supports this
+        try await ensureSelectedXcodeVersionForDownload()
 
-		// Kick off the download/install process and get an async stream of the progress
-		let downloadStream = createXcodebuildDownloadStream(runtime: runtime)
+        // Kick off the download/install process and get an async stream of the progress
+        let downloadStream = createXcodebuildDownloadStream(runtime: runtime)
 
-		// Observe the progress and update the console from it
-		for try await progress in downloadStream {
-			let formatter = NumberFormatter(numberStyle: .percent)
-			guard Current.shell.isatty() else { return }
-			// These escape codes move up a line and then clear to the end
-			Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)")
-		}
-	}
+        // Observe the progress and update the console from it
+        for try await progress in downloadStream {
+            let formatter = NumberFormatter(numberStyle: .percent)
+            guard Current.shell.isatty() else { return }
+            // These escape codes move up a line and then clear to the end
+            Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)")
+        }
+    }
 
-	private func ensureSelectedXcodeVersionForDownload() async throws {
-		let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild")
-		let versionString = try await Process.run(xcodeBuildPath, "-version").async()
-		let versionPattern = #"Xcode (\d+\.\d+)"#
-		let versionRegex = try NSRegularExpression(pattern: versionPattern)
+    private func ensureSelectedXcodeVersionForDownload() async throws {
+        let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild")
+        let versionString = try await Process.run(xcodeBuildPath, "-version").async()
+        let versionPattern = #"Xcode (\d+\.\d+)"#
+        let versionRegex = try NSRegularExpression(pattern: versionPattern)
 
-		// parse out the version string (e.g. 16.1) from the xcodebuild version command and convert it to a `Version`
-		guard let match = versionRegex.firstMatch(in: versionString.out, range: NSRange(versionString.out.startIndex..., in: versionString.out)),
-		   let versionRange = Range(match.range(at: 1), in: versionString.out),
-		   let version = Version(tolerant: String(versionString.out[versionRange])) else {
-			throw Error.noXcodeSelectedFound
-		}
+        // parse out the version string (e.g. 16.1) from the xcodebuild version command and convert it to a `Version`
+        guard let match = versionRegex.firstMatch(in: versionString.out, range: NSRange(versionString.out.startIndex..., in: versionString.out)),
+           let versionRange = Range(match.range(at: 1), in: versionString.out),
+           let version = Version(tolerant: String(versionString.out[versionRange])) else {
+            throw Error.noXcodeSelectedFound
+        }
 
-		guard version >= Version(16, 1, 0) else {
-			throw Error.xcode16_1OrGreaterRequired(version)
-		}
+        guard version >= Version(16, 1, 0) else {
+            throw Error.xcode16_1OrGreaterRequired(version)
+        }
 
-		// If we made it here, we're gucci and 16.1 or greater is selected
-	}
+        // If we made it here, we're gucci and 16.1 or greater is selected
+    }
 
-	private func createXcodebuildDownloadStream(runtime: DownloadableRuntime) -> AsyncThrowingStream<Progress, Swift.Error> {
-		let platform = runtime.platform.shortName
-		let version = runtime.simulatorVersion.buildUpdate
+    private func createXcodebuildDownloadStream(runtime: DownloadableRuntime) -> AsyncThrowingStream<Progress, Swift.Error> {
+        let platform = runtime.platform.shortName
+        let version = runtime.simulatorVersion.buildUpdate
 
-		return AsyncThrowingStream<Progress, Swift.Error> { continuation in
-			Task {
-				// Assume progress will not have data races, so we manually opt-out isolation checks.
-				let progress = Progress()
-				progress.kind = .file
-				progress.fileOperationKind = .downloading
+        return AsyncThrowingStream<Progress, Swift.Error> { continuation in
+            Task {
+                // Assume progress will not have data races, so we manually opt-out isolation checks.
+                let progress = Progress()
+                progress.kind = .file
+                progress.fileOperationKind = .downloading
 
-				let process = Process()
-				let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild").url
+                let process = Process()
+                let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild").url
 
-				process.executableURL = xcodeBuildPath
-				process.arguments = [
-					"-downloadPlatform",
-					"\(platform)",
-					"-buildVersion",
-					"\(version)"
-				]
+                process.executableURL = xcodeBuildPath
+                process.arguments = [
+                    "-downloadPlatform",
+                    "\(platform)",
+                    "-buildVersion",
+                    "\(version)"
+                ]
 
-				let stdOutPipe = Pipe()
-				process.standardOutput = stdOutPipe
-				let stdErrPipe = Pipe()
-				process.standardError = stdErrPipe
+                let stdOutPipe = Pipe()
+                process.standardOutput = stdOutPipe
+                let stdErrPipe = Pipe()
+                process.standardError = stdErrPipe
 
-				let observer = NotificationCenter.default.addObserver(
-					forName: .NSFileHandleDataAvailable,
-					object: nil,
-					queue: OperationQueue.main
-				) { note in
-					guard
-						// This should always be the case for Notification.Name.NSFileHandleDataAvailable
-						let handle = note.object as? FileHandle,
-						handle === stdOutPipe.fileHandleForReading || handle === stdErrPipe.fileHandleForReading
-					else { return }
+                let observer = NotificationCenter.default.addObserver(
+                    forName: .NSFileHandleDataAvailable,
+                    object: nil,
+                    queue: OperationQueue.main
+                ) { note in
+                    guard
+                        // This should always be the case for Notification.Name.NSFileHandleDataAvailable
+                        let handle = note.object as? FileHandle,
+                        handle === stdOutPipe.fileHandleForReading || handle === stdErrPipe.fileHandleForReading
+                    else { return }
 
-					defer { handle.waitForDataInBackgroundAndNotify() }
+                    defer { handle.waitForDataInBackgroundAndNotify() }
 
-					let string = String(decoding: handle.availableData, as: UTF8.self)
-					progress.updateFromXcodebuild(text: string)
-					continuation.yield(progress)
-				}
+                    let string = String(decoding: handle.availableData, as: UTF8.self)
+                    progress.updateFromXcodebuild(text: string)
+                    continuation.yield(progress)
+                }
 
-				stdOutPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
-				stdErrPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
+                stdOutPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
+                stdErrPipe.fileHandleForReading.waitForDataInBackgroundAndNotify()
 
-				continuation.onTermination = { @Sendable _ in
-					process.terminate()
-					NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
-				}
+                continuation.onTermination = { @Sendable _ in
+                    process.terminate()
+                    NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
+                }
 
-				do {
-					try process.run()
-				} catch {
-					continuation.finish(throwing: error)
-				}
+                do {
+                    try process.run()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
 
-				process.waitUntilExit()
+                process.waitUntilExit()
 
-				NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
+                NotificationCenter.default.removeObserver(observer, name: .NSFileHandleDataAvailable, object: nil)
 
-				guard process.terminationReason == .exit, process.terminationStatus == 0 else {
-					struct ProcessExecutionError: Swift.Error {}
-					continuation.finish(throwing: ProcessExecutionError())
-					return
-				}
-				continuation.finish()
-			}
-		}
-	}
+                guard process.terminationReason == .exit, process.terminationStatus == 0 else {
+                    struct ProcessExecutionError: Swift.Error {}
+                    continuation.finish(throwing: ProcessExecutionError())
+                    return
+                }
+                continuation.finish()
+            }
+        }
+    }
 }
 
 extension RuntimeInstaller {
@@ -342,8 +342,8 @@ extension RuntimeInstaller {
         case failedMountingDMG
         case rootNeeded
         case missingRuntimeSource(String)
-		case xcode16_1OrGreaterRequired(Version)
-		case noXcodeSelectedFound
+        case xcode16_1OrGreaterRequired(Version)
+        case noXcodeSelectedFound
 
         public var errorDescription: String? {
             switch self {
@@ -410,36 +410,36 @@ extension Array {
 
 
 private extension Progress {
-	func updateFromXcodebuild(text: String) {
-		self.totalUnitCount = 100
-		self.completedUnitCount = 0
-		self.localizedAdditionalDescription = "" // to not show the addtional
+    func updateFromXcodebuild(text: String) {
+        self.totalUnitCount = 100
+        self.completedUnitCount = 0
+        self.localizedAdditionalDescription = "" // to not show the addtional
 
-		do {
+        do {
 
-			let downloadPattern = #"(\d+\.\d+)% \(([\d.]+ (?:MB|GB)) of ([\d.]+ GB)\)"#
-			let downloadRegex = try NSRegularExpression(pattern: downloadPattern)
+            let downloadPattern = #"(\d+\.\d+)% \(([\d.]+ (?:MB|GB)) of ([\d.]+ GB)\)"#
+            let downloadRegex = try NSRegularExpression(pattern: downloadPattern)
 
-			// Search for matches in the text
-			if let match = downloadRegex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) {
-				// Extract the percentage - simpler then trying to extract size MB/GB and convert to bytes.
-				if let percentRange = Range(match.range(at: 1), in: text), let percentDouble = Double(text[percentRange]) {
-					let percent = Int64(percentDouble.rounded())
-					self.completedUnitCount = percent
-				}
-			}
+            // Search for matches in the text
+            if let match = downloadRegex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) {
+                // Extract the percentage - simpler then trying to extract size MB/GB and convert to bytes.
+                if let percentRange = Range(match.range(at: 1), in: text), let percentDouble = Double(text[percentRange]) {
+                    let percent = Int64(percentDouble.rounded())
+                    self.completedUnitCount = percent
+                }
+            }
 
-			// "Downloading tvOS 18.1 Simulator (22J5567a): Installing..." or
-			// "Downloading tvOS 18.1 Simulator (22J5567a): Installing (registering download)..."
-			if text.range(of: "Installing") != nil {
-				// sets the progress to indeterminite to show animating progress
-				self.totalUnitCount = 0
-				self.completedUnitCount = 0
-			}
+            // "Downloading tvOS 18.1 Simulator (22J5567a): Installing..." or
+            // "Downloading tvOS 18.1 Simulator (22J5567a): Installing (registering download)..."
+            if text.range(of: "Installing") != nil {
+                // sets the progress to indeterminite to show animating progress
+                self.totalUnitCount = 0
+                self.completedUnitCount = 0
+            }
 
-		} catch {
-			print("Invalid regular expression")
-		}
+        } catch {
+            print("Invalid regular expression")
+        }
 
-	}
+    }
 }
