@@ -99,6 +99,13 @@ public class RuntimeInstaller {
     public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
         let matchedRuntime = try await getMatchingRuntime(identifier: identifier)
 
+        let deleteIfNeeded: (URL) -> Void = { dmgUrl in
+            if shouldDelete {
+                Current.logging.log("Deleting Archive")
+                try? Current.files.removeItem(at: dmgUrl)
+            }
+        }
+
         switch matchedRuntime.contentType {
         case .package:
             guard Current.shell.isRoot() else {
@@ -106,9 +113,11 @@ public class RuntimeInstaller {
             }
             let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
             try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
+			deleteIfNeeded(dmgUrl)
         case .diskImage:
             let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
             try await installFromImage(dmgUrl: dmgUrl)
+			deleteIfNeeded(dmgUrl)
         case .cryptexDiskImage:
             try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime)
         }
