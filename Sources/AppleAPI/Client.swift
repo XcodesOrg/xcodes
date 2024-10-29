@@ -2,6 +2,9 @@ import Foundation
 import PromiseKit
 import PMKFoundation
 import Rainbow
+import SRP
+import Crypto
+import CommonCrypto
 
 public class Client {
     private static let authTypes = ["sa", "hsa", "non-sa", "hsa2"]
@@ -20,6 +23,8 @@ public class Client {
         case invalidHashcash
         case missingSecurityCodeInfo
         case accountUsesHardwareKey
+        case srpInvalidPublicKey
+        case srpError(String)
         
         public var errorDescription: String? {
             switch self {
@@ -56,6 +61,90 @@ public class Client {
             }
     }
     
+    public func srpLogin(accountName: String, password: String) -> Promise<Void> {
+        var serviceKey: String!
+        let client = SRPClient(configuration: SRPConfiguration<SHA256>(.N2048))
+        let clientKeys = client.generateKeys()
+        let a = clientKeys.public
+        
+        return firstly { () -> Promise<(data: Data, response: URLResponse)> in
+            Current.network.dataTask(with: URLRequest.itcServiceKey)
+        }
+        .then { (data, _) -> Promise<(serviceKey: String, hashcash: String)> in
+            struct ServiceKeyResponse: Decodable {
+                let authServiceKey: String?
+            }
+            
+            let response = try JSONDecoder().decode(ServiceKeyResponse.self, from: data)
+            serviceKey = response.authServiceKey
+            
+            return self.loadHashcash(accountName: accountName, serviceKey: serviceKey).map { (serviceKey, $0) }
+        }
+        .then { (serviceKey, hashcash) -> Promise<(serviceKey: String, hashcash: String, data: Data)> in
+            return Current.network.dataTask(with: URLRequest.SRPInit(serviceKey: serviceKey, a: Data(a.bytes).base64EncodedString(), accountName: accountName)).map { (serviceKey, hashcash, $0.data)}
+        }
+        .then { (serviceKey, hashcash, data) -> Promise<(data: Data, response: URLResponse)> in
+            let srpInit = try JSONDecoder().decode(ServerSRPInitResponse.self, from: data)
+            
+            guard let decodedB = Data(base64Encoded: srpInit.b) else {
+                throw Error.srpInvalidPublicKey
+            }
+            guard let decodedSalt = Data(base64Encoded: srpInit.salt) else {
+                throw Error.srpInvalidPublicKey
+            }
+            
+            let iterations = srpInit.iteration
+            
+            do {
+                guard let encryptedPassword = self.pbkdf2(password: password, saltData: decodedSalt, keyByteCount: 32, prf: CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), rounds: iterations) else {
+                    throw Error.srpInvalidPublicKey
+                }
+                
+                let sharedSecret = try client.calculateSharedSecret(password: encryptedPassword, salt: [UInt8](decodedSalt), clientKeys: clientKeys, serverPublicKey: .init([UInt8](decodedB)))
+                
+                let m1 = client.calculateClientProof(username: accountName, salt: [UInt8](decodedSalt), clientPublicKey: a, serverPublicKey: .init([UInt8](decodedB)), sharedSecret: .init(sharedSecret.bytes))
+                let m2 = client.calculateServerProof(clientPublicKey: a, clientProof: m1, sharedSecret: .init([UInt8](sharedSecret.bytes)))
+
+                return Current.network.dataTask(with: URLRequest.SRPComplete(serviceKey: serviceKey, hashcash: hashcash, accountName: accountName, c: srpInit.c, m1: Data(m1).base64EncodedString(), m2: Data(m2).base64EncodedString()))
+            } catch {
+                throw Error.srpError(error.localizedDescription)
+            }
+        }
+        .then { (data, response) -> Promise<Void> in
+            struct SignInResponse: Decodable {
+                let authType: String?
+                let serviceErrors: [ServiceError]?
+                
+                struct ServiceError: Decodable, CustomStringConvertible {
+                    let code: String
+                    let message: String
+                    
+                    var description: String {
+                        return "\(code): \(message)"
+                    }
+                }
+            }
+            
+            let httpResponse = response as! HTTPURLResponse
+            let responseBody = try JSONDecoder().decode(SignInResponse.self, from: data)
+            
+            switch httpResponse.statusCode {
+            case 200:
+                return Current.network.dataTask(with: URLRequest.olympusSession).asVoid()
+            case 401:
+                throw Error.invalidUsernameOrPassword(username: accountName)
+            case 409:
+                return self.handleTwoStepOrFactor(data: data, response: response, serviceKey: serviceKey)
+            case 412 where Client.authTypes.contains(responseBody.authType ?? ""):
+                throw Error.appleIDAndPrivacyAcknowledgementRequired
+            default:
+                throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode,
+                                                     message: responseBody.serviceErrors?.map { $0.description }.joined(separator: ", "))
+            }
+        }
+    }
+    
+    @available(*, deprecated, message: "Please use srpLogin")
     public func login(accountName: String, password: String) -> Promise<Void> {
         var serviceKey: String!
         
@@ -264,6 +353,43 @@ public class Client {
             return .value(hashcash)
         }
     }
+    
+    private func sha256(data : Data) -> Data {
+        var hash = [UInt8](repeating: 0,  count: Int(CC_SHA256_DIGEST_LENGTH))
+        data.withUnsafeBytes {
+            _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &hash)
+        }
+        return Data(hash)
+    }
+
+    private func pbkdf2(password: String, saltData: Data, keyByteCount: Int, prf: CCPseudoRandomAlgorithm, rounds: Int) -> Data? {
+        guard let passwordData = password.data(using: .utf8) else { return nil }
+        let hashedPasswordData = sha256(data: passwordData)
+
+        var derivedKeyData = Data(repeating: 0, count: keyByteCount)
+        let derivedCount = derivedKeyData.count
+        let derivationStatus: Int32 = derivedKeyData.withUnsafeMutableBytes { derivedKeyBytes in
+            let keyBuffer: UnsafeMutablePointer<UInt8> =
+                derivedKeyBytes.baseAddress!.assumingMemoryBound(to: UInt8.self)
+            return saltData.withUnsafeBytes { saltBytes -> Int32 in
+                let saltBuffer: UnsafePointer<UInt8> = saltBytes.baseAddress!.assumingMemoryBound(to: UInt8.self)
+                return hashedPasswordData.withUnsafeBytes { hashedPasswordBytes -> Int32 in
+                    let passwordBuffer: UnsafePointer<UInt8> = hashedPasswordBytes.baseAddress!.assumingMemoryBound(to: UInt8.self)
+                    return CCKeyDerivationPBKDF(
+                        CCPBKDFAlgorithm(kCCPBKDF2),
+                        passwordBuffer,
+                        hashedPasswordData.count,
+                        saltBuffer,
+                        saltData.count,
+                        prf,
+                        UInt32(rounds),
+                        keyBuffer,
+                        derivedCount)
+                }
+            }
+        }
+        return derivationStatus == kCCSuccess ? derivedKeyData : nil
+    }
 }
 
 public extension Promise where T == (data: Data, response: URLResponse) {
@@ -362,4 +488,11 @@ enum SecurityCode {
         case .sms: return "phone"
         }
     }
+}
+
+public struct ServerSRPInitResponse: Decodable {
+    let iteration: Int
+    let salt: String
+    let b: String
+    let c: String
 }
