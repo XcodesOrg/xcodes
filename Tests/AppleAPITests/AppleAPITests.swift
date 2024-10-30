@@ -661,6 +661,96 @@ final class AppleAPITests: XCTestCase {
         """)
     }
     
+    func test_Login_Service_Temporarily_Unavailable() {
+        var log = ""
+        Current.logging.log = { log.append($0 + "\n") }
+        
+        var readLineCount = 0
+        Current.shell.readLine = { prompt in
+            defer { readLineCount += 1 }
+            
+            Current.logging.log(prompt)
+
+            // security code
+            return "000000"
+        }
+
+        Current.network.dataTask = { convertible in
+         
+            switch convertible.pmkRequest.url! {
+            case .itcServiceKey:
+                return fixture(for: .itcServiceKey,
+                               fileURL: Bundle.module.url(forResource: "ITCServiceKey", withExtension: "json", subdirectory: "Fixtures/Login_Service_Temporarily_Unavailable")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json"])
+            case .signIn:
+                if convertible.pmkRequest.httpMethod == "GET" {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "Federate", withExtension: "json", subdirectory: "Fixtures/Login_Service_Temporarily_Unavailable")!,
+                                   statusCode: 200,
+                                   headers: ["Content-Type": "application/json",
+                                             "X-Apple-HC-Bits": "10",
+                                             "X-Apple-HC-Challenge": "somestring",
+                                             "scnt": ""])
+                } else {
+                    return fixture(for: .signIn,
+                                   fileURL: Bundle.module.url(forResource: "SignIn", withExtension: "json", subdirectory: "Fixtures/Login_Service_Temporarily_Unavailable")!,
+                                   statusCode: 503,
+                                   headers: ["Content-Type": "text/html",
+                                             "X-Apple-ID-Session-Id": "",
+                                             "scnt": ""])
+                }
+            case .authOptions:
+                return fixture(for: .authOptions,
+                               fileURL: Bundle.module.url(forResource: "AuthOptions", withExtension: "json", subdirectory: "Fixtures/Login_Service_Temporarily_Unavailable")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json",
+                                         "X-Apple-ID-Session-Id": "",
+                                         "scnt": ""])
+            case .submitSecurityCode(.device(code: "000000")):
+                return fixture(for: .submitSecurityCode(.device(code: "000000")),
+                               statusCode: 204,
+                               headers: ["Content-Type": "application/json",
+                                         "X-Apple-ID-Session-Id": "",
+                                         "scnt": ""])
+            case .trust:
+                return fixture(for: .trust,
+                               statusCode: 204,
+                               headers: [:])
+            case .olympusSession:
+                return fixture(for: .olympusSession,
+                               fileURL: Bundle.module.url(forResource: "OlympusSession", withExtension: "json", subdirectory: "Fixtures/Login_Service_Temporarily_Unavailable")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json",
+                                         "X-Apple-ID-Session-Id": "",
+                                         "scnt": ""])
+            default:
+                print(convertible.pmkRequest.url!)
+                XCTFail()
+                return .init(error: PMKError.invalidCallingConvention)
+            }
+        }
+
+        let expectation = self.expectation(description: "promise fulfills")
+
+        let client = Client()
+        client.login(accountName: "test@example.com", password: "ABC123")
+            .tap { result in
+                guard case .rejected(let error as AppleAPI.Client.Error) = result else {
+                    XCTFail("login fulfilled, but should have rejected with .noTrustedPhoneNumbers error")
+                    return
+                }
+                XCTAssertEqual(error, AppleAPI.Client.Error.serviceTemporarilyUnavailable)
+                expectation.fulfill()
+            }
+            .cauterize()
+        
+        wait(for: [expectation], timeout: 1.0)
+        
+        XCTAssertEqual(log, "")
+    }
+
+    
     func testValidHashCashMint() {
         let bits: UInt = 11
         let resource = "4d74fb15eb23f465f1f6fcbf534e5877"

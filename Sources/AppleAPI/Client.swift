@@ -18,6 +18,7 @@ public class Client {
         case incorrectSecurityCode
         case unexpectedSignInResponse(statusCode: Int, message: String?)
         case appleIDAndPrivacyAcknowledgementRequired
+        case serviceTemporarilyUnavailable
         case noTrustedPhoneNumbers
         case notAuthenticated
         case invalidHashcash
@@ -32,6 +33,8 @@ public class Client {
                 return "Invalid username and password combination. Attempted to sign in with username \(username)."
             case .appleIDAndPrivacyAcknowledgementRequired:
                 return "You must sign in to https://appstoreconnect.apple.com and acknowledge the Apple ID & Privacy agreement."
+            case .serviceTemporarilyUnavailable:
+                return "The service is temporarily unavailable. Please try again later."
             case .invalidPhoneNumberIndex(let min, let max, let given):
                 return "Not a valid phone number index. Expecting a whole number between \(min)-\(max), but was given \(given ?? "nothing")."
             case .noTrustedPhoneNumbers:
@@ -188,20 +191,25 @@ public class Client {
             }
             
             let httpResponse = response as! HTTPURLResponse
-            let responseBody = try JSONDecoder().decode(SignInResponse.self, from: data)
-            
-            switch httpResponse.statusCode {
-            case 200:
-                return Current.network.dataTask(with: URLRequest.olympusSession).asVoid()
-            case 401:
-                throw Error.invalidUsernameOrPassword(username: accountName)
-            case 409:
-                return self.handleTwoStepOrFactor(data: data, response: response, serviceKey: serviceKey)
-            case 412 where Client.authTypes.contains(responseBody.authType ?? ""):
-                throw Error.appleIDAndPrivacyAcknowledgementRequired
-            default:
-                throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode,
-                                                     message: responseBody.serviceErrors?.map { $0.description }.joined(separator: ", "))
+            do {
+                let responseBody = try JSONDecoder().decode(SignInResponse.self, from: data)
+                switch httpResponse.statusCode {
+                case 200:
+                    return Current.network.dataTask(with: URLRequest.olympusSession).asVoid()
+                case 401:
+                    throw Error.invalidUsernameOrPassword(username: accountName)
+                case 409:
+                    return self.handleTwoStepOrFactor(data: data, response: response, serviceKey: serviceKey)
+                case 412 where Client.authTypes.contains(responseBody.authType ?? ""):
+                    throw Error.appleIDAndPrivacyAcknowledgementRequired
+                default:
+                    throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode,
+                                                         message: responseBody.serviceErrors?.map { $0.description }.joined(separator: ", "))
+                }
+            } catch DecodingError.dataCorrupted where httpResponse.statusCode == 503 {
+                throw Error.serviceTemporarilyUnavailable
+            } catch {
+                throw error
             }
         }
     }
