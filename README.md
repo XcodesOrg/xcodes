@@ -214,7 +214,8 @@ git push --follow-tags
 
 # Edit the draft release created by Release Drafter to point at the new tag
 # Set the release title to the new version
-# Add the xcodes.zip and xcodes-$VERSION.mojave.tar.gz files to the release
+# Duplicate xcodes-$VERSION.mojave.tar.gz and rename to xcodes-$VERSION.arm64_mojave.tar.gz
+# Add the xcodes.zip, xcodes-$VERSION.mojave.tar.gz, xcodes-$VERSION.arm64_mojave.tar.gz files to the release
 # Publish the release
 
 # Update the Homebrew Bottle: https://github.com/XcodesOrg/homebrew-made/blob/master/Formula/xcodes.rb
