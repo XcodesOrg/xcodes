@@ -23,6 +23,7 @@ let package = Package(
         .package(url: "https://github.com/xcodereleases/data", revision: "fcf527b187817f67c05223676341f3ab69d4214d"),
         .package(url: "https://github.com/onevcat/Rainbow.git", .upToNextMinor(from: "3.2.0")),
         .package(url: "https://github.com/jpsim/Yams", .upToNextMinor(from: "5.0.1")),
+        .package(url: "https://github.com/xcodesOrg/swift-srp", branch: "main")
     ],
     targets: [
         .executableTarget(
@@ -50,7 +51,7 @@ let package = Package(
                 "Version",
                 .product(name: "XCModel", package: "data"),
                 "Rainbow",
-                "Yams",
+                "Yams"
             ]),
         .testTarget(
             name: "XcodesKitTests",
@@ -68,6 +69,7 @@ let package = Package(
                 "PromiseKit",
                 .product(name: "PMKFoundation", package: "Foundation"),
                 "Rainbow",
+                .product(name: "SRP", package: "swift-srp")
             ]),
         .testTarget(
             name: "AppleAPITests",
