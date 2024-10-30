@@ -188,7 +188,7 @@ public class RuntimeInstaller {
     @MainActor
     public func downloadOrUseExistingArchive(runtime: DownloadableRuntime, to destinationDirectory: Path, downloader: Downloader) async throws -> URL {
         guard let source = runtime.source else {
-            throw Error.missingRuntimeSource(runtime.identifier)
+            throw Error.missingRuntimeSource(runtime.visibleIdentifier)
         }
         let url = URL(string: source)!
         let destination = destinationDirectory/url.lastPathComponent
@@ -364,7 +364,7 @@ extension RuntimeInstaller {
                 case .rootNeeded:
                     return "Must be run as root to install the specified runtime"
                 case let .missingRuntimeSource(identifier):
-                    return "Runtime \(identifier) is missing source url. Downloading of iOS 18 runtimes are only supported using Xcode 16.1+ and can only be installed, not just downloaded."
+                    return "Downloading runtime \(identifier) is not supported at this time. Please use `xcodes runtimes install \"\(identifier)\"` instead."
                 case let .xcode16_1OrGreaterRequired(version):
                     return "Installing this runtime requires Xcode 16.1 or greater to be selected, but is currently \(version.description)"
                 case .noXcodeSelectedFound:
