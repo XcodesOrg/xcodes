@@ -24,7 +24,7 @@ public struct Environment {
 public var Current = Environment()
 
 public struct Shell {
-    public var unxip: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, workingDirectory: $0.deletingLastPathComponent(), "--expand", "\($0.path)") }
+    public var unxip: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, workingDirectory: $1, "--expand", "\($0.path)") }
     public var mountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "attach", "-nobrowse", "-plist", $0.path) }
     public var unmountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "detach", $0.path) }
     public var expandPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--expand", $0.path, $1.path) }
@@ -272,6 +272,19 @@ public struct Files {
     public var createDirectory: (URL, Bool, [FileAttributeKey : Any]?) throws -> Void = FileManager.default.createDirectory(at:withIntermediateDirectories:attributes:)
     public func createDirectory(at url: URL, withIntermediateDirectories createIntermediates: Bool, attributes: [FileAttributeKey : Any]? = nil) throws {
         try createDirectory(url, createIntermediates, attributes)
+    }
+
+    public var temporalDirectory: (URL) throws -> URL = { try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: $0, create: true) }
+
+    public func temporalDirectory(for URL: URL) throws -> URL {
+        return try temporalDirectory(URL)
+    }
+
+    public func xcodeExpansionDirectory(archiveURL: URL, xcodeURL: URL, shouldExpandInplace: Bool) -> URL {
+        if shouldExpandInplace {
+            return archiveURL.deletingLastPathComponent()
+        }
+        return (try? Current.files.temporalDirectory(for: xcodeURL)) ?? archiveURL.deletingLastPathComponent()
     }
 
     public var contentsOfDirectory: (URL) throws -> [URL] = { try FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil, options: []) }
