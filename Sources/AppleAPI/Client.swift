@@ -70,6 +70,7 @@ public class Client {
         let clientKeys = client.generateKeys()
         let a = clientKeys.public
         
+        // Get the Service Key needed from olympus session needed in headers
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             Current.network.dataTask(with: URLRequest.itcServiceKey)
         }
@@ -81,9 +82,11 @@ public class Client {
             let response = try JSONDecoder().decode(ServiceKeyResponse.self, from: data)
             serviceKey = response.authServiceKey
             
+            /// Load a hashcash of the account name
             return self.loadHashcash(accountName: accountName, serviceKey: serviceKey).map { (serviceKey, $0) }
         }
         .then { (serviceKey, hashcash) -> Promise<(serviceKey: String, hashcash: String, data: Data)> in
+            /// Call the SRP /init endpoint to start the login
             return Current.network.dataTask(with: URLRequest.SRPInit(serviceKey: serviceKey, a: Data(a.bytes).base64EncodedString(), accountName: accountName)).map { (serviceKey, hashcash, $0.data)}
         }
         .then { (serviceKey, hashcash, data) -> Promise<(data: Data, response: URLResponse)> in
@@ -108,6 +111,7 @@ public class Client {
                 let m1 = client.calculateClientProof(username: accountName, salt: [UInt8](decodedSalt), clientPublicKey: a, serverPublicKey: .init([UInt8](decodedB)), sharedSecret: .init(sharedSecret.bytes))
                 let m2 = client.calculateServerProof(clientPublicKey: a, clientProof: m1, sharedSecret: .init([UInt8](sharedSecret.bytes)))
 
+                /// call the /complete endpoint passing in the hashcash, servicekey, and the calculated proof. 
                 return Current.network.dataTask(with: URLRequest.SRPComplete(serviceKey: serviceKey, hashcash: hashcash, accountName: accountName, c: srpInit.c, m1: Data(m1).base64EncodedString(), m2: Data(m2).base64EncodedString()))
             } catch {
                 throw Error.srpError(error.localizedDescription)
