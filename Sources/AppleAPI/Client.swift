@@ -136,20 +136,25 @@ public class Client {
             }
             
             let httpResponse = response as! HTTPURLResponse
-            let responseBody = try JSONDecoder().decode(SignInResponse.self, from: data)
-            
-            switch httpResponse.statusCode {
-            case 200:
-                return Current.network.dataTask(with: URLRequest.olympusSession).asVoid()
-            case 401:
-                throw Error.invalidUsernameOrPassword(username: accountName)
-            case 409:
-                return self.handleTwoStepOrFactor(data: data, response: response, serviceKey: serviceKey)
-            case 412 where Client.authTypes.contains(responseBody.authType ?? ""):
-                throw Error.appleIDAndPrivacyAcknowledgementRequired
-            default:
-                throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode,
-                                                     message: responseBody.serviceErrors?.map { $0.description }.joined(separator: ", "))
+            do {
+                let responseBody = try JSONDecoder().decode(SignInResponse.self, from: data)
+                switch httpResponse.statusCode {
+                case 200:
+                    return Current.network.dataTask(with: URLRequest.olympusSession).asVoid()
+                case 401:
+                    throw Error.invalidUsernameOrPassword(username: accountName)
+                case 409:
+                    return self.handleTwoStepOrFactor(data: data, response: response, serviceKey: serviceKey)
+                case 412 where Client.authTypes.contains(responseBody.authType ?? ""):
+                    throw Error.appleIDAndPrivacyAcknowledgementRequired
+                default:
+                    throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode,
+                                                         message: responseBody.serviceErrors?.map { $0.description }.joined(separator: ", "))
+                }
+            } catch DecodingError.dataCorrupted where httpResponse.statusCode == 503 {
+                throw Error.serviceTemporarilyUnavailable
+            } catch {
+                throw error
             }
         }
     }
