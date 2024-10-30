@@ -61,6 +61,9 @@ public class Client {
             }
     }
     
+    /// SRPLogin - Secure Remote Password
+    /// https://tools.ietf.org/html/rfc2945
+    /// Forked from https://github.com/adam-fowler/swift-srp that provides the algorithm
     public func srpLogin(accountName: String, password: String) -> Promise<Void> {
         var serviceKey: String!
         let client = SRPClient(configuration: SRPConfiguration<SHA256>(.N2048))
