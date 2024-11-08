@@ -7,7 +7,7 @@ public typealias ProcessOutput = (status: Int32, out: String, err: String)
 
 extension Process {
     @discardableResult
-    static func sudo(password: String? = nil, _ executable: Path, workingDirectory: URL? = nil, _ arguments: String...) -> Promise<ProcessOutput> {
+    static func sudo(password: String? = nil, _ executable: some Pathish, workingDirectory: URL? = nil, _ arguments: String...) -> Promise<ProcessOutput> {
         var arguments = [executable.string] + arguments
         if password != nil {
             arguments.insert("-S", at: 0)
@@ -16,7 +16,7 @@ extension Process {
     }
 
     @discardableResult
-    static func run(_ executable: Path, workingDirectory: URL? = nil, input: String? = nil, _ arguments: String...) -> Promise<ProcessOutput> {
+    static func run(_ executable: some Pathish, workingDirectory: URL? = nil, input: String? = nil, _ arguments: String...) -> Promise<ProcessOutput> {
         return run(executable.url, workingDirectory: workingDirectory, input: input, arguments)
     }
 
