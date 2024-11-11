@@ -3,7 +3,7 @@
     {
       "identity" : "data",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/xcodereleases/data.git",
+      "location" : "https://github.com/xcodereleases/data",
       "state" : {
         "revision" : "fcf527b187817f67c05223676341f3ab69d4214d"
       }
@@ -31,8 +31,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mxcl/LegibleError.git",
       "state" : {
-        "revision" : "909e9bab3ded97350b28a5ab41dd745dd8aa9710",
-        "version" : "1.0.4"
+        "revision" : "bc596702d7ff618c3f90ba480eeb48b3e83a2fbe",
+        "version" : "1.0.6"
       }
     },
     {
@@ -49,8 +49,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mxcl/PromiseKit.git",
       "state" : {
-        "revision" : "1c296a8637838901d2b01e4c46875ee749506133",
-        "version" : "6.8.5"
+        "revision" : "8a98e31a47854d3180882c8068cc4d9381bf382d",
+        "version" : "6.22.1"
       }
     },
     {

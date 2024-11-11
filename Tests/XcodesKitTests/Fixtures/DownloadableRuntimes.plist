@@ -1794,7 +1794,34 @@
                 <key>version</key>
                 <string>1.0.0.1</string>
             </dict>
-	</array>
+            <dict>
+                <key>category</key>
+                <string>simulator</string>
+                <key>contentType</key>
+                <string>cryptexDiskImage</string>
+                <key>dictionaryVersion</key>
+                <integer>2</integer>
+                <key>downloadMethod</key>
+                <string>mobileAsset</string>
+                <key>fileSize</key>
+                <integer>8455760175</integer>
+                <key>identifier</key>
+                <string>com.apple.dmg.iPhoneSimulatorSDK18_0_b1</string>
+                <key>name</key>
+                <string>iOS 18.0 beta Simulator Runtime</string>
+                <key>platform</key>
+                <string>com.apple.platform.iphoneos</string>
+                <key>simulatorVersion</key>
+                <dict>
+                    <key>buildUpdate</key>
+                    <string>22A5282m</string>
+                    <key>version</key>
+                    <string>18.0</string>
+                </dict>
+                <key>version</key>
+                <string>18.0.0.1</string>
+            </dict>
+        </array>
         <key>refreshInterval</key>
         <integer>86400</integer>
         <key>sdkToSeedMappings</key>

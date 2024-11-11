@@ -112,6 +112,8 @@ public class RuntimeInstaller {
                 try await installFromPackage(dmgUrl: dmgUrl, runtime: matchedRuntime)
             case .diskImage:
                 try await installFromImage(dmgUrl: dmgUrl)
+            case .cryptexDiskImage:
+                throw Error.unsupportedCryptexDiskImage
         }
         if shouldDelete {
             Current.logging.log("Deleting Archive")
@@ -183,7 +185,10 @@ public class RuntimeInstaller {
 
     @MainActor
     public func downloadOrUseExistingArchive(runtime: DownloadableRuntime, to destinationDirectory: Path, downloader: Downloader) async throws -> URL {
-        let url = URL(string: runtime.source)!
+        guard let source = runtime.source else {
+            throw Error.missingRuntimeSource(runtime.identifier)
+        }
+        let url = URL(string: source)!
         let destination = destinationDirectory/url.lastPathComponent
         let aria2DownloadMetadataPath = destination.parent/(destination.basename() + ".aria2")
         var aria2DownloadIsIncomplete = false
@@ -226,6 +231,8 @@ extension RuntimeInstaller {
         case unavailableRuntime(String)
         case failedMountingDMG
         case rootNeeded
+        case missingRuntimeSource(String)
+        case unsupportedCryptexDiskImage
 
         public var errorDescription: String? {
             switch self {
@@ -235,6 +242,10 @@ extension RuntimeInstaller {
                     return "Failed to mount image."
                 case .rootNeeded:
                     return "Must be run as root to install the specified runtime"
+                case let .missingRuntimeSource(identifier):
+                    return "Runtime \(identifier) is missing source url. Downloading of iOS 18 runtimes are not supported. Please install manually see https://developer.apple.com/documentation/xcode/installing-additional-simulator-runtimes"
+                case .unsupportedCryptexDiskImage:
+                    return "Cryptex Disk Image is not yet supported."
             }
         }
     }

@@ -25,6 +25,7 @@ iOS 16.2
 iOS 16.4
 iOS 17.0-beta1
 iOS 17.0-beta2
+iOS 18.0-beta1
 -- watchOS --
 watchOS 6.0
 watchOS 6.1.1
