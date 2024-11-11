@@ -9,6 +9,9 @@ extension URL {
     static func submitSecurityCode(_ code: SecurityCode) -> URL { URL(string: "https://idmsa.apple.com/appleauth/auth/verify/\(code.urlPathComponent)/securitycode")! }
     static let trust = URL(string: "https://idmsa.apple.com/appleauth/auth/2sv/trust")!
     static let olympusSession = URL(string: "https://appstoreconnect.apple.com/olympus/v1/session")!
+    
+    static let srpInit = URL(string: "https://idmsa.apple.com/appleauth/auth/signin/init")!
+    static let srpComplete = URL(string: "https://idmsa.apple.com/appleauth/auth/signin/complete?isRememberMeEnabled=false")!
 }
 
 extension URLRequest {
@@ -129,4 +132,49 @@ extension URLRequest {
         
         return request
     }
+    
+    static func SRPInit(serviceKey: String, a: String, accountName: String) -> URLRequest {
+        struct ServerSRPInitRequest: Encodable {
+            public let a: String
+            public let accountName: String
+            public let protocols: [SRPProtocol]
+        }
+        
+        var request = URLRequest(url: .srpInit)
+        request.httpMethod = "POST"
+        request.allHTTPHeaderFields = request.allHTTPHeaderFields ?? [:]
+        request.allHTTPHeaderFields?["Accept"] = "application/json"
+        request.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        request.allHTTPHeaderFields?["X-Requested-With"] = "XMLHttpRequest"
+        request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
+        
+        request.httpBody = try? JSONEncoder().encode(ServerSRPInitRequest(a: a, accountName: accountName, protocols: [.s2k, .s2k_fo]))
+        return request
+    }
+    
+    static func SRPComplete(serviceKey: String, hashcash: String, accountName: String, c: String, m1: String, m2: String) -> URLRequest {
+        struct ServerSRPCompleteRequest: Encodable {
+            let accountName: String
+            let c: String
+            let m1: String
+            let m2: String
+            let rememberMe: Bool
+        }
+        
+        var request = URLRequest(url: .srpComplete)
+        request.httpMethod = "POST"
+        request.allHTTPHeaderFields = request.allHTTPHeaderFields ?? [:]
+        request.allHTTPHeaderFields?["Accept"] = "application/json"
+        request.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        request.allHTTPHeaderFields?["X-Requested-With"] = "XMLHttpRequest"
+        request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
+        request.allHTTPHeaderFields?["X-Apple-HC"] = hashcash
+        
+        request.httpBody = try? JSONEncoder().encode(ServerSRPCompleteRequest(accountName: accountName, c: c, m1: m1, m2: m2, rememberMe: false))
+        return request
+    }
+}
+
+public enum SRPProtocol: String, Codable {
+    case s2k, s2k_fo
 }
