@@ -493,6 +493,12 @@ struct Xcodes: AsyncParsableCommand {
                   completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
         var versionOrPath: [String] = []
 
+        @Flag(help: "Select the latest installed version of Xcode, excluding prerelease versions")
+        var latest = false
+
+        @Flag(help: "Select the latest installed version of Xcode, including prerelease versions")
+        var latestPrerelease = false
+
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
 
@@ -504,11 +510,32 @@ struct Xcodes: AsyncParsableCommand {
 
             let directory = getDirectory(possibleDirectory: globalDirectory.directory)
 
-            selectXcode(shouldPrint: print, pathOrVersion: versionOrPath.joined(separator: " "), directory: directory)
+            var versionOrPath = versionOrPath.joined(separator: " ")
+            if latest || latestPrerelease {
+                guard let latest = latestInstalledXcode else {
+                    Current.logging.log("No versions of Xcode are installed")
+                    return
+                }
+
+                versionOrPath = latest.path.string
+            }
+
+            selectXcode(shouldPrint: print, pathOrVersion: versionOrPath, directory: directory)
                 .done { Select.exit() }
                 .catch { error in Select.exit(withLegibleError: error) }
 
             RunLoop.current.run()
+        }
+
+        var latestInstalledXcode: InstalledXcode? {
+            var installedXcodes = Current.files.installedXcodes(getDirectory(possibleDirectory: nil))
+                .sorted { $0.version < $1.version }
+
+            if !latestPrerelease {
+                installedXcodes.removeAll { $0.version.isPrerelease }
+            }
+
+            return installedXcodes.last
         }
     }
 
