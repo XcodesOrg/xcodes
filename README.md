@@ -47,9 +47,9 @@ Building from source requires Xcode 12.0 or later, so it's not an option for set
 ```sh
 git clone https://github.com/XcodesOrg/xcodes
 cd xcodes
-make install
+sudo make install
 # or, if /usr/local/ isn't in your PATH
-PREFIX=/your/install/directory make install
+PREFIX=/your/install/directory sudo -E make install
 ```
 
 While installing, you may get the following output:
