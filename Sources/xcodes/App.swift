@@ -8,7 +8,7 @@ import Path
 import Rainbow
 
 func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Applications")) -> Path {
-    let directory = possibleDirectory.flatMap(Path.init) ??
+    let directory = possibleDirectory.flatMap { Path($0) ?? Path.cwd / $0 } ??
         ProcessInfo.processInfo.environment["XCODES_DIRECTORY"].flatMap(Path.init) ??
         `default`
     guard directory.isDirectory else {
