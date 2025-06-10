@@ -78,7 +78,7 @@ public class RuntimeInstaller {
                 if runtime.hasDuplicateVersion {
                     str += " (\(runtime.build))"
                 }
-                if runtime.state == .legacyDownload || runtime.state == .diskImage {
+                if runtime.state == .legacyDownload || runtime.state == .diskImage || runtime.state == .cryptexDiskImage {
                     str += " (Installed)"
                 } else if runtime.state == .bundled {
                     str += " (Bundled with selected Xcode)"

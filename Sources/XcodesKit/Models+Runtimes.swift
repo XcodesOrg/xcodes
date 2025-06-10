@@ -129,8 +129,9 @@ public struct InstalledRuntime: Decodable {
 
 extension InstalledRuntime {
     enum Kind: String, Decodable {
-        case diskImage = "Disk Image"
         case bundled = "Bundled with Xcode"
+        case cryptexDiskImage = "Cryptex Disk Image"
+        case diskImage = "Disk Image"
         case legacyDownload = "Legacy Download"
     }
 
