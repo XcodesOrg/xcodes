@@ -11,7 +11,7 @@ categories:
       - 'documentation'
       - 'dependencies'
 template: |
-  If you installed xcodes with homebrew you can upgrade with `brew upgrade robotsandpencils/made/xcodes`.
+  If you installed xcodes with homebrew you can upgrade with `brew upgrade xcodesorg/made/xcodes`.
 
   ## Changes
 
