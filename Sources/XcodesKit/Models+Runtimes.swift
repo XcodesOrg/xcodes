@@ -80,6 +80,7 @@ extension DownloadableRuntime {
         case diskImage = "diskImage"
         case package = "package"
         case cryptexDiskImage = "cryptexDiskImage"
+        case patchableCryptexDiskImage = "patchableCryptexDiskImage"
     }
 
     enum Platform: String, Decodable {
@@ -133,6 +134,7 @@ extension InstalledRuntime {
         case cryptexDiskImage = "Cryptex Disk Image"
         case diskImage = "Disk Image"
         case legacyDownload = "Legacy Download"
+        case patchableCryptexDiskImage = "Patchable Cryptex Disk Image"
     }
 
     enum Platform: String, Decodable {
