@@ -28,7 +28,7 @@ public class RuntimeInstaller {
                                                            betaNumber: downloadable.betaNumber,
                                                            version: downloadable.simulatorVersion.version,
                                                            build: downloadable.simulatorVersion.buildUpdate,
-                                                           state: $0.kind))
+                                                           kind: $0.kind))
                 }
             } else {
                 mappedRuntimes.append(PrintableRuntime(platform: downloadable.platform,
@@ -47,7 +47,7 @@ public class RuntimeInstaller {
                                           betaNumber: resolvedBetaNumber,
                                           version: runtime.version,
                                           build: runtime.build,
-                                          state: runtime.kind)
+                                          kind: runtime.kind)
 
             mappedRuntimes.indices {
                 result.visibleIdentifier == $0.visibleIdentifier
@@ -71,17 +71,20 @@ public class RuntimeInstaller {
             }
 
             for runtime in sortedRuntimes {
-                if !includeBetas && runtime.betaNumber != nil && runtime.state == nil {
+                if !includeBetas && runtime.betaNumber != nil && runtime.kind == nil {
                     continue
                 }
                 var str = runtime.visibleIdentifier
                 if runtime.hasDuplicateVersion {
                     str += " (\(runtime.build))"
                 }
-                if runtime.state == .legacyDownload || runtime.state == .diskImage || runtime.state == .cryptexDiskImage {
-                    str += " (Installed)"
-                } else if runtime.state == .bundled {
-                    str += " (Bundled with selected Xcode)"
+                if let kind = runtime.kind {
+                    switch kind {
+                    case .bundled:
+                        str += " (Bundled with selected Xcode)"
+                    case .legacyDownload, .diskImage, .cryptexDiskImage, .patchableCryptexDiskImage:
+                        str += " (Installed)"
+                    }
                 }
                 Current.logging.log(str)
             }
@@ -118,7 +121,7 @@ public class RuntimeInstaller {
             let dmgUrl = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
             try await installFromImage(dmgUrl: dmgUrl)
 			deleteIfNeeded(dmgUrl)
-        case .cryptexDiskImage:
+        case .cryptexDiskImage, .patchableCryptexDiskImage:
             try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime)
         }
     }
@@ -379,7 +382,7 @@ fileprivate struct PrintableRuntime {
     let betaNumber: Int?
     let version: String
     let build: String
-    var state: InstalledRuntime.Kind? = nil
+    var kind: InstalledRuntime.Kind? = nil
     var hasDuplicateVersion = false
 
     var completeVersion: String {
