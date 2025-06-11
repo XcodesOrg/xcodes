@@ -227,6 +227,9 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .directory)
         var directory: String?
 
+        @Flag(help: "Expands (decompress) Xcode .xip on the same directory it's downloaded, instead of using a temporal directory.")
+        var expandXipInplace: Bool = false
+        
         @Flag(help: "Use fastlane spaceship session.")
         var useFastlaneAuth: Bool = false
 
@@ -284,10 +287,10 @@ struct Xcodes: AsyncParsableCommand {
                     Current.logging.log("Updating...")
                     return xcodeList.update(dataSource: globalDataSource.dataSource)
                         .then { _ -> Promise<InstalledXcode> in
-                            xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                            xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, shouldExpandXipInplace: expandXipInplace, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                         }
                 } else {
-                    return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                    return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, shouldExpandXipInplace: expandXipInplace, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                 }
             }
             .recover { error -> Promise<InstalledXcode> in
