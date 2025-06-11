@@ -214,7 +214,7 @@ git push --follow-tags
 
 # Edit the draft release created by Release Drafter to point at the new tag
 # Set the release title to the new version
-# Duplicate xcodes-$VERSION.mojave.tar.gz and rename to xcodes-$VERSION.arm64_mojave.tar.gz
+# Duplicate xcodes-$VERSION.mojave.tar.gz and rename to xcodes-$VERSION.arm64_mojave.tar.gz, also create `xcodes-$VERSION.macos.i386.tar.gz` and `xcodes-$VERSION.macos.arm64.tar.gz`
 # Add the xcodes.zip, xcodes-$VERSION.mojave.tar.gz, xcodes-$VERSION.arm64_mojave.tar.gz files to the release
 # Publish the release
 
