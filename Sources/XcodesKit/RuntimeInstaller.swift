@@ -28,13 +28,15 @@ public class RuntimeInstaller {
                                                            betaNumber: downloadable.betaNumber,
                                                            version: downloadable.simulatorVersion.version,
                                                            build: downloadable.simulatorVersion.buildUpdate,
-                                                           kind: $0.kind))
+                                                           kind: $0.kind,
+                                                           architectures: downloadable.architectures))
                 }
             } else {
                 mappedRuntimes.append(PrintableRuntime(platform: downloadable.platform,
                                                        betaNumber: downloadable.betaNumber,
                                                        version: downloadable.simulatorVersion.version,
-                                                       build: downloadable.simulatorVersion.buildUpdate))
+                                                       build: downloadable.simulatorVersion.buildUpdate,
+                                                       architectures: downloadable.architectures))
             }
         }
 
@@ -47,7 +49,8 @@ public class RuntimeInstaller {
                                           betaNumber: resolvedBetaNumber,
                                           version: runtime.version,
                                           build: runtime.build,
-                                          kind: runtime.kind)
+                                          kind: runtime.kind,
+                                          architectures: nil)
 
             mappedRuntimes.indices {
                 result.visibleIdentifier == $0.visibleIdentifier
@@ -361,7 +364,7 @@ extension RuntimeInstaller {
         public var errorDescription: String? {
             switch self {
                 case let .unavailableRuntime(version):
-                    return "Runtime \(version) is invalid or not downloadable"
+                    return "Runtime \(version) is invalid or not downloadable. Please include arm64 or x86_64 in the version string if shown."
                 case .failedMountingDMG:
                     return "Failed to mount image."
                 case .rootNeeded:
@@ -384,13 +387,14 @@ fileprivate struct PrintableRuntime {
     let build: String
     var kind: InstalledRuntime.Kind? = nil
     var hasDuplicateVersion = false
+    let architectures: [String]?
 
     var completeVersion: String {
         makeVersion(for: version, betaNumber: betaNumber)
     }
 
     var visibleIdentifier: String {
-        return platform.shortName + " " + completeVersion
+        return platform.shortName + " " + completeVersion + (architectures != nil ? " \(architectures?.joined(separator: "|") ?? "")" : "")
     }
 }
 

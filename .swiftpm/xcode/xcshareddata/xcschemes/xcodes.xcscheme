@@ -128,8 +128,12 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "runtimes install &quot;visionOS 1.0-beta1&quot;"
+            argument = "runtimes install &quot;visionOS 26.0-beta3 arm64&quot;"
             isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "runtimes --include-betas"
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "install --help"
