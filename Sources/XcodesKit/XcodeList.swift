@@ -183,7 +183,7 @@ extension XcodeList {
             let xcodesWithSameBuildMetadataIdentifiers = xcodes
                 .filter({ $0.version.buildMetadataIdentifiers == xcode.version.buildMetadataIdentifiers })
             if xcodesWithSameBuildMetadataIdentifiers.count > 1,
-               xcode.version.prereleaseIdentifiers.isEmpty || xcode.version.prereleaseIdentifiers == ["GM"] {
+               xcode.version.prereleaseIdentifiers.isEmpty || xcode.version.prereleaseIdentifiers == ["GM"] || xcode.version.prereleaseIdentifiers.contains("Beta") {
                 filteredXcodes.append(xcode)
             } else if xcodesWithSameBuildMetadataIdentifiers.count == 1 {
                 filteredXcodes.append(xcode)
