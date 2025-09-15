@@ -173,22 +173,23 @@ extension XcodeList {
     /// We don't care about that difference, so only keep the final release (GM or Release, in XCModel terms).
     /// The downside of this is that a user could technically have both releases installed, and so they won't both be shown in the list, but I think most users wouldn't do this.
     func filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers(_ xcodes: [Xcode]) -> [Xcode] {
+            
+        let xcodesByBuildMetadataIdentifiers =
+            Dictionary(grouping: xcodes, by: { $0.version.buildMetadataIdentifiers })
+        
         var filteredXcodes: [Xcode] = []
-        for xcode in xcodes {
-            if xcode.version.buildMetadataIdentifiers.isEmpty {
-                filteredXcodes.append(xcode)
+        for (buildMetadataIdentifiers, xcodes) in xcodesByBuildMetadataIdentifiers {
+            if buildMetadataIdentifiers.isEmpty || xcodes.count == 1 {
+                filteredXcodes.append(contentsOf: xcodes)
                 continue
             }
             
-            let xcodesWithSameBuildMetadataIdentifiers = xcodes
-                .filter({ $0.version.buildMetadataIdentifiers == xcode.version.buildMetadataIdentifiers })
-            if xcodesWithSameBuildMetadataIdentifiers.count > 1,
-               xcode.version.prereleaseIdentifiers.isEmpty || xcode.version.prereleaseIdentifiers == ["GM"] {
-                filteredXcodes.append(xcode)
-            } else if xcodesWithSameBuildMetadataIdentifiers.count == 1 {
-                filteredXcodes.append(xcode)
-            }
+            // Use the final release if there is one, otherwise just (arbitrarily) pick the first.
+            let finalRelease = xcodes.first(where: {
+                $0.version.prereleaseIdentifiers.isEmpty || $0.version.prereleaseIdentifiers == ["GM"] })
+            filteredXcodes.append(finalRelease ?? xcodes.first!)
         }
+
         return filteredXcodes
     } 
 }
