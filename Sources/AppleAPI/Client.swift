@@ -105,7 +105,7 @@ public class Client {
             let iterations = srpInit.iteration
             
             do {
-                guard let encryptedPassword = self.pbkdf2(password: password, saltData: decodedSalt, keyByteCount: 32, prf: CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), rounds: iterations) else {
+                guard let encryptedPassword = self.pbkdf2(password: password, saltData: decodedSalt, keyByteCount: 32, prf: CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), rounds: iterations, protocol: srpInit.protocol) else {
                     throw Error.srpInvalidPublicKey
                 }
                 
@@ -382,9 +382,14 @@ public class Client {
         return Data(hash)
     }
 
-    private func pbkdf2(password: String, saltData: Data, keyByteCount: Int, prf: CCPseudoRandomAlgorithm, rounds: Int) -> Data? {
+    private func pbkdf2(password: String, saltData: Data, keyByteCount: Int, prf: CCPseudoRandomAlgorithm, rounds: Int, protocol srpProtocol: SRPProtocol) -> Data? {
         guard let passwordData = password.data(using: .utf8) else { return nil }
-        let hashedPasswordData = sha256(data: passwordData)
+        let hashedPasswordDataRaw = sha256(data: passwordData)
+        let hashedPasswordData = switch srpProtocol {
+        case .s2k: hashedPasswordDataRaw
+        // the legacy s2k_fo protocol requires hex-encoding the digest before performing PBKDF2.
+        case .s2k_fo: Data(hashedPasswordDataRaw.hexEncodedString().lowercased().utf8)
+        }
 
         var derivedKeyData = Data(repeating: 0, count: keyByteCount)
         let derivedCount = derivedKeyData.count
@@ -515,4 +520,10 @@ public struct ServerSRPInitResponse: Decodable {
     let salt: String
     let b: String
     let c: String
+    let `protocol`: SRPProtocol
+}
+extension Data {
+    func hexEncodedString() -> String {
+        return map { String(format: "%02hhx", $0) }.joined()
+    }
 }
