@@ -12,7 +12,7 @@ let package = Package(
         .library(name: "AppleAPI", targets: ["AppleAPI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.1.4")),
+        .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.3.1")),
         .package(url: "https://github.com/mxcl/Path.swift.git", .upToNextMinor(from: "0.16.0")),
         .package(url: "https://github.com/mxcl/Version.git", .upToNextMinor(from: "1.0.3")),
         .package(url: "https://github.com/mxcl/PromiseKit.git", .upToNextMinor(from: "6.22.1")),
