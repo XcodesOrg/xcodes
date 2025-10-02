@@ -165,14 +165,15 @@ extension XcodeList {
             }
             return xcodes
         }
-        .map(filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers)
+        .map(XcodeList.filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers)
     }
     
     /// Xcode Releases may have multiple releases with the same build metadata when a build doesn't change between candidate and final releases.
     /// For example, 12.3 RC and 12.3 are both build 12C33
     /// We don't care about that difference, so only keep the final release (GM or Release, in XCModel terms).
     /// The downside of this is that a user could technically have both releases installed, and so they won't both be shown in the list, but I think most users wouldn't do this.
-    func filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers(_ xcodes: [Xcode]) -> [Xcode] {
+    /// This may not preserve order.
+    static func filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers(_ xcodes: [Xcode]) -> [Xcode] {
             
         let xcodesByBuildMetadataIdentifiers =
             Dictionary(grouping: xcodes, by: { $0.version.buildMetadataIdentifiers })
