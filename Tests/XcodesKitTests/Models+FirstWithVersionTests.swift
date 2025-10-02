@@ -16,7 +16,7 @@ final class ModelsFirstWithVersionTests: XCTestCase {
         Xcode(version: Version("7.8.9+ABC123")!, url: URL(fileURLWithPath: "https://developer.apple.com/Xcode7.8.9.app"), filename: "Xcode7.8.9.app", releaseDate: nil),
         
         Xcode(version: Version(xcodeVersion: "10.11.12 Release Candidate")!, url: URL(fileURLWithPath: "https://developer.apple.com/Xcode10.11.12ReleaseCandidate.app"), filename: "Xcode10.11.12ReleaseCandidate.app", releaseDate: nil),
-        Xcode(version: Version(11, 12, 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"]), url: URL(fileURLWithPath: "https://developer.apple.com/Xcode11.12.13ReleaseCandidate.app"), filename: "Xcode11.12.13ReleaseCandidate.app", releaseDate: nil),
+        Xcode(version: Version(major: 11, minor: 12, patch: 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"]), url: URL(fileURLWithPath: "https://developer.apple.com/Xcode11.12.13ReleaseCandidate.app"), filename: "Xcode11.12.13ReleaseCandidate.app", releaseDate: nil),
     ]
     
     let installedXcodes = [
@@ -31,7 +31,7 @@ final class ModelsFirstWithVersionTests: XCTestCase {
         InstalledXcode(path: Path("/Applications/Xcode-7.8.9.app")!, version: Version("7.8.9+ABC123")!),
         
         InstalledXcode(path: Path("/Applications/Xcode-10.11.12-release.candidate.app")!, version: Version(xcodeVersion: "10.11.12 Release Candidate")!),
-        InstalledXcode(path: Path("/Applications/Xcode-11.12.13-release.candidate.app")!, version: Version(11, 12, 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"])),
+        InstalledXcode(path: Path("/Applications/Xcode-11.12.13-release.candidate.app")!, version: Version(major: 11, minor: 12, patch: 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"])),
     ]
     
     func test_xcodes_exactMatch() {
@@ -64,7 +64,7 @@ final class ModelsFirstWithVersionTests: XCTestCase {
         // With build metadata
         XCTAssertEqual(
             xcodes.first(withVersion: Version(xcodeVersion: "11.12.13")!),
-            Xcode(version: Version(11, 12, 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"]), url: URL(fileURLWithPath: "https://developer.apple.com/Xcode11.12.13ReleaseCandidate.app"), filename: "Xcode11.12.13ReleaseCandidate.app", releaseDate: nil)
+            Xcode(version: Version(major: 11, minor: 12, patch: 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"]), url: URL(fileURLWithPath: "https://developer.apple.com/Xcode11.12.13ReleaseCandidate.app"), filename: "Xcode11.12.13ReleaseCandidate.app", releaseDate: nil)
         )
     }
     
@@ -116,7 +116,7 @@ final class ModelsFirstWithVersionTests: XCTestCase {
         // With build metadata
         XCTAssertEqual(
             installedXcodes.first(withVersion: Version(xcodeVersion: "11.12.13")!),
-            InstalledXcode(path: Path("/Applications/Xcode-11.12.13-release.candidate.app")!, version: Version(11, 12, 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"]))
+            InstalledXcode(path: Path("/Applications/Xcode-11.12.13-release.candidate.app")!, version: Version(major: 11, minor: 12, patch: 13, prereleaseIdentifiers: ["Release", "Candidate"], buildMetadataIdentifiers: ["DEF456"]))
         )
     }
     
