@@ -25,6 +25,21 @@ public var Current = Environment()
 
 public struct Shell {
     public var unxip: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.xip, workingDirectory: $0.deletingLastPathComponent(), "--expand", "\($0.path)") }
+    public var unxipExperimental: (URL) -> Promise<ProcessOutput> = { url in
+        let workingDir = url.deletingLastPathComponent()
+
+        // 1) Try bundled unxip first
+        if let bundledURL = Bundle.module.url(forResource: "unxip", withExtension: nil) {
+            guard let bundledPath = Path(url: bundledURL) else {
+                return Process.run(Path.root.usr.bin.xip, workingDirectory: workingDir, "--expand", "\(url.path)")
+            }
+            return Process.run(bundledPath, workingDirectory: workingDir, "\(url.path)")
+        }
+        
+        Current.logging.log("Can't find unxip bundle path".black.onYellow)
+        // 2) Fallback to system xip --expand
+        return Process.run(Path.root.usr.bin.xip, workingDirectory: workingDir, "--expand", "\(url.path)")
+    }
     public var mountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "attach", "-nobrowse", "-plist", $0.path) }
     public var unmountDmg: (URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("hdiutil"), "detach", $0.path) }
     public var expandPkg: (URL, URL) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.sbin.join("pkgutil"), "--expand", $0.path, $1.path) }
@@ -328,3 +343,4 @@ public struct Keychain {
         try remove(key)
     }
 }
+

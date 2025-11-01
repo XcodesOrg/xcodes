@@ -5,7 +5,6 @@ import AppleAPI
 import Version
 import LegibleError
 import Rainbow
-import Unxip
 
 /// Downloads and installs Xcodes
 public final class XcodeInstaller {
@@ -624,19 +623,16 @@ public final class XcodeInstaller {
             Current.logging.log(InstallationStep.unarchiving(experimentalUnxip: experimentalUnxip).description)
 
             if experimentalUnxip, #available(macOS 11, *) {
-                return Promise { seal in
-                    Task.detached {
-                        let output = source.deletingLastPathComponent()
-                        let options = UnxipOptions(input: source, output: output)
-
-                        do {
-                            try await Unxip(options: options).run()
-                            seal.resolve(.fulfilled(()))
-                        } catch {
-                            seal.reject(error)
+                
+                return Current.shell.unxipExperimental(source)
+                    .recover { (error) throws -> Promise<ProcessOutput> in
+                        if case Process.PMKError.execution(_, _, let standardError) = error,
+                           standardError?.contains("damaged and can’t be expanded") == true {
+                            throw Error.damagedXIP(url: source)
                         }
+                        throw error
                     }
-                }
+                    .map { _ in () }
             }
 
             return Current.shell.unxip(source)

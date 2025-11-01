@@ -47,11 +47,13 @@ let package = Package(
                 "PromiseKit",
                 .product(name: "PMKFoundation", package: "Foundation"),
                 "SwiftSoup",
-                "Unxip",
                 "Version",
                 .product(name: "XCModel", package: "data"),
                 "Rainbow",
                 "Yams"
+            ],
+            resources: [
+                .copy("Resources/unxip"),
             ]),
         .testTarget(
             name: "XcodesKitTests",
@@ -62,7 +64,6 @@ let package = Package(
             resources: [
                 .copy("Fixtures"),
             ]),
-        .target(name: "Unxip"),
         .target(
             name: "AppleAPI",
             dependencies: [

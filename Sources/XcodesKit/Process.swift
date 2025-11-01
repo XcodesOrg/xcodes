@@ -22,20 +22,58 @@ extension Process {
 
     @discardableResult
     static func run(_ executable: URL, workingDirectory: URL? = nil, input: String? = nil, _ arguments: [String]) -> Promise<ProcessOutput> {
-        let process = Process()
-        process.currentDirectoryURL = workingDirectory ?? executable.deletingLastPathComponent()
-        process.executableURL = executable
-        process.arguments = arguments
-        if let input = input {
-            let inputPipe = Pipe()
-            process.standardInput = inputPipe.fileHandleForReading
-            inputPipe.fileHandleForWriting.write(Data(input.utf8))
-            inputPipe.fileHandleForWriting.closeFile()
-        }
-        return process.launch(.promise).map { std in 
-            let output = String(data: std.out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            let error = String(data: std.err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            return (process.terminationStatus, output, error)
+        return Promise { seal in
+            let process = Process()
+            process.currentDirectoryURL = workingDirectory ?? executable.deletingLastPathComponent()
+            process.executableURL = executable
+            process.arguments = arguments
+
+            let outPipe = Pipe()
+            let errPipe = Pipe()
+            process.standardOutput = outPipe
+            process.standardError = errPipe
+            var output = Data()
+            var error = Data()
+            
+            outPipe.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                if !data.isEmpty {
+                    output.append(data)
+                }
+            }
+            errPipe.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                if !data.isEmpty {
+                    error.append(data)
+                }
+            }
+
+            if let input = input {
+                let inputPipe = Pipe()
+                process.standardInput = inputPipe
+                if let inputData = input.data(using: .utf8) {
+                    inputPipe.fileHandleForWriting.write(inputData)
+                }
+                inputPipe.fileHandleForWriting.closeFile()
+            }
+
+            do {
+                try process.run()
+            } catch {
+                outPipe.fileHandleForReading.readabilityHandler = nil
+                errPipe.fileHandleForReading.readabilityHandler = nil
+                seal.reject(error)
+                return
+            }
+
+            DispatchQueue.global(qos: .userInitiated).async {
+                process.waitUntilExit()
+                outPipe.fileHandleForReading.readabilityHandler = nil
+                errPipe.fileHandleForReading.readabilityHandler = nil
+                let outputString = String(data: output, encoding: .utf8) ?? ""
+                let errorString = String(data: error, encoding: .utf8) ?? ""
+                seal.fulfill((process.terminationStatus, outputString, errorString))
+            }
         }
     }
 }
