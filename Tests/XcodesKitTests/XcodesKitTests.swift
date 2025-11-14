@@ -1169,6 +1169,38 @@ final class XcodesKitTests: XCTestCase {
 
         """)
     }
+
+    func test_SelectFallsBackToLatestPatchVersion() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        let fallbackXcode = InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!, version: Version(2, 0, 1))
+        Current.files.installedXcodes = { _ in [fallbackXcode] }
+
+        var xcodeSelectPrintPathCallCount = 0
+        Current.shell.xcodeSelectPrintPath = {
+            defer { xcodeSelectPrintPathCallCount += 1 }
+            if xcodeSelectPrintPathCallCount == 0 {
+                return Promise.value((status: 0, out: "/Applications/Xcode-1.0.0.app/Contents/Developer", err: ""))
+            } else {
+                return Promise.value((status: 0, out: "\(fallbackXcode.path.string)/Contents/Developer", err: ""))
+            }
+        }
+
+        Current.shell.xcodeSelectSwitch = { _, path in
+            XCTAssertEqual(path, fallbackXcode.path.string)
+            return Promise.value((status: 0, out: "", err: ""))
+        }
+
+        selectXcode(shouldPrint: false, pathOrVersion: "2.0", directory: Path.root.join("Applications"))
+            .cauterize()
+
+        XCTAssertEqual(log, """
+        Xcode 2.0 is not installed. Selecting 2.0.1 instead.
+        Selected /Applications/Xcode-2.0.1.app/Contents/Developer
+
+        """)
+    }
     
     func test_Installed_InteractiveTerminal() {
         var log = ""

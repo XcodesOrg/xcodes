@@ -24,16 +24,27 @@ public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Pat
 
         let versionToSelect = pathOrVersion.isEmpty ? Version.fromXcodeVersionFile() : Version(xcodeVersion: pathOrVersion)
         let installedXcodes = Current.files.installedXcodes(directory)
-        if let version = versionToSelect,
-           let installedXcode = installedXcodes.first(withVersion: version) {
+        if let version = versionToSelect {
             let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
-            if installedXcode.version == selectedInstalledXcodeVersion {
+            if version == selectedInstalledXcodeVersion {
                 Current.logging.log("Xcode \(version) is already selected".green)
                 Current.shell.exit(0)
                 return Promise.value(())
             }
 
-            return selectXcodeAtPath(installedXcode.path.string)
+            var xcodeToSelect = installedXcodes.first(withVersion: version)
+            if xcodeToSelect == nil, let fallbackInstalledXcode = installedXcodes.latestMatchingMajorMinorVersion(withVersion: version) {
+                Current.logging.log("Xcode \(version) is not installed. Selecting \(fallbackInstalledXcode.version) instead.".green)
+                xcodeToSelect = fallbackInstalledXcode
+            }
+
+            guard let selectedXcode = xcodeToSelect else {
+                Current.logging.log("Xcode \(version) is not installed".red)
+                Current.shell.exit(1)
+                return Promise.value(())
+            }
+
+            return selectXcodeAtPath(selectedXcode.path.string)
                 .done { output in
                     Current.logging.log("Selected \(output.out)".green)
                     Current.shell.exit(0)

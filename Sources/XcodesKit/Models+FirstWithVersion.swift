@@ -41,7 +41,28 @@ public extension Array where Element == InstalledXcode {
     /// If there are multiple matches, or no matches, nil is returned.
     func first(withVersion version: Version) -> InstalledXcode? {
         findXcode(version: version, in: self, versionKeyPath: \.version)
-    } 
+    }
+
+    /// Returns the newest InstalledXcode that shares the requested major and minor versions when:
+    ///   - No prerelease or build metadata identifiers were specified.
+    ///   - The requested patch version is 0 (i.e. not explicitly provided).
+    ///   - An exact match via `first(withVersion:)` could not be found.
+    /// Prefers release builds when available, otherwise falls back to prerelease builds.
+    func latestMatchingMajorMinorVersion(withVersion version: Version) -> InstalledXcode? {
+        let matchingVersions = filter {
+            $0.version.major == version.major &&
+            $0.version.minor == version.minor
+        }
+
+        if matchingVersions.isEmpty {
+            return nil
+        }
+
+        let releaseVersions = matchingVersions.filter { $0.version.prereleaseIdentifiers.isEmpty }
+        let candidates = releaseVersions.isEmpty ? matchingVersions : releaseVersions
+
+        return candidates.max(by: { $0.version < $1.version })
+    }
 }
 
 extension Version {
