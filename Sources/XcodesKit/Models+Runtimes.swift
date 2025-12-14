@@ -12,6 +12,7 @@ public struct DownloadableRuntime: Decodable {
     let category: Category
     let simulatorVersion: SimulatorVersion
     let source: String?
+    let architectures: [String]?
     let dictionaryVersion: Int
     let contentType: ContentType
     let platform: Platform
@@ -23,7 +24,7 @@ public struct DownloadableRuntime: Decodable {
     let authentication: Authentication?
 
     var betaNumber: Int? {
-        enum Regex { static let shared = try! NSRegularExpression(pattern: "b[0-9]+$") }
+        enum Regex { static let shared = try! NSRegularExpression(pattern: "b[0-9]+") }
         guard var foundString = Regex.shared.firstString(in: identifier) else { return nil }
         foundString.removeFirst()
         return Int(foundString)!
@@ -34,7 +35,7 @@ public struct DownloadableRuntime: Decodable {
     }
 
     var visibleIdentifier: String {
-        return platform.shortName + " " + completeVersion
+        return platform.shortName + " " + completeVersion + (architectures != nil ? " \(architectures?.joined(separator: "|") ?? "")" : "")
     }
 }
 
@@ -53,6 +54,7 @@ struct SDKToSimulatorMapping: Decodable {
     let sdkBuildUpdate: String
     let simulatorBuildUpdate: String
     let sdkIdentifier: String
+    let downloadableIdentifiers: [String]?
 }
 
 extension DownloadableRuntime {
