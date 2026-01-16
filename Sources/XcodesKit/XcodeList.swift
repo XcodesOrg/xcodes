@@ -23,9 +23,11 @@ public final class XcodeList {
     }
 
     public func update(dataSource: DataSource) -> Promise<[Xcode]> {
+        let xcodesPromise: Promise<[Xcode]>
+
         switch dataSource {
         case .apple:
-            return when(fulfilled: releasedXcodes(), prereleaseXcodes())
+            xcodesPromise = when(fulfilled: releasedXcodes(), prereleaseXcodes())
                 .map { releasedXcodes, prereleaseXcodes in
                     // Starting with Xcode 11 beta 6, developer.apple.com/download and developer.apple.com/download/more both list some pre-release versions of Xcode.
                     // Previously pre-release versions only appeared on developer.apple.com/download.
@@ -34,19 +36,19 @@ public final class XcodeList {
                     let xcodes = releasedXcodes.filter { releasedXcode in
                         prereleaseXcodes.contains { $0.version.isEquivalent(to: releasedXcode.version) } == false
                     } + prereleaseXcodes
-                    self.availableXcodes = xcodes
-                    self.lastUpdated = Date()
-                    try? self.cacheAvailableXcodes(xcodes)
                     return xcodes
                 }
         case .xcodeReleases:
-            return xcodeReleases()
-                .map { xcodes in
-                    self.availableXcodes = xcodes
-                    self.lastUpdated = Date()
-                    try? self.cacheAvailableXcodes(xcodes)
-                    return xcodes
-                }
+            xcodesPromise = xcodeReleases()
+        }
+
+        return xcodesPromise.map { xcodes in
+            // Apply architecture filtering centrally for all data sources
+            let filtered = self.filterArchitectureVariants(xcodes)
+            self.availableXcodes = filtered
+            self.lastUpdated = Date()
+            try? self.cacheAvailableXcodes(filtered)
+            return filtered
         }
     }
 }
@@ -190,5 +192,45 @@ extension XcodeList {
             }
         }
         return filteredXcodes
-    } 
+    }
+
+    /// Filters architecture variants to select the appropriate one for the current machine.
+    /// When multiple architecture variants exist for the same version (e.g., Apple_silicon and Universal),
+    /// selects the one that matches the current machine's architecture.
+    private func filterArchitectureVariants(_ xcodes: [Xcode]) -> [Xcode] {
+        let machine = Current.shell.machineArchitecture()
+        let isAppleSilicon = machine == "arm64"
+
+        // Group by version to find duplicates
+        var versionGroups: [Version: [Xcode]] = [:]
+        for xcode in xcodes {
+            versionGroups[xcode.version, default: []].append(xcode)
+        }
+
+        var filtered: [Xcode] = []
+        for (_, variants) in versionGroups {
+            if variants.count == 1 {
+                // No architecture variants, keep as-is
+                filtered.append(variants[0])
+            } else {
+                // Multiple variants - select based on architecture
+                let selected: Xcode
+                if isAppleSilicon {
+                    // Prefer Apple_silicon, fallback to Universal
+                    selected = variants.first { $0.url.absoluteString.contains("Apple_silicon") }
+                            ?? variants.first { $0.url.absoluteString.contains("Universal") }
+                            ?? variants[0]
+                } else {
+                    // On Intel, prefer Universal, avoid Apple_silicon
+                    selected = variants.first { $0.url.absoluteString.contains("Universal") }
+                            ?? variants.first { !$0.url.absoluteString.contains("Apple_silicon") }
+                            ?? variants[0]
+                }
+
+                filtered.append(selected)
+            }
+        }
+
+        return filtered
+    }
 }

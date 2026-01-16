@@ -1479,4 +1479,157 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(cookies[2].path, "/")
         XCTAssertEqual(cookies[2].isSecure, true)
     }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64SelectsAppleSilicon() {
+        XcodesKit.Current.shell.machineArchitecture = { "arm64" }
+
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+            ], dateModified: Date()),
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
+            ], dateModified: Date())
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try! encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == URLRequest.downloads.url! {
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            // Return empty data for prerelease endpoint
+            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64FallsBackToUniversal() {
+        XcodesKit.Current.shell.machineArchitecture = { "arm64" }
+
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 15.0", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_15.0/Xcode_15.0_Universal.xip")
+            ], dateModified: Date())
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try! encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == URLRequest.downloads.url! {
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_15.0/Xcode_15.0_Universal.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_IntelSelectsUniversal() {
+        XcodesKit.Current.shell.machineArchitecture = { "x86_64" }
+
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+            ], dateModified: Date()),
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
+            ], dateModified: Date())
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try! encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == URLRequest.downloads.url! {
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_IntelAvoidsAppleSilicon() {
+        XcodesKit.Current.shell.machineArchitecture = { "x86_64" }
+
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+            ], dateModified: Date())
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try! encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            if url.pmkRequest.url! == URLRequest.downloads.url! {
+                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            }
+            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                // Intel should not get Apple_silicon only builds
+                // In this case it falls back to the Apple_silicon as last resort
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
 }
