@@ -1480,28 +1480,37 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(cookies[2].isSecure, true)
     }
 
-    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64SelectsAppleSilicon() {
+    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64SelectsAppleSilicon() throws {
         XcodesKit.Current.shell.machineArchitecture = { "arm64" }
 
+        let testDate = Date(timeIntervalSince1970: 0)
         let downloads = Downloads(downloads: [
             Download(name: "Xcode 16.2", files: [
                 Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
-            ], dateModified: Date()),
+            ], dateModified: testDate),
             Download(name: "Xcode 16.2", files: [
                 Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
-            ], dateModified: Date())
+            ], dateModified: testDate)
         ])
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
-        let downloadsData = try! encoder.encode(downloads)
+        let downloadsData = try encoder.encode(downloads)
 
         XcodesKit.Current.network.dataTask = { url in
-            if url.pmkRequest.url! == URLRequest.downloads.url! {
-                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                // Return empty data for prerelease endpoint
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
             }
-            // Return empty data for prerelease endpoint
-            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
         }
 
         let expectation = self.expectation(description: "update completes")
@@ -1520,24 +1529,33 @@ final class XcodesKitTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
 
-    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64FallsBackToUniversal() {
+    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64FallsBackToUniversal() throws {
         XcodesKit.Current.shell.machineArchitecture = { "arm64" }
 
+        let testDate = Date(timeIntervalSince1970: 0)
         let downloads = Downloads(downloads: [
             Download(name: "Xcode 15.0", files: [
                 Download.File(remotePath: "Developer_Tools/Xcode_15.0/Xcode_15.0_Universal.xip")
-            ], dateModified: Date())
+            ], dateModified: testDate)
         ])
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
-        let downloadsData = try! encoder.encode(downloads)
+        let downloadsData = try encoder.encode(downloads)
 
         XcodesKit.Current.network.dataTask = { url in
-            if url.pmkRequest.url! == URLRequest.downloads.url! {
-                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
             }
-            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
         }
 
         let expectation = self.expectation(description: "update completes")
@@ -1556,27 +1574,36 @@ final class XcodesKitTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
 
-    func test_XcodeList_Update_FiltersArchitectureVariants_IntelSelectsUniversal() {
+    func test_XcodeList_Update_FiltersArchitectureVariants_IntelSelectsUniversal() throws {
         XcodesKit.Current.shell.machineArchitecture = { "x86_64" }
 
+        let testDate = Date(timeIntervalSince1970: 0)
         let downloads = Downloads(downloads: [
             Download(name: "Xcode 16.2", files: [
                 Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
-            ], dateModified: Date()),
+            ], dateModified: testDate),
             Download(name: "Xcode 16.2", files: [
                 Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
-            ], dateModified: Date())
+            ], dateModified: testDate)
         ])
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
-        let downloadsData = try! encoder.encode(downloads)
+        let downloadsData = try encoder.encode(downloads)
 
         XcodesKit.Current.network.dataTask = { url in
-            if url.pmkRequest.url! == URLRequest.downloads.url! {
-                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
             }
-            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
         }
 
         let expectation = self.expectation(description: "update completes")
@@ -1595,24 +1622,33 @@ final class XcodesKitTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
 
-    func test_XcodeList_Update_FiltersArchitectureVariants_IntelAvoidsAppleSilicon() {
+    func test_XcodeList_Update_FiltersArchitectureVariants_IntelAvoidsAppleSilicon() throws {
         XcodesKit.Current.shell.machineArchitecture = { "x86_64" }
 
+        let testDate = Date(timeIntervalSince1970: 0)
         let downloads = Downloads(downloads: [
             Download(name: "Xcode 16.2", files: [
                 Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
-            ], dateModified: Date())
+            ], dateModified: testDate)
         ])
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
-        let downloadsData = try! encoder.encode(downloads)
+        let downloadsData = try encoder.encode(downloads)
 
         XcodesKit.Current.network.dataTask = { url in
-            if url.pmkRequest.url! == URLRequest.downloads.url! {
-                return Promise.value((data: downloadsData, response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
             }
-            return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))
         }
 
         let expectation = self.expectation(description: "update completes")
