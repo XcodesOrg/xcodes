@@ -1479,4 +1479,193 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(cookies[2].path, "/")
         XCTAssertEqual(cookies[2].isSecure, true)
     }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64SelectsAppleSilicon() throws {
+        XcodesKit.Current.shell.machineArchitecture = { "arm64" }
+
+        let testDate = Date(timeIntervalSince1970: 0)
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+            ], dateModified: testDate),
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
+            ], dateModified: testDate)
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                // Return empty data for prerelease endpoint
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
+            }
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_ARM64FallsBackToUniversal() throws {
+        XcodesKit.Current.shell.machineArchitecture = { "arm64" }
+
+        let testDate = Date(timeIntervalSince1970: 0)
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 15.0", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_15.0/Xcode_15.0_Universal.xip")
+            ], dateModified: testDate)
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
+            }
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_15.0/Xcode_15.0_Universal.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_IntelSelectsUniversal() throws {
+        XcodesKit.Current.shell.machineArchitecture = { "x86_64" }
+
+        let testDate = Date(timeIntervalSince1970: 0)
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+            ], dateModified: testDate),
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
+            ], dateModified: testDate)
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
+            }
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_16.2/Xcode_16.2_Universal.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func test_XcodeList_Update_FiltersArchitectureVariants_IntelAvoidsAppleSilicon() throws {
+        XcodesKit.Current.shell.machineArchitecture = { "x86_64" }
+
+        let testDate = Date(timeIntervalSince1970: 0)
+        let downloads = Downloads(downloads: [
+            Download(name: "Xcode 16.2", files: [
+                Download.File(remotePath: "Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+            ], dateModified: testDate)
+        ])
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(.downloadsDateModified)
+        let downloadsData = try encoder.encode(downloads)
+
+        XcodesKit.Current.network.dataTask = { url in
+            do {
+                let requestURL = try XCTUnwrap(url.pmkRequest.url)
+                let downloadsURL = try XCTUnwrap(URLRequest.downloads.url)
+                let response = try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil))
+
+                if requestURL == downloadsURL {
+                    return Promise.value((data: downloadsData, response: response))
+                }
+                return Promise.value((data: Data(), response: response))
+            } catch {
+                return Promise(error: error)
+            }
+        }
+
+        let expectation = self.expectation(description: "update completes")
+        let xcodesList = XcodeList()
+
+        xcodesList.update(dataSource: .apple)
+            .done { xcodes in
+                // Intel should not get Apple_silicon only builds
+                // In this case it falls back to the Apple_silicon as last resort
+                XCTAssertEqual(xcodes.count, 1)
+                XCTAssertEqual(xcodes[0].url.absoluteString, "https://download.developer.apple.com/Developer_Tools/Xcode_16.2/Xcode_16.2_Apple_silicon.xip")
+                expectation.fulfill()
+            }
+            .catch { error in
+                XCTFail("Update failed: \(error)")
+            }
+
+        waitForExpectations(timeout: 1.0)
+    }
 }

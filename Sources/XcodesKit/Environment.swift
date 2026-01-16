@@ -63,6 +63,17 @@ public struct Shell {
     }
     public var isRoot: () -> Bool = { NSUserName() == "root" }
 
+    /// Returns the machine architecture (e.g., "arm64", "x86_64")
+    public var machineArchitecture: () -> String = {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        return withUnsafePointer(to: &systemInfo.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+                String(cString: $0)
+            }
+        }
+    }
+
     /// Returns the path of an executable within the directories in the PATH environment variable.
     public var findExecutable: (_ executableName: String) -> Path? = { executableName in
         guard let path = ProcessInfo.processInfo.environment["PATH"] else { return nil }
