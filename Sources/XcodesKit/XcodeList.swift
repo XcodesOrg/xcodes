@@ -18,6 +18,8 @@ public final class XcodeList {
         return availableXcodes.isEmpty || (cacheAge ?? 0) > Self.maxCacheAge
     }
 
+    private(set) var xcodeArchitecturesByDownloadPath = [String: Set<XcodeDistributionArchitecture>]()
+
     public func shouldUpdateBeforeDownloading(version: Version) -> Bool {
         return availableXcodes.first(withVersion: version) == nil
     }
@@ -36,6 +38,7 @@ public final class XcodeList {
                     } + prereleaseXcodes
                     self.availableXcodes = xcodes
                     self.lastUpdated = Date()
+                    self.xcodeArchitecturesByDownloadPath = [:]
                     try? self.cacheAvailableXcodes(xcodes)
                     return xcodes
                 }
@@ -68,6 +71,7 @@ extension XcodeList {
 
         self.availableXcodes = xcodes
         self.lastUpdated = lastUpdated
+        self.xcodeArchitecturesByDownloadPath = [:]
     }
 
     private func cacheAvailableXcodes(_ xcodes: [Xcode]) throws {
@@ -94,7 +98,7 @@ extension XcodeList {
                 .filter { $0.name.range(of: "^Xcode [0-9]", options: .regularExpression) != nil }
                 .compactMap { download -> Xcode? in
                     let urlPrefix = URL(string: "https://download.developer.apple.com/")!
-                    guard 
+                    guard
                         let xcodeFile = download.files.first(where: { $0.remotePath.hasSuffix("dmg") || $0.remotePath.hasSuffix("xip") }),
                         let version = Version(xcodeVersion: download.name)
                     else { return nil }
@@ -119,7 +123,7 @@ extension XcodeList {
         let body = String(data: data, encoding: .utf8)!
         let document = try SwiftSoup.parse(body)
 
-        guard 
+        guard
             let xcodeHeader = try document.select("h2:containsOwn(Xcode)").first(),
             let productBuildVersion = try xcodeHeader.parent()?.select("li:contains(Build)").text().replacingOccurrences(of: "Build", with: ""),
             let releaseDateString = try xcodeHeader.parent()?.select("li:contains(Released)").text().replacingOccurrences(of: "Released", with: ""),
@@ -136,38 +140,62 @@ extension XcodeList {
 
 extension XcodeList {
     // MARK: - XcodeReleases
-    
+
     private func xcodeReleases() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             Current.network.dataTask(with: URLRequest(url: URL(string: "https://xcodereleases.com/data.json")!))
         }
         .map { (data, response) in
-            let decoder = JSONDecoder()
-            let xcReleasesXcodes = try decoder.decode([XCModel.Xcode].self, from: data)
-            let xcodes = xcReleasesXcodes.compactMap { xcReleasesXcode -> Xcode? in
-                guard
-                    let downloadURL = xcReleasesXcode.links?.download?.url,
-                    let version = Version(xcReleasesXcode: xcReleasesXcode)
-                else { return nil }
-                
-                let releaseDate = Calendar(identifier: .gregorian).date(from: DateComponents(
-                    year: xcReleasesXcode.date.year,
-                    month: xcReleasesXcode.date.month,
-                    day: xcReleasesXcode.date.day
-                ))
-                
-                return Xcode(
-                    version: version,
-                    url: downloadURL,
-                    filename: String(downloadURL.path.suffix(fromLast: "/")),
-                    releaseDate: releaseDate
-                )
-            }
-            return xcodes
+            let parsedPayload = try self.parseXcodeReleasesPayload(from: data)
+            self.xcodeArchitecturesByDownloadPath = parsedPayload.architecturesByDownloadPath
+            return parsedPayload.xcodes
         }
         .map(filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers)
     }
-    
+
+    func parseXcodeReleasesPayload(from data: Data) throws -> XcodeReleasesPayload {
+        let records = try JSONDecoder().decode([XcodeReleasesRecord].self, from: data)
+        var architecturesByDownloadPath = [String: Set<XcodeDistributionArchitecture>]()
+
+        let xcodes = records.compactMap { record -> Xcode? in
+            let xcReleasesXcode = record.xcode
+            guard
+                let downloadURL = xcReleasesXcode.links?.download?.url,
+                let version = Version(xcReleasesXcode: xcReleasesXcode)
+            else { return nil }
+
+            let releaseDate = Calendar(identifier: .gregorian).date(from: DateComponents(
+                year: xcReleasesXcode.date.year,
+                month: xcReleasesXcode.date.month,
+                day: xcReleasesXcode.date.day
+            ))
+
+            if let downloadArchitectures = record.downloadArchitectures {
+                architecturesByDownloadPath[downloadURL.path] = downloadArchitectures
+            }
+
+            return Xcode(
+                version: version,
+                url: downloadURL,
+                filename: String(downloadURL.path.suffix(fromLast: "/")),
+                releaseDate: releaseDate
+            )
+        }
+
+        return XcodeReleasesPayload(
+            xcodes: xcodes,
+            architecturesByDownloadPath: architecturesByDownloadPath
+        )
+    }
+
+    static func normalizedArchitectures(_ architectures: [String]?) -> Set<XcodeDistributionArchitecture>? {
+        guard let architectures else { return nil }
+        let normalized = Set(
+            architectures.compactMap { XcodeDistributionArchitecture(rawValue: $0.lowercased()) }
+        )
+        return normalized.isEmpty ? nil : normalized
+    }
+
     /// Xcode Releases may have multiple releases with the same build metadata when a build doesn't change between candidate and final releases.
     /// For example, 12.3 RC and 12.3 are both build 12C33
     /// We don't care about that difference, so only keep the final release (GM or Release, in XCModel terms).
@@ -179,7 +207,7 @@ extension XcodeList {
                 filteredXcodes.append(xcode)
                 continue
             }
-            
+
             let xcodesWithSameBuildMetadataIdentifiers = xcodes
                 .filter({ $0.version.buildMetadataIdentifiers == xcode.version.buildMetadataIdentifiers })
             if xcodesWithSameBuildMetadataIdentifiers.count > 1,
@@ -190,5 +218,37 @@ extension XcodeList {
             }
         }
         return filteredXcodes
-    } 
+    }
+}
+
+struct XcodeReleasesPayload {
+    let xcodes: [Xcode]
+    let architecturesByDownloadPath: [String: Set<XcodeDistributionArchitecture>]
+}
+
+private struct XcodeReleasesRecord: Decodable {
+    let xcode: XCModel.Xcode
+    let downloadArchitectures: Set<XcodeDistributionArchitecture>?
+
+    enum CodingKeys: String, CodingKey {
+        case links
+    }
+
+    enum LinksCodingKeys: String, CodingKey {
+        case download
+    }
+
+    enum DownloadCodingKeys: String, CodingKey {
+        case architectures
+    }
+
+    init(from decoder: Decoder) throws {
+        xcode = try XCModel.Xcode(from: decoder)
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let linksContainer = try? container.nestedContainer(keyedBy: LinksCodingKeys.self, forKey: .links)
+        let downloadContainer = try? linksContainer?.nestedContainer(keyedBy: DownloadCodingKeys.self, forKey: .download)
+        let rawArchitectures = try downloadContainer?.decodeIfPresent([String].self, forKey: .architectures)
+        downloadArchitectures = XcodeList.normalizedArchitectures(rawArchitectures)
+    }
 }

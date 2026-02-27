@@ -51,6 +51,37 @@ struct GlobalColorOption: ParsableArguments {
     var color: Bool = true
 }
 
+enum InstallArchitectureOption: String, CaseIterable, ExpressibleByArgument {
+    case any
+    case appleSilicon = "apple-silicon"
+    case universal
+
+    var requiredArchitectures: Set<XcodeDistributionArchitecture>? {
+        switch self {
+        case .any:
+            return nil
+        case .appleSilicon:
+            return [.arm64]
+        case .universal:
+            return [.arm64, .x86_64]
+        }
+    }
+}
+
+enum InstallArchitectureOptionError: LocalizedError {
+    case requiresExplicitVersion
+    case unsupportedDataSource(DataSource)
+
+    var errorDescription: String? {
+        switch self {
+        case .requiresExplicitVersion:
+            return "--architecture is currently supported only when installing an explicit Xcode version."
+        case .unsupportedDataSource(let dataSource):
+            return "--architecture requires --data-source xcodeReleases, but got \(dataSource.rawValue)."
+        }
+    }
+}
+
 @main
 struct Xcodes: AsyncParsableCommand {
     static var configuration = CommandConfiguration(
@@ -178,6 +209,8 @@ struct Xcodes: AsyncParsableCommand {
                           xcodes install 11 Beta 7
                           xcodes install 11.2 GM seed
                           xcodes install 9.0 --path ~/Archive/Xcode_9.xip
+                          xcodes install 26.0 --architecture apple-silicon --data-source xcodeReleases
+                          xcodes install 26.0 --architecture apple-silicon --force-reinstall --data-source xcodeReleases
                           xcodes install --latest-prerelease
                           xcodes install --latest --directory "/Volumes/Bag Of Holding/"
                         """
@@ -202,11 +235,19 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .file())
         var aria2: String?
 
+        @Option(
+            help: "Architecture variant for explicit version installs: any, apple-silicon, universal. Non-default values require --data-source xcodeReleases."
+        )
+        var architecture: InstallArchitectureOption = .any
+
         @Flag(help: "Don't use aria2 to download Xcode, even if its available.")
         var noAria2: Bool = false
 
         @Flag(help: "Select the installed xcode version after installation.")
         var select: Bool = false
+
+        @Flag(help: "Reinstall even when the requested Xcode version is already installed.")
+        var forceReinstall: Bool = false
 
         @Flag(help: "Whether to update the list before installing")
         var update: Bool = false
@@ -245,24 +286,40 @@ struct Xcodes: AsyncParsableCommand {
 
             let versionString = version.joined(separator: " ")
 
-            let installation: XcodeInstaller.InstallationType
+            let baseInstallation: XcodeInstaller.InstallationType
             if latest {
-                installation = .latest
+                baseInstallation = .latest
             } else if latestPrerelease {
-                installation = .latestPrerelease
+                baseInstallation = .latestPrerelease
             } else if let pathString = pathString, let path = Path(pathString) {
-                installation = .path(versionString, path)
+                baseInstallation = .path(versionString, path)
             } else {
-                installation = .version(versionString)
+                baseInstallation = .version(versionString)
+            }
+
+            let installation: XcodeInstaller.InstallationType
+            if architecture == .any {
+                installation = baseInstallation
+            } else {
+                guard globalDataSource.dataSource == .xcodeReleases else {
+                    Install.exit(withLegibleError: InstallArchitectureOptionError.unsupportedDataSource(globalDataSource.dataSource))
+                }
+                guard case .version(let explicitVersion) = baseInstallation else {
+                    Install.exit(withLegibleError: InstallArchitectureOptionError.requiresExplicitVersion)
+                }
+                let requiredArchitectures = architecture.requiredArchitectures ?? []
+                installation = .versionWithArchitectures(explicitVersion, requiredArchitectures)
             }
             
             let downloader = noAria2 ? Downloader.urlSession : Downloader(aria2Path: aria2)
 
             let destination = getDirectory(possibleDirectory: directory)
 
-            if select, case .version(let version) = installation {
+            if select,
+               shouldAttemptSelectionShortcut(installation: installation),
+               case .version(let selectedVersion) = installation {
                 firstly {
-                    selectXcode(shouldPrint: print, pathOrVersion: version, directory: destination, fallbackToInteractive: false)
+                    selectXcode(shouldPrint: print, pathOrVersion: selectedVersion, directory: destination, fallbackToInteractive: false)
                 }
                 .catch { _ in
                     install(installation, using: downloader, to: destination)
@@ -280,14 +337,36 @@ struct Xcodes: AsyncParsableCommand {
             firstly { () -> Promise<InstalledXcode> in
                 if useFastlaneAuth { fastlaneSessionManager.setupFastlaneAuth(fastlaneUser: fastlaneUser) }
                 // update the list before installing only for version type because the other types already update internally
-                if update, case .version = installation {
+                let shouldExplicitlyUpdate: Bool
+                switch installation {
+                case .version, .versionWithArchitectures:
+                    shouldExplicitlyUpdate = true
+                default:
+                    shouldExplicitlyUpdate = false
+                }
+
+                if update, shouldExplicitlyUpdate {
                     Current.logging.log("Updating...")
                     return xcodeList.update(dataSource: globalDataSource.dataSource)
                         .then { _ -> Promise<InstalledXcode> in
-                            xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                            xcodeInstaller.install(installation,
+                                                   dataSource: globalDataSource.dataSource,
+                                                   downloader: downloader,
+                                                   destination: destination,
+                                                   experimentalUnxip: experimentalUnxip,
+                                                   emptyTrash: emptyTrash,
+                                                   noSuperuser: noSuperuser,
+                                                   forceReinstall: forceReinstall)
                         }
                 } else {
-                    return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                    return xcodeInstaller.install(installation,
+                                                  dataSource: globalDataSource.dataSource,
+                                                  downloader: downloader,
+                                                  destination: destination,
+                                                  experimentalUnxip: experimentalUnxip,
+                                                  emptyTrash: emptyTrash,
+                                                  noSuperuser: noSuperuser,
+                                                  forceReinstall: forceReinstall)
                 }
             }
             .recover { error -> Promise<InstalledXcode> in
@@ -313,6 +392,12 @@ struct Xcodes: AsyncParsableCommand {
             .catch { error in
                 Install.processDownloadOrInstall(error: error)
             }
+        }
+
+        private func shouldAttemptSelectionShortcut(installation: XcodeInstaller.InstallationType) -> Bool {
+            guard !forceReinstall else { return false }
+            guard case .version = installation else { return false }
+            return true
         }
     }
 
