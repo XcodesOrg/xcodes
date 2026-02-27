@@ -118,20 +118,24 @@ public class AppleSessionService {
     }
 
     private func handleFederatedLogin(username: String, federationResponse: FederationResponse) -> Promise<Void> {
-        let orgName = federationResponse.federatedAuthIntro?.orgName ?? "your organization"
-        let idpName = federationResponse.federatedAuthIntro?.idpName ?? "your Identity Provider"
-        Current.logging.log("This account uses federated authentication via \(orgName) (\(idpName)).")
-        Current.logging.log("Opening your browser to sign in...")
-
         guard let idpURL = federationResponse.idpURL else {
             return Promise(error: Client.Error.federatedAuthenticationRequired)
         }
 
+        let orgName = federationResponse.federatedAuthIntro?.orgName ?? "your organization"
+        let idpName = federationResponse.federatedAuthIntro?.idpName
+        let orgNameWithIdp = idpName.map { "\(orgName) (\($0))" } ?? orgName
+
+        Current.logging.log("\n- This account uses federated authentication via \(orgNameWithIdp).")
+        Current.logging.log("- Your browser will open to complete sign-in.")
+        Current.logging.log("- After signing in, you will be redirected to a blank page.")
+        Current.logging.log("- Copy the URL from your browser's address bar, then return here and paste it.")
+
+        _ = Current.shell.readLine(prompt: "\nPress Return to open your browser... ")
+
         Current.shell.openURL(idpURL)
 
-        Current.logging.log("")
-        Current.logging.log("After signing in, your browser will redirect to a blank page.")
-        let callbackURLString = Current.shell.readLongLine(prompt: "Paste the URL from your browser's address bar here: ")
+        let callbackURLString = Current.shell.readLongLine(prompt: "\nPaste the URL here: ")
         guard let callbackURLString = callbackURLString,
               let callbackURL = URL(string: callbackURLString),
               let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
