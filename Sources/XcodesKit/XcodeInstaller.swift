@@ -218,10 +218,16 @@ public final class XcodeInstaller {
                                         forceReinstall: forceReinstall)
         }
         .then { xcode, url -> Promise<InstalledXcode> in
-            if forceReinstall {
-                try self.removeExistingInstalledAppIfNeeded(version: xcode.version, destination: destination)
+            self.installArchivedXcodeWithForceReinstallRollbackIfNeeded(forceReinstall: forceReinstall,
+                                                                        version: xcode.version,
+                                                                        destination: destination) {
+                self.installArchivedXcode(xcode,
+                                          at: url,
+                                          to: destination,
+                                          experimentalUnxip: experimentalUnxip,
+                                          emptyTrash: emptyTrash,
+                                          noSuperuser: noSuperuser)
             }
-            return self.installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
         }
         .recover { error -> Promise<InstalledXcode> in
             switch error {
@@ -445,6 +451,7 @@ public final class XcodeInstaller {
                 Current.logging.log("\(InstallationStep.downloading(version: xcode.version.description, progress: nil, willInstall: willInstall))")
             }
             let formatter = NumberFormatter(numberStyle: .percent)
+            formatter.locale = Locale(identifier: "en_US_POSIX")
             var observation: NSKeyValueObservation?
 
             let promise = self.downloadOrUseExistingArchive(for: xcode, downloader: downloader, willInstall: willInstall, progressChanged: { progress in
@@ -519,12 +526,76 @@ public final class XcodeInstaller {
         architectures.map(\.rawValue).sorted().joined(separator: ", ")
     }
 
-    private func removeExistingInstalledAppIfNeeded(version: Version, destination: Path) throws {
-        let installedAppPath = destination.join("Xcode-\(version.descriptionWithoutBuildMetadata).app")
-        guard Current.files.fileExists(atPath: installedAppPath.string) else { return }
+    private struct ForceReinstallBackup {
+        let installedAppPath: Path
+        let backupPath: Path
+    }
 
-        Current.logging.log("Removing existing Xcode at \(installedAppPath.string) due to --force-reinstall.")
-        try Current.files.trashItem(at: installedAppPath.url)
+    private func installArchivedXcodeWithForceReinstallRollbackIfNeeded(forceReinstall: Bool,
+                                                                        version: Version,
+                                                                        destination: Path,
+                                                                        installOperation: @escaping () -> Promise<InstalledXcode>) -> Promise<InstalledXcode> {
+        guard forceReinstall else { return installOperation() }
+
+        do {
+            let backup = try makeForceReinstallBackupIfNeeded(version: version, destination: destination)
+            return installOperation()
+                .get { _ in
+                    self.cleanUpForceReinstallBackupAfterSuccessIfNeeded(backup)
+                }
+                .recover { error -> Promise<InstalledXcode> in
+                    try self.restoreForceReinstallBackupAfterFailureIfNeeded(backup)
+                    throw error
+                }
+        } catch {
+            return Promise(error: error)
+        }
+    }
+
+    private static func installedAppPath(for version: Version, in destination: Path) -> Path {
+        destination.join("Xcode-\(version.descriptionWithoutBuildMetadata).app")
+    }
+
+    private static func forceReinstallBackupPath(for installedAppPath: Path) -> Path {
+        installedAppPath.parent.join("\(installedAppPath.basename()).xcodes-force-reinstall-\(UUID().uuidString)")
+    }
+
+    private func makeForceReinstallBackupIfNeeded(version: Version, destination: Path) throws -> ForceReinstallBackup? {
+        let installedAppPath = Self.installedAppPath(for: version, in: destination)
+        guard Current.files.fileExists(atPath: installedAppPath.string) else { return nil }
+
+        var backupPath = Self.forceReinstallBackupPath(for: installedAppPath)
+        while Current.files.fileExists(atPath: backupPath.string) {
+            backupPath = Self.forceReinstallBackupPath(for: installedAppPath)
+        }
+
+        Current.logging.log("Temporarily moving existing Xcode at \(installedAppPath.string) to \(backupPath.string) due to --force-reinstall.")
+        try Current.files.moveItem(at: installedAppPath.url, to: backupPath.url)
+
+        return ForceReinstallBackup(installedAppPath: installedAppPath, backupPath: backupPath)
+    }
+
+    private func restoreForceReinstallBackupAfterFailureIfNeeded(_ backup: ForceReinstallBackup?) throws {
+        guard let backup else { return }
+        guard Current.files.fileExists(atPath: backup.backupPath.string) else { return }
+
+        if Current.files.fileExists(atPath: backup.installedAppPath.string) {
+            try Current.files.removeItem(at: backup.installedAppPath.url)
+        }
+
+        Current.logging.log("Restoring previous Xcode at \(backup.installedAppPath.string) after failed --force-reinstall attempt.")
+        try Current.files.moveItem(at: backup.backupPath.url, to: backup.installedAppPath.url)
+    }
+
+    private func cleanUpForceReinstallBackupAfterSuccessIfNeeded(_ backup: ForceReinstallBackup?) {
+        guard let backup else { return }
+        guard Current.files.fileExists(atPath: backup.backupPath.string) else { return }
+
+        do {
+            _ = try Current.files.trashItem(at: backup.backupPath.url)
+        } catch {
+            Current.logging.log("Warning: failed to clean up temporary --force-reinstall backup at \(backup.backupPath.string): \(error.localizedDescription)".yellow)
+        }
     }
 
     public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {

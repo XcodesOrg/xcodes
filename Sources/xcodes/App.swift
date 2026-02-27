@@ -315,25 +315,13 @@ struct Xcodes: AsyncParsableCommand {
 
             let destination = getDirectory(possibleDirectory: directory)
 
-            if select && shouldAttemptSelectionShortcut(installation: installation) {
-                let selectedVersion: String?
-                switch installation {
-                case .version(let version):
-                    selectedVersion = version
-                case .versionWithArchitectures(let version, _):
-                    selectedVersion = version
-                default:
-                    selectedVersion = nil
+            if select,
+               shouldAttemptSelectionShortcut(installation: installation),
+               case .version(let selectedVersion) = installation {
+                firstly {
+                    selectXcode(shouldPrint: print, pathOrVersion: selectedVersion, directory: destination, fallbackToInteractive: false)
                 }
-
-                if let selectedVersion {
-                    firstly {
-                        selectXcode(shouldPrint: print, pathOrVersion: selectedVersion, directory: destination, fallbackToInteractive: false)
-                    }
-                    .catch { _ in
-                        install(installation, using: downloader, to: destination)
-                    }
-                } else {
+                .catch { _ in
                     install(installation, using: downloader, to: destination)
                 }
             } else {
