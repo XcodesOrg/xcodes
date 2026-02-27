@@ -21,9 +21,11 @@ public final class XcodeInstaller {
         case unsupportedFileFormat(extension: String)
         case missingSudoerPassword
         case unavailableVersion(Version)
+        case unavailableVersionForArchitectures(version: Version, requiredArchitectures: Set<XcodeDistributionArchitecture>)
         case noReleaseVersionAvailable
         case noPrereleaseVersionAvailable
         case versionAlreadyInstalled(InstalledXcode)
+        case architectureInstallationRequiresForceReinstall(installedXcode: InstalledXcode, requiredArchitectures: Set<XcodeDistributionArchitecture>)
         case invalidVersion(String)
         case versionNotInstalled(Version)
         case unauthorized
@@ -61,12 +63,19 @@ public final class XcodeInstaller {
                 return "Missing password. Please try again."
             case let .unavailableVersion(version):
                 return "Could not find version \(version.appleDescription)."
+            case let .unavailableVersionForArchitectures(version, requiredArchitectures):
+                return "Could not find version \(version.appleDescription) with architectures \(XcodeInstaller.architecturesDescription(requiredArchitectures))."
             case .noReleaseVersionAvailable:
                 return "No release versions available."
             case .noPrereleaseVersionAvailable:
                 return "No prerelease versions available."
             case let .versionAlreadyInstalled(installedXcode):
                 return "\(installedXcode.version.appleDescription) is already installed at \(installedXcode.path)"
+            case let .architectureInstallationRequiresForceReinstall(installedXcode, requiredArchitectures):
+                return """
+                       \(installedXcode.version.appleDescription) is already installed at \(installedXcode.path).
+                       Reinstalling a specific architecture variant (\(XcodeInstaller.architecturesDescription(requiredArchitectures))) requires --force-reinstall.
+                       """
             case let .invalidVersion(version):
                 return "\(version) is not a valid version number."
             case let .versionNotInstalled(version):
@@ -166,9 +175,24 @@ public final class XcodeInstaller {
         case latestPrerelease
     }
 
-    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
+    public func install(_ installationType: InstallationType,
+                        dataSource: DataSource,
+                        downloader: Downloader,
+                        destination: Path,
+                        experimentalUnxip: Bool = false,
+                        emptyTrash: Bool,
+                        noSuperuser: Bool,
+                        forceReinstall: Bool = false) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<InstalledXcode> in
-            return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+            return self.install(installationType,
+                                dataSource: dataSource,
+                                downloader: downloader,
+                                destination: destination,
+                                attemptNumber: 0,
+                                experimentalUnxip: experimentalUnxip,
+                                emptyTrash: emptyTrash,
+                                noSuperuser: noSuperuser,
+                                forceReinstall: forceReinstall)
         }
         .map { xcode in
             Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
@@ -176,11 +200,27 @@ public final class XcodeInstaller {
         }
     }
 
-    private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
+    private func install(_ installationType: InstallationType,
+                         dataSource: DataSource,
+                         downloader: Downloader,
+                         destination: Path,
+                         attemptNumber: Int,
+                         experimentalUnxip: Bool,
+                         emptyTrash: Bool,
+                         noSuperuser: Bool,
+                         forceReinstall: Bool) -> Promise<InstalledXcode> {
         return firstly { () -> Promise<(Xcode, URL)> in
-            return self.getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
+            return self.getXcodeArchive(installationType,
+                                        dataSource: dataSource,
+                                        downloader: downloader,
+                                        destination: destination,
+                                        willInstall: true,
+                                        forceReinstall: forceReinstall)
         }
         .then { xcode, url -> Promise<InstalledXcode> in
+            if forceReinstall {
+                try self.removeExistingInstalledAppIfNeeded(version: xcode.version, destination: destination)
+            }
             return self.installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
         }
         .recover { error -> Promise<InstalledXcode> in
@@ -198,7 +238,15 @@ public final class XcodeInstaller {
                         Current.logging.log(error.legibleLocalizedDescription.red)
                         Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
                         try Current.files.removeItem(at: damagedXIPURL)
-                        return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                        return self.install(installationType,
+                                            dataSource: dataSource,
+                                            downloader: downloader,
+                                            destination: destination,
+                                            attemptNumber: attemptNumber + 1,
+                                            experimentalUnxip: experimentalUnxip,
+                                            emptyTrash: emptyTrash,
+                                            noSuperuser: noSuperuser,
+                                            forceReinstall: forceReinstall)
                     }
                 }
             default:
@@ -222,7 +270,12 @@ public final class XcodeInstaller {
         }
     }
 
-    private func getXcodeArchive(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, willInstall: Bool) -> Promise<(Xcode, URL)> {
+    private func getXcodeArchive(_ installationType: InstallationType,
+                                 dataSource: DataSource,
+                                 downloader: Downloader,
+                                 destination: Path,
+                                 willInstall: Bool,
+                                 forceReinstall: Bool = false) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<(Xcode, URL)> in
             switch installationType {
             case .latest:
@@ -236,8 +289,13 @@ public final class XcodeInstaller {
 
                         Current.logging.log("Latest release version available is \(latestReleaseXcode.version.appleDescription)")
 
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestReleaseXcode.version) }) {
-                            throw Error.versionAlreadyInstalled(installedXcode)
+                        let installedXcode = willInstall
+                            ? Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestReleaseXcode.version) })
+                            : nil
+                        if let conflict = Self.installedVersionConflict(installedXcode: installedXcode,
+                                                                        requiredArchitectures: nil,
+                                                                        forceReinstall: forceReinstall) {
+                            throw conflict
                         }
 
                         return self.downloadXcode(version: latestReleaseXcode.version,
@@ -261,8 +319,13 @@ public final class XcodeInstaller {
                         }
                         Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.appleDescription)")
 
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestPrereleaseXcode.version) }) {
-                            throw Error.versionAlreadyInstalled(installedXcode)
+                        let installedXcode = willInstall
+                            ? Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestPrereleaseXcode.version) })
+                            : nil
+                        if let conflict = Self.installedVersionConflict(installedXcode: installedXcode,
+                                                                        requiredArchitectures: nil,
+                                                                        forceReinstall: forceReinstall) {
+                            throw conflict
                         }
 
                         return self.downloadXcode(version: latestPrereleaseXcode.version,
@@ -275,22 +338,40 @@ public final class XcodeInstaller {
                 guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
+                let installedXcode = willInstall
+                    ? Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) })
+                    : nil
+                if let conflict = Self.installedVersionConflict(installedXcode: installedXcode,
+                                                                requiredArchitectures: nil,
+                                                                forceReinstall: forceReinstall) {
+                    throw conflict
+                }
                 let xcode = Xcode(version: version, url: path.url, filename: String(path.string.suffix(fromLast: "/")), releaseDate: nil)
                 return Promise.value((xcode, path.url))
             case .version(let versionString):
                 guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
-                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
-                    throw Error.versionAlreadyInstalled(installedXcode)
+                let installedXcode = willInstall
+                    ? Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) })
+                    : nil
+                if let conflict = Self.installedVersionConflict(installedXcode: installedXcode,
+                                                                requiredArchitectures: nil,
+                                                                forceReinstall: forceReinstall) {
+                    throw conflict
                 }
                 return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall, requiredArchitectures: nil)
             case .versionWithArchitectures(let versionString, let requiredArchitectures):
                 guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
                     throw Error.invalidVersion(versionString)
                 }
-                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
-                    throw Error.versionAlreadyInstalled(installedXcode)
+                let installedXcode = willInstall
+                    ? Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) })
+                    : nil
+                if let conflict = Self.installedVersionConflict(installedXcode: installedXcode,
+                                                                requiredArchitectures: requiredArchitectures,
+                                                                forceReinstall: forceReinstall) {
+                    throw conflict
                 }
                 return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall, requiredArchitectures: requiredArchitectures)
             }
@@ -333,7 +414,7 @@ public final class XcodeInstaller {
                                                         requiredArchitectures: requiredArchitectures,
                                                         availableXcodes: self.xcodeList.availableXcodes,
                                                         architecturesByDownloadPath: self.xcodeList.xcodeArchitecturesByDownloadPath) else {
-                throw Error.unavailableVersion(version)
+                throw Self.unavailableXcodeError(version: version, requiredArchitectures: requiredArchitectures)
             }
 
             return Promise.value(xcode)
@@ -408,6 +489,44 @@ public final class XcodeInstaller {
 
         return candidates.first
     }
+
+    static func installedVersionConflict(installedXcode: InstalledXcode?,
+                                         requiredArchitectures: Set<XcodeDistributionArchitecture>?,
+                                         forceReinstall: Bool) -> Error? {
+        guard let installedXcode else { return nil }
+        guard !forceReinstall else { return nil }
+
+        if let requiredArchitectures {
+            return .architectureInstallationRequiresForceReinstall(
+                installedXcode: installedXcode,
+                requiredArchitectures: requiredArchitectures
+            )
+        }
+
+        return .versionAlreadyInstalled(installedXcode)
+    }
+
+    static func unavailableXcodeError(version: Version,
+                                      requiredArchitectures: Set<XcodeDistributionArchitecture>?) -> Error {
+        guard let requiredArchitectures, !requiredArchitectures.isEmpty else {
+            return .unavailableVersion(version)
+        }
+        return .unavailableVersionForArchitectures(version: version,
+                                                   requiredArchitectures: requiredArchitectures)
+    }
+
+    static func architecturesDescription(_ architectures: Set<XcodeDistributionArchitecture>) -> String {
+        architectures.map(\.rawValue).sorted().joined(separator: ", ")
+    }
+
+    private func removeExistingInstalledAppIfNeeded(version: Version, destination: Path) throws {
+        let installedAppPath = destination.join("Xcode-\(version.descriptionWithoutBuildMetadata).app")
+        guard Current.files.fileExists(atPath: installedAppPath.string) else { return }
+
+        Current.logging.log("Removing existing Xcode at \(installedAppPath.string) due to --force-reinstall.")
+        try Current.files.trashItem(at: installedAppPath.url)
+    }
+
     public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         // Check to see if the archive is in the expected path in case it was downloaded but failed to install
         let expectedArchivePath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"

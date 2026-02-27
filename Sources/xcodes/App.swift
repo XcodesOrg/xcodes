@@ -210,6 +210,7 @@ struct Xcodes: AsyncParsableCommand {
                           xcodes install 11.2 GM seed
                           xcodes install 9.0 --path ~/Archive/Xcode_9.xip
                           xcodes install 26.0 --architecture apple-silicon --data-source xcodeReleases
+                          xcodes install 26.0 --architecture apple-silicon --force-reinstall --data-source xcodeReleases
                           xcodes install --latest-prerelease
                           xcodes install --latest --directory "/Volumes/Bag Of Holding/"
                         """
@@ -244,6 +245,9 @@ struct Xcodes: AsyncParsableCommand {
 
         @Flag(help: "Select the installed xcode version after installation.")
         var select: Bool = false
+
+        @Flag(help: "Reinstall even when the requested Xcode version is already installed.")
+        var forceReinstall: Bool = false
 
         @Flag(help: "Whether to update the list before installing")
         var update: Bool = false
@@ -311,7 +315,7 @@ struct Xcodes: AsyncParsableCommand {
 
             let destination = getDirectory(possibleDirectory: directory)
 
-            if select {
+            if select && shouldAttemptSelectionShortcut(installation: installation) {
                 let selectedVersion: String?
                 switch installation {
                 case .version(let version):
@@ -357,10 +361,24 @@ struct Xcodes: AsyncParsableCommand {
                     Current.logging.log("Updating...")
                     return xcodeList.update(dataSource: globalDataSource.dataSource)
                         .then { _ -> Promise<InstalledXcode> in
-                            xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                            xcodeInstaller.install(installation,
+                                                   dataSource: globalDataSource.dataSource,
+                                                   downloader: downloader,
+                                                   destination: destination,
+                                                   experimentalUnxip: experimentalUnxip,
+                                                   emptyTrash: emptyTrash,
+                                                   noSuperuser: noSuperuser,
+                                                   forceReinstall: forceReinstall)
                         }
                 } else {
-                    return xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                    return xcodeInstaller.install(installation,
+                                                  dataSource: globalDataSource.dataSource,
+                                                  downloader: downloader,
+                                                  destination: destination,
+                                                  experimentalUnxip: experimentalUnxip,
+                                                  emptyTrash: emptyTrash,
+                                                  noSuperuser: noSuperuser,
+                                                  forceReinstall: forceReinstall)
                 }
             }
             .recover { error -> Promise<InstalledXcode> in
@@ -386,6 +404,12 @@ struct Xcodes: AsyncParsableCommand {
             .catch { error in
                 Install.processDownloadOrInstall(error: error)
             }
+        }
+
+        private func shouldAttemptSelectionShortcut(installation: XcodeInstaller.InstallationType) -> Bool {
+            guard !forceReinstall else { return false }
+            guard case .version = installation else { return false }
+            return true
         }
     }
 

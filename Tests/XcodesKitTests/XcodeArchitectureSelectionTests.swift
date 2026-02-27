@@ -1,5 +1,6 @@
 import XCTest
 import Version
+import Path
 @testable import XcodesKit
 
 final class XcodeArchitectureSelectionTests: XCTestCase {
@@ -132,5 +133,54 @@ final class XcodeArchitectureSelectionTests: XCTestCase {
         XCTAssertEqual(architecturesByPath["/Xcode-16-arm64.xip"], [.arm64])
         XCTAssertEqual(architecturesByPath["/Xcode-16-universal.xip"], [.arm64, .x86_64])
         XCTAssertNil(architecturesByPath["/Xcode-legacy.xip"])
+    }
+
+    func test_installedVersionConflict_requiresForceForArchitectureInstall() throws {
+        let version = Version("16.0.0+16A100")!
+        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-16.0.0.app")!, version: version)
+
+        let error = XcodeInstaller.installedVersionConflict(
+            installedXcode: installedXcode,
+            requiredArchitectures: [.arm64],
+            forceReinstall: false
+        )
+
+        XCTAssertEqual(
+            error,
+            .architectureInstallationRequiresForceReinstall(
+                installedXcode: installedXcode,
+                requiredArchitectures: [.arm64]
+            )
+        )
+    }
+
+    func test_installedVersionConflict_allowsReinstallWithForce() throws {
+        let version = Version("16.0.0+16A100")!
+        let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-16.0.0.app")!, version: version)
+
+        let error = XcodeInstaller.installedVersionConflict(
+            installedXcode: installedXcode,
+            requiredArchitectures: [.arm64],
+            forceReinstall: true
+        )
+
+        XCTAssertNil(error)
+    }
+
+    func test_unavailableXcodeError_returnsArchitectureSpecificError() throws {
+        let version = Version("16.0.0+16A100")!
+
+        let error = XcodeInstaller.unavailableXcodeError(
+            version: version,
+            requiredArchitectures: [.arm64]
+        )
+
+        XCTAssertEqual(
+            error,
+            .unavailableVersionForArchitectures(
+                version: version,
+                requiredArchitectures: [.arm64]
+            )
+        )
     }
 }
