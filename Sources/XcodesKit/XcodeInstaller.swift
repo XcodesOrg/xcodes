@@ -160,6 +160,7 @@ public final class XcodeInstaller {
 
     public enum InstallationType {
         case version(String)
+        case versionWithArchitectures(String, [String])
         case path(String, Path)
         case latest
         case latestPrerelease
@@ -234,12 +235,16 @@ public final class XcodeInstaller {
                         }
 
                         Current.logging.log("Latest release version available is \(latestReleaseXcode.version.appleDescription)")
-                        
+
                         if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestReleaseXcode.version) }) {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
 
-                        return self.downloadXcode(version: latestReleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+                        return self.downloadXcode(version: latestReleaseXcode.version,
+                                                  dataSource: dataSource,
+                                                  downloader: downloader,
+                                                  willInstall: willInstall,
+                                                  requiredArchitectures: nil)
                     }
             case .latestPrerelease:
                 Current.logging.log("Updating...")
@@ -260,7 +265,11 @@ public final class XcodeInstaller {
                             throw Error.versionAlreadyInstalled(installedXcode)
                         }
 
-                        return self.downloadXcode(version: latestPrereleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+                        return self.downloadXcode(version: latestPrereleaseXcode.version,
+                                                  dataSource: dataSource,
+                                                  downloader: downloader,
+                                                  willInstall: willInstall,
+                                                  requiredArchitectures: nil)
                     }
             case .path(let versionString, let path):
                 guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
@@ -275,12 +284,24 @@ public final class XcodeInstaller {
                 if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
                     throw Error.versionAlreadyInstalled(installedXcode)
                 }
-                return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+                return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall, requiredArchitectures: nil)
+            case .versionWithArchitectures(let versionString, let requiredArchitectures):
+                guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
+                    throw Error.invalidVersion(versionString)
+                }
+                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
+                    throw Error.versionAlreadyInstalled(installedXcode)
+                }
+                return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall, requiredArchitectures: requiredArchitectures)
             }
         }
     }
 
-    private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
+    private func downloadXcode(version: Version,
+                               dataSource: DataSource,
+                               downloader: Downloader,
+                               willInstall: Bool,
+                               requiredArchitectures: [String]?) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<Void> in
             switch dataSource {
             case .apple:
@@ -298,14 +319,20 @@ public final class XcodeInstaller {
             }
         }
         .then { () -> Promise<Void> in
-            if self.xcodeList.shouldUpdateBeforeDownloading(version: version) {
+            let shouldRefreshForArchitectureSelection = requiredArchitectures != nil &&
+                dataSource == .xcodeReleases &&
+                self.xcodeList.xcodeArchitecturesByDownloadPath.isEmpty
+            if self.xcodeList.shouldUpdateBeforeDownloading(version: version) || shouldRefreshForArchitectureSelection {
                 return self.xcodeList.update(dataSource: dataSource).asVoid()
             } else {
                 return Promise()
             }
         }
         .then { () -> Promise<Xcode> in
-            guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
+            guard let xcode = Self.selectXcodeCandidate(version: version,
+                                                        requiredArchitectures: requiredArchitectures,
+                                                        availableXcodes: self.xcodeList.availableXcodes,
+                                                        architecturesByDownloadPath: self.xcodeList.xcodeArchitecturesByDownloadPath) else {
                 throw Error.unavailableVersion(version)
             }
 
@@ -353,6 +380,38 @@ public final class XcodeInstaller {
                 .get { _ in observation?.invalidate() }
                 .map { return (xcode, $0) }
         }
+    }
+
+    static func selectXcodeCandidate(version: Version,
+                                     requiredArchitectures: [String]?,
+                                     availableXcodes: [Xcode],
+                                     architecturesByDownloadPath: [String: [String]]) -> Xcode? {
+        guard let requiredArchitectures else {
+            return availableXcodes.first(withVersion: version)
+        }
+
+        let requiredArchitectureKey = normalizedArchitectureKey(requiredArchitectures)
+        guard !requiredArchitectureKey.isEmpty else {
+            return availableXcodes.first(withVersion: version)
+        }
+
+        let candidates = availableXcodes.filter { candidate in
+            guard candidate.version.isEquivalent(to: version),
+                  let candidateArchitectures = architecturesByDownloadPath[candidate.downloadPath] else {
+                return false
+            }
+            return normalizedArchitectureKey(candidateArchitectures) == requiredArchitectureKey
+        }
+
+        if let exactVersionMatch = candidates.first(where: { $0.version == version }) {
+            return exactVersionMatch
+        }
+
+        return candidates.first
+    }
+
+    private static func normalizedArchitectureKey(_ architectures: [String]) -> [String] {
+        return Array(Set(architectures.map { $0.lowercased() })).sorted()
     }
 
     public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
