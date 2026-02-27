@@ -160,7 +160,7 @@ public final class XcodeInstaller {
 
     public enum InstallationType {
         case version(String)
-        case versionWithArchitectures(String, [String])
+        case versionWithArchitectures(String, Set<XcodeDistributionArchitecture>)
         case path(String, Path)
         case latest
         case latestPrerelease
@@ -301,7 +301,7 @@ public final class XcodeInstaller {
                                dataSource: DataSource,
                                downloader: Downloader,
                                willInstall: Bool,
-                               requiredArchitectures: [String]?) -> Promise<(Xcode, URL)> {
+                               requiredArchitectures: Set<XcodeDistributionArchitecture>?) -> Promise<(Xcode, URL)> {
         return firstly { () -> Promise<Void> in
             switch dataSource {
             case .apple:
@@ -383,15 +383,14 @@ public final class XcodeInstaller {
     }
 
     static func selectXcodeCandidate(version: Version,
-                                     requiredArchitectures: [String]?,
+                                     requiredArchitectures: Set<XcodeDistributionArchitecture>?,
                                      availableXcodes: [Xcode],
-                                     architecturesByDownloadPath: [String: [String]]) -> Xcode? {
+                                     architecturesByDownloadPath: [String: Set<XcodeDistributionArchitecture>]) -> Xcode? {
         guard let requiredArchitectures else {
             return availableXcodes.first(withVersion: version)
         }
 
-        let requiredArchitectureKey = normalizedArchitectureKey(requiredArchitectures)
-        guard !requiredArchitectureKey.isEmpty else {
+        guard !requiredArchitectures.isEmpty else {
             return availableXcodes.first(withVersion: version)
         }
 
@@ -400,7 +399,7 @@ public final class XcodeInstaller {
                   let candidateArchitectures = architecturesByDownloadPath[candidate.downloadPath] else {
                 return false
             }
-            return normalizedArchitectureKey(candidateArchitectures) == requiredArchitectureKey
+            return candidateArchitectures == requiredArchitectures
         }
 
         if let exactVersionMatch = candidates.first(where: { $0.version == version }) {
@@ -409,11 +408,6 @@ public final class XcodeInstaller {
 
         return candidates.first
     }
-
-    private static func normalizedArchitectureKey(_ architectures: [String]) -> [String] {
-        return Array(Set(architectures.map { $0.lowercased() })).sorted()
-    }
-
     public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
         // Check to see if the archive is in the expected path in case it was downloaded but failed to install
         let expectedArchivePath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"

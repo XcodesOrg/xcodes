@@ -18,7 +18,7 @@ public final class XcodeList {
         return availableXcodes.isEmpty || (cacheAge ?? 0) > Self.maxCacheAge
     }
 
-    private(set) var xcodeArchitecturesByDownloadPath = [String: [String]]()
+    private(set) var xcodeArchitecturesByDownloadPath = [String: Set<XcodeDistributionArchitecture>]()
 
     public func shouldUpdateBeforeDownloading(version: Version) -> Bool {
         return availableXcodes.first(withVersion: version) == nil
@@ -146,56 +146,53 @@ extension XcodeList {
             Current.network.dataTask(with: URLRequest(url: URL(string: "https://xcodereleases.com/data.json")!))
         }
         .map { (data, response) in
-            let architecturesByDownloadPath = try self.parseArchitecturesByDownloadPath(from: data)
-            let decoder = JSONDecoder()
-            let xcReleasesXcodes = try decoder.decode([XCModel.Xcode].self, from: data)
-            let xcodes = xcReleasesXcodes.compactMap { xcReleasesXcode -> Xcode? in
-                guard
-                    let downloadURL = xcReleasesXcode.links?.download?.url,
-                    let version = Version(xcReleasesXcode: xcReleasesXcode)
-                else { return nil }
-
-                let releaseDate = Calendar(identifier: .gregorian).date(from: DateComponents(
-                    year: xcReleasesXcode.date.year,
-                    month: xcReleasesXcode.date.month,
-                    day: xcReleasesXcode.date.day
-                ))
-
-                return Xcode(
-                    version: version,
-                    url: downloadURL,
-                    filename: String(downloadURL.path.suffix(fromLast: "/")),
-                    releaseDate: releaseDate
-                )
-            }
-            self.xcodeArchitecturesByDownloadPath = architecturesByDownloadPath
-            return xcodes
+            let parsedPayload = try self.parseXcodeReleasesPayload(from: data)
+            self.xcodeArchitecturesByDownloadPath = parsedPayload.architecturesByDownloadPath
+            return parsedPayload.xcodes
         }
         .map(filterPrereleasesThatMatchReleaseBuildMetadataIdentifiers)
     }
 
-    func parseArchitecturesByDownloadPath(from data: Data) throws -> [String: [String]] {
-        let metadata =
-            try JSONDecoder().decode([XcodeReleasesArchitectureMetadata].self, from: data)
-        var result = [String: [String]]()
-        for release in metadata {
-            guard let download = release.links?.download,
-                  let url = download.url,
-                  let architectures = normalizedArchitectures(download.architectures),
-                  !architectures.isEmpty else {
-                continue
+    func parseXcodeReleasesPayload(from data: Data) throws -> XcodeReleasesPayload {
+        let records = try JSONDecoder().decode([XcodeReleasesRecord].self, from: data)
+        var architecturesByDownloadPath = [String: Set<XcodeDistributionArchitecture>]()
+
+        let xcodes = records.compactMap { record -> Xcode? in
+            let xcReleasesXcode = record.xcode
+            guard
+                let downloadURL = xcReleasesXcode.links?.download?.url,
+                let version = Version(xcReleasesXcode: xcReleasesXcode)
+            else { return nil }
+
+            let releaseDate = Calendar(identifier: .gregorian).date(from: DateComponents(
+                year: xcReleasesXcode.date.year,
+                month: xcReleasesXcode.date.month,
+                day: xcReleasesXcode.date.day
+            ))
+
+            if let downloadArchitectures = record.downloadArchitectures {
+                architecturesByDownloadPath[downloadURL.path] = downloadArchitectures
             }
-            result[url.path] = architectures
+
+            return Xcode(
+                version: version,
+                url: downloadURL,
+                filename: String(downloadURL.path.suffix(fromLast: "/")),
+                releaseDate: releaseDate
+            )
         }
-        return result
+
+        return XcodeReleasesPayload(
+            xcodes: xcodes,
+            architecturesByDownloadPath: architecturesByDownloadPath
+        )
     }
 
-    func normalizedArchitectures(_ architectures: [String]?) -> [String]? {
+    static func normalizedArchitectures(_ architectures: [String]?) -> Set<XcodeDistributionArchitecture>? {
         guard let architectures else { return nil }
-        let supportedArchitectures = Set(["arm64", "x86_64"])
-        let normalized = Array(Set(architectures.map { $0.lowercased() }))
-            .filter { supportedArchitectures.contains($0) }
-            .sorted()
+        let normalized = Set(
+            architectures.compactMap { XcodeDistributionArchitecture(rawValue: $0.lowercased()) }
+        )
         return normalized.isEmpty ? nil : normalized
     }
 
@@ -224,15 +221,34 @@ extension XcodeList {
     }
 }
 
-private struct XcodeReleasesArchitectureMetadata: Decodable {
-    struct Links: Decodable {
-        struct Download: Decodable {
-            let url: URL?
-            let architectures: [String]?
-        }
+struct XcodeReleasesPayload {
+    let xcodes: [Xcode]
+    let architecturesByDownloadPath: [String: Set<XcodeDistributionArchitecture>]
+}
 
-        let download: Download?
+private struct XcodeReleasesRecord: Decodable {
+    let xcode: XCModel.Xcode
+    let downloadArchitectures: Set<XcodeDistributionArchitecture>?
+
+    enum CodingKeys: String, CodingKey {
+        case links
     }
 
-    let links: Links?
+    enum LinksCodingKeys: String, CodingKey {
+        case download
+    }
+
+    enum DownloadCodingKeys: String, CodingKey {
+        case architectures
+    }
+
+    init(from decoder: Decoder) throws {
+        xcode = try XCModel.Xcode(from: decoder)
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let linksContainer = try? container.nestedContainer(keyedBy: LinksCodingKeys.self, forKey: .links)
+        let downloadContainer = try? linksContainer?.nestedContainer(keyedBy: DownloadCodingKeys.self, forKey: .download)
+        let rawArchitectures = try downloadContainer?.decodeIfPresent([String].self, forKey: .architectures)
+        downloadArchitectures = XcodeList.normalizedArchitectures(rawArchitectures)
+    }
 }

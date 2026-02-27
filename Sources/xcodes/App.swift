@@ -56,14 +56,14 @@ enum InstallArchitectureOption: String, CaseIterable, ExpressibleByArgument {
     case appleSilicon = "apple-silicon"
     case universal
 
-    var requiredArchitectures: [String]? {
+    var requiredArchitectures: Set<XcodeDistributionArchitecture>? {
         switch self {
         case .any:
             return nil
         case .appleSilicon:
-            return ["arm64"]
+            return [.arm64]
         case .universal:
-            return ["arm64", "x86_64"]
+            return [.arm64, .x86_64]
         }
     }
 }

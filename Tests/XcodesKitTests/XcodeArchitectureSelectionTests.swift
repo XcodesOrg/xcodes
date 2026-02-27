@@ -16,11 +16,11 @@ final class XcodeArchitectureSelectionTests: XCTestCase {
 
         let selected = XcodeInstaller.selectXcodeCandidate(
             version: version,
-            requiredArchitectures: ["arm64"],
+            requiredArchitectures: [.arm64],
             availableXcodes: [universal, appleSilicon],
             architecturesByDownloadPath: [
-                universal.downloadPath: ["arm64", "x86_64"],
-                appleSilicon.downloadPath: ["arm64"]
+                universal.downloadPath: [.arm64, .x86_64],
+                appleSilicon.downloadPath: [.arm64]
             ]
         )
 
@@ -40,11 +40,11 @@ final class XcodeArchitectureSelectionTests: XCTestCase {
 
         let selected = XcodeInstaller.selectXcodeCandidate(
             version: version,
-            requiredArchitectures: ["x86_64", "arm64", "arm64"],
+            requiredArchitectures: [.x86_64, .arm64],
             availableXcodes: [appleSilicon, universal],
             architecturesByDownloadPath: [
-                universal.downloadPath: ["x86_64", "arm64"],
-                appleSilicon.downloadPath: ["arm64"]
+                universal.downloadPath: [.x86_64, .arm64],
+                appleSilicon.downloadPath: [.arm64]
             ]
         )
 
@@ -60,20 +60,28 @@ final class XcodeArchitectureSelectionTests: XCTestCase {
 
         let selected = XcodeInstaller.selectXcodeCandidate(
             version: version,
-            requiredArchitectures: ["arm64"],
+            requiredArchitectures: [.arm64],
             availableXcodes: [universal],
             architecturesByDownloadPath: [
-                universal.downloadPath: ["arm64", "x86_64"]
+                universal.downloadPath: [.arm64, .x86_64]
             ]
         )
 
         XCTAssertNil(selected)
     }
 
-    func test_parseArchitecturesByDownloadPath_normalizesAndFiltersUnsupportedArchitectures() throws {
+    func test_parseXcodeReleasesPayload_normalizesAndFiltersUnsupportedArchitectures() throws {
         let data = """
         [
           {
+            "name": "Xcode 16.0",
+            "version": {
+              "number": "16.0",
+              "build": "16A100",
+              "release": { "release": true }
+            },
+            "date": { "year": 2024, "month": 9, "day": 16 },
+            "requires": "macOS 14.5",
             "links": {
               "download": {
                 "url": "https://example.com/Xcode-16-arm64.xip",
@@ -82,6 +90,14 @@ final class XcodeArchitectureSelectionTests: XCTestCase {
             }
           },
           {
+            "name": "Xcode 16.0",
+            "version": {
+              "number": "16.0",
+              "build": "16A100",
+              "release": { "release": true }
+            },
+            "date": { "year": 2024, "month": 9, "day": 16 },
+            "requires": "macOS 14.5",
             "links": {
               "download": {
                 "url": "https://example.com/Xcode-16-universal.xip",
@@ -90,6 +106,14 @@ final class XcodeArchitectureSelectionTests: XCTestCase {
             }
           },
           {
+            "name": "Xcode 15.4",
+            "version": {
+              "number": "15.4",
+              "build": "15F31",
+              "release": { "release": true }
+            },
+            "date": { "year": 2024, "month": 5, "day": 13 },
+            "requires": "macOS 14.0",
             "links": {
               "download": {
                 "url": "https://example.com/Xcode-legacy.xip",
@@ -101,10 +125,12 @@ final class XcodeArchitectureSelectionTests: XCTestCase {
         """.data(using: .utf8)!
 
         let xcodeList = XcodeList()
-        let architecturesByPath = try xcodeList.parseArchitecturesByDownloadPath(from: data)
+        let payload = try xcodeList.parseXcodeReleasesPayload(from: data)
+        let architecturesByPath = payload.architecturesByDownloadPath
 
-        XCTAssertEqual(architecturesByPath["/Xcode-16-arm64.xip"], ["arm64"])
-        XCTAssertEqual(architecturesByPath["/Xcode-16-universal.xip"], ["arm64", "x86_64"])
+        XCTAssertEqual(payload.xcodes.count, 3)
+        XCTAssertEqual(architecturesByPath["/Xcode-16-arm64.xip"], [.arm64])
+        XCTAssertEqual(architecturesByPath["/Xcode-16-universal.xip"], [.arm64, .x86_64])
         XCTAssertNil(architecturesByPath["/Xcode-legacy.xip"])
     }
 }
