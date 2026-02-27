@@ -26,7 +26,8 @@ public class Client {
         case accountUsesHardwareKey
         case srpInvalidPublicKey
         case srpError(String)
-        
+        case federatedAuthenticationRequired
+
         public var errorDescription: String? {
             switch self {
             case .invalidUsernameOrPassword(let username):
@@ -47,6 +48,8 @@ public class Client {
                 return "Expected security code info but didn't receive any."
             case .accountUsesHardwareKey:
                 return "Account uses a hardware key for authentication but this is not supported yet."
+            case .federatedAuthenticationRequired:
+                return "This account uses federated authentication (e.g. Apple Business Manager). Browser-based login is required."
             default:
                 return String(describing: self)
             }
@@ -81,10 +84,10 @@ public class Client {
             struct ServiceKeyResponse: Decodable {
                 let authServiceKey: String?
             }
-            
+
             let response = try JSONDecoder().decode(ServiceKeyResponse.self, from: data)
             serviceKey = response.authServiceKey
-            
+
             /// Load a hashcash of the account name
             return self.loadHashcash(accountName: accountName, serviceKey: serviceKey).map { (serviceKey, $0) }
         }
@@ -348,6 +351,50 @@ public class Client {
         }
     }
     
+    public func checkFederation(accountName: String, serviceKey: String) -> Promise<FederationResponse> {
+        return Current.network.dataTask(with: URLRequest.checkFederation(serviceKey: serviceKey, accountName: accountName))
+            .map { data, _ in
+                try JSONDecoder().decode(FederationResponse.self, from: data)
+            }
+    }
+
+    /// Fetches the service key and checks whether the account uses federated authentication.
+    /// Call this before prompting for a password to avoid unnecessary password prompts for federated accounts.
+    public func checkIsFederated(accountName: String) -> Promise<FederationResponse> {
+        return firstly { () -> Promise<(data: Data, response: URLResponse)> in
+            Current.network.dataTask(with: URLRequest.itcServiceKey)
+        }
+        .then { (data, _) -> Promise<FederationResponse> in
+            struct ServiceKeyResponse: Decodable {
+                let authServiceKey: String?
+            }
+            let response = try JSONDecoder().decode(ServiceKeyResponse.self, from: data)
+            guard let serviceKey = response.authServiceKey else {
+                return .value(FederationResponse(federated: false))
+            }
+            return self.checkFederation(accountName: accountName, serviceKey: serviceKey)
+        }
+    }
+
+    /// Validates a federated authentication token by calling Apple's /federate/validate endpoint.
+    /// This exchanges the token and relay state from the IdP callback URL for session cookies.
+    public func validateFederatedToken(widgetKey: String, token: String, relayState: String) -> Promise<Void> {
+        return Current.network.dataTask(with: URLRequest.federateValidate(widgetKey: widgetKey, token: token, relayState: relayState))
+            .then { (data, response) -> Promise<Void> in
+                let httpResponse = response as! HTTPURLResponse
+                switch httpResponse.statusCode {
+                case 200...299:
+                    return Current.network.dataTask(with: URLRequest.olympusSession).asVoid()
+                case 409:
+                    // May need 2FA even after federated login
+                    let serviceKey = widgetKey
+                    return self.handleTwoStepOrFactor(data: data, response: response, serviceKey: serviceKey)
+                default:
+                    throw Error.unexpectedSignInResponse(statusCode: httpResponse.statusCode, message: nil)
+                }
+            }
+    }
+
     // Fixes issue https://github.com/RobotsAndPencils/XcodesApp/issues/360
     // On 2023-02-23, Apple added a custom implementation of hashcash to their auth flow
     // Without this addition, Apple ID's would get set to locked
@@ -515,4 +562,42 @@ public struct ServerSRPInitResponse: Decodable {
     let salt: String
     let b: String
     let c: String
+}
+
+public struct FederationResponse: Decodable, Equatable {
+    public let federated: Bool
+    public let showFederatedIdpConfirmation: Bool?
+    public let federatedIdpRequest: FederatedIdpRequest?
+    public let federatedAuthIntro: FederatedAuthIntro?
+
+    public init(federated: Bool, showFederatedIdpConfirmation: Bool? = nil, federatedIdpRequest: FederatedIdpRequest? = nil, federatedAuthIntro: FederatedAuthIntro? = nil) {
+        self.federated = federated
+        self.showFederatedIdpConfirmation = showFederatedIdpConfirmation
+        self.federatedIdpRequest = federatedIdpRequest
+        self.federatedAuthIntro = federatedAuthIntro
+    }
+
+    /// Builds the full IdP URL with request parameters as query items.
+    public var idpURL: URL? {
+        guard let idpRequest = federatedIdpRequest else { return nil }
+        var components = URLComponents(string: idpRequest.idPUrl)
+        components?.queryItems = idpRequest.requestParams.map { key, value in
+            URLQueryItem(name: key, value: value)
+        }
+        return components?.url
+    }
+}
+
+public struct FederatedIdpRequest: Decodable, Equatable {
+    public let idPUrl: String
+    public let requestParams: [String: String]
+    public let httpMethod: String?
+}
+
+public struct FederatedAuthIntro: Decodable, Equatable {
+    public let orgName: String?
+    public let idpName: String?
+    public let idpUrl: String?
+    public let orgType: String?
+    public let accountManagementUrl: String?
 }

@@ -12,6 +12,8 @@ extension URL {
     
     static let srpInit = URL(string: "https://idmsa.apple.com/appleauth/auth/signin/init")!
     static let srpComplete = URL(string: "https://idmsa.apple.com/appleauth/auth/signin/complete?isRememberMeEnabled=false")!
+    static let federateCheck = URL(string: "https://idmsa.apple.com/appleauth/auth/federate")!
+    static let federateValidate = URL(string: "https://idmsa.apple.com/appleauth/auth/federate/validate")!
 }
 
 extension URLRequest {
@@ -133,6 +135,36 @@ extension URLRequest {
         return request
     }
     
+    static func checkFederation(serviceKey: String, accountName: String) -> URLRequest {
+        struct Body: Encodable {
+            let accountName: String
+            let rememberMe = true
+        }
+
+        var request = URLRequest(url: .federateCheck)
+        request.allHTTPHeaderFields = request.allHTTPHeaderFields ?? [:]
+        request.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        request.allHTTPHeaderFields?["X-Requested-With"] = "XMLHttpRequest"
+        request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
+        request.allHTTPHeaderFields?["Accept"] = "application/json"
+        request.httpMethod = "POST"
+        request.httpBody = try! JSONEncoder().encode(Body(accountName: accountName))
+        return request
+    }
+
+    static func federateValidate(widgetKey: String, token: String, relayState: String) -> URLRequest {
+        var components = URLComponents(url: .federateValidate, resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "widgetKey", value: widgetKey),
+            URLQueryItem(name: "token", value: token),
+            URLQueryItem(name: "relayState", value: relayState),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.allHTTPHeaderFields = request.allHTTPHeaderFields ?? [:]
+        request.allHTTPHeaderFields?["Accept"] = "application/json"
+        return request
+    }
+
     static func SRPInit(serviceKey: String, a: String, accountName: String) -> URLRequest {
         struct ServerSRPInitRequest: Encodable {
             public let a: String

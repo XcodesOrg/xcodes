@@ -51,34 +51,41 @@ public class AppleSessionService {
             }
             guard let username = possibleUsername else { throw Error.missingUsernameOrPassword }
 
-            let passwordPrompt: String
-            if hasPromptedForUsername {
-                passwordPrompt = "Apple ID Password: "
-            } else {
-                // If the user wasn't prompted for their username, also explain which Apple ID password they need to enter
-                passwordPrompt = "Apple ID Password (\(username)): "
-            }
-            var possiblePassword = self.findPassword(withUsername: username)
-            if possiblePassword == nil || shouldPromptForPassword {
-                possiblePassword = Current.shell.readSecureLine(prompt: passwordPrompt)
-            }
-            guard let password = possiblePassword else { throw Error.missingUsernameOrPassword }
+            // Check if this account uses federated authentication before prompting for a password
+            return Current.network.checkIsFederated(accountName: username)
+                .then { federationResponse -> Promise<Void> in
+                    if federationResponse.federated {
+                        return self.handleFederatedLogin(username: username, federationResponse: federationResponse)
+                    }
 
-            return firstly { () -> Promise<Void> in
-                self.login(username, password: password)
-            }
-            .recover { error -> Promise<Void> in
-                Current.logging.log(error.legibleLocalizedDescription.red)
+                    // Not federated — proceed with normal password-based login
+                    let passwordPrompt: String
+                    if hasPromptedForUsername {
+                        passwordPrompt = "Apple ID Password: "
+                    } else {
+                        passwordPrompt = "Apple ID Password (\(username)): "
+                    }
+                    var possiblePassword = self.findPassword(withUsername: username)
+                    if possiblePassword == nil || shouldPromptForPassword {
+                        possiblePassword = Current.shell.readSecureLine(prompt: passwordPrompt)
+                    }
+                    guard let password = possiblePassword else { throw Error.missingUsernameOrPassword }
 
-                if case Client.Error.invalidUsernameOrPassword = error {
-                    Current.logging.log("Try entering your password again")
-                    // Prompt for the password next time to avoid being stuck in a loop of using an incorrect XCODES_PASSWORD environment variable
-                    return self.loginIfNeeded(withUsername: username, shouldPromptForPassword: true)
+                    return firstly { () -> Promise<Void> in
+                        self.login(username, password: password)
+                    }
+                    .recover { error -> Promise<Void> in
+                        Current.logging.log(error.legibleLocalizedDescription.red)
+
+                        if case Client.Error.invalidUsernameOrPassword = error {
+                            Current.logging.log("Try entering your password again")
+                            return self.loginIfNeeded(withUsername: username, shouldPromptForPassword: true)
+                        }
+                        else {
+                            return Promise(error: error)
+                        }
+                    }
                 }
-                else {
-                    return Promise(error: error)
-                }
-            }
         }
     }
 
@@ -89,7 +96,7 @@ public class AppleSessionService {
         .recover { error -> Promise<Void> in
 
             if let error = error as? Client.Error {
-                switch error  {
+                switch error {
                     case .invalidUsernameOrPassword(_):
                         // remove any keychain password if we fail to log with an invalid username or password so it doesn't try again.
                         try? Current.keychain.remove(username)
@@ -108,6 +115,46 @@ public class AppleSessionService {
                 try? self.configuration.save()
             }
         }
+    }
+
+    private func handleFederatedLogin(username: String, federationResponse: FederationResponse) -> Promise<Void> {
+        let orgName = federationResponse.federatedAuthIntro?.orgName ?? "your organization"
+        let idpName = federationResponse.federatedAuthIntro?.idpName ?? "your Identity Provider"
+        Current.logging.log("This account uses federated authentication via \(orgName) (\(idpName)).")
+        Current.logging.log("Opening your browser to sign in...")
+
+        guard let idpURL = federationResponse.idpURL else {
+            return Promise(error: Client.Error.federatedAuthenticationRequired)
+        }
+
+        Current.shell.openURL(idpURL)
+
+        Current.logging.log("")
+        Current.logging.log("After signing in, your browser will redirect to a blank page.")
+        let callbackURLString = Current.shell.readLongLine(prompt: "Paste the URL from your browser's address bar here: ")
+        guard let callbackURLString = callbackURLString,
+              let callbackURL = URL(string: callbackURLString),
+              let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+              let queryItems = components.queryItems else {
+            return Promise(error: Error.missingUsernameOrPassword)
+        }
+
+        let widgetKey = queryItems.first(where: { $0.name == "widgetKey" })?.value
+        let token = queryItems.first(where: { $0.name == "token" })?.value
+        let relayState = queryItems.first(where: { $0.name == "relayState" })?.value
+
+        guard let widgetKey = widgetKey, let token = token, let relayState = relayState else {
+            Current.logging.log("The URL is missing required parameters (widgetKey, token, relayState).")
+            return Promise(error: Client.Error.invalidSession)
+        }
+
+        return Current.network.validateFederatedToken(widgetKey: widgetKey, token: token, relayState: relayState)
+            .done {
+                if self.configuration.defaultUsername != username {
+                    self.configuration.defaultUsername = username
+                    try? self.configuration.save()
+                }
+            }
     }
 
     public func logout() -> Promise<Void> {

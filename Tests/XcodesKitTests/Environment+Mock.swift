@@ -1,6 +1,7 @@
 @testable import XcodesKit
 import Foundation
 import PromiseKit
+import struct AppleAPI.FederationResponse
 
 extension Environment {
     static var mock = Environment(
@@ -40,10 +41,12 @@ extension Shell {
         xcodeSelectSwitch: { _, _ in return Promise.value(Shell.processOutputMock) },
         isRoot: { true },
         readLine: { _ in return nil },
+        readLongLine: { _ in return nil },
         readSecureLine: { _, _ in return nil },
         env: { _ in nil },
         exit: { _ in },
-        isatty: { true }
+        isatty: { true },
+        openURL: { _ in }
     )
 }
 
@@ -80,7 +83,9 @@ extension Network {
         dataTask: { url in return Promise.value((data: Data(), response: HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)) },
         downloadTask: { url, saveLocation, _ in return (Progress(), Promise.value((saveLocation, HTTPURLResponse(url: url.pmkRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!))) },
         validateSession: { Promise() },
-        login: { _, _ in Promise() }
+        login: { _, _ in Promise() },
+        checkIsFederated: { _ in Promise.value(AppleAPI.FederationResponse(federated: false)) },
+        validateFederatedToken: { _, _, _ in Promise() }
     )
 }
 

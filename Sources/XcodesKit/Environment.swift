@@ -1,3 +1,9 @@
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
+
 import Foundation
 import PromiseKit
 import PMKFoundation
@@ -174,6 +180,39 @@ public struct Shell {
         readLine(prompt)
     }
 
+    /// Reads a line from stdin using non-canonical terminal mode, which avoids
+    /// the `MAX_CANON` line buffer limit (~1024 bytes) that prevents pasting long strings.
+    public var readLongLine: (String) -> String? = { prompt in
+        print(prompt, terminator: "")
+        fflush(stdout)
+
+        let fd = fileno(stdin)
+        var original = termios()
+        tcgetattr(fd, &original)
+
+        var raw = original
+        raw.c_lflag &= ~UInt(ICANON)  // Disable canonical mode (removes line buffer limit)
+        raw.c_lflag |= UInt(ECHO)     // Keep echo on so user sees what they paste
+        raw.c_cc.4 = 1                // VMIN: return after at least 1 byte
+        raw.c_cc.5 = 0                // VTIME: no timeout
+        tcsetattr(fd, TCSANOW, &raw)
+        defer { tcsetattr(fd, TCSANOW, &original) }
+
+        var result = Data()
+        var byte: UInt8 = 0
+        while read(fd, &byte, 1) == 1 {
+            if byte == 0x0A || byte == 0x0D { // newline or carriage return
+                break
+            }
+            result.append(byte)
+        }
+        print("") // Move to next line after input
+        return String(data: result, encoding: .utf8)
+    }
+    public func readLongLine(prompt: String) -> String? {
+        readLongLine(prompt)
+    }
+
     public var readSecureLine: (String, Int) -> String? = { prompt, maximumLength in
         let buffer = UnsafeMutablePointer<Int8>.allocate(capacity: maximumLength)
         buffer.initialize(repeating: 0, count: maximumLength)
@@ -216,6 +255,13 @@ public struct Shell {
     public var exit: (Int32) -> Void = { Darwin.exit($0) }
 
     public var isatty: () -> Bool = { Foundation.isatty(fileno(stdout)) != 0 }
+
+    public var openURL: (URL) -> Void = { url in
+        Process.launchedProcess(launchPath: "/usr/bin/open", arguments: [url.absoluteString])
+    }
+    public func openURL(_ url: URL) {
+        openURL(url)
+    }
 }
 
 public struct Files {
@@ -303,6 +349,16 @@ public struct Network {
     public var login: (String, String) -> Promise<Void> = { client.srpLogin(accountName: $0, password: $1) }
     public func login(accountName: String, password: String) -> Promise<Void> {
         login(accountName, password)
+    }
+
+    public var checkIsFederated: (String) -> Promise<FederationResponse> = { client.checkIsFederated(accountName: $0) }
+    public func checkIsFederated(accountName: String) -> Promise<FederationResponse> {
+        checkIsFederated(accountName)
+    }
+
+    public var validateFederatedToken: (String, String, String) -> Promise<Void> = { client.validateFederatedToken(widgetKey: $0, token: $1, relayState: $2) }
+    public func validateFederatedToken(widgetKey: String, token: String, relayState: String) -> Promise<Void> {
+        validateFederatedToken(widgetKey, token, relayState)
     }
 }
 
