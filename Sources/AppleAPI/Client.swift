@@ -592,6 +592,12 @@ public struct FederatedIdpRequest: Decodable, Equatable {
     public let idPUrl: String
     public let requestParams: [String: String]
     public let httpMethod: String?
+
+    public init(idPUrl: String, requestParams: [String: String], httpMethod: String?) {
+        self.idPUrl = idPUrl
+        self.requestParams = requestParams
+        self.httpMethod = httpMethod
+    }
 }
 
 public struct FederatedAuthIntro: Decodable, Equatable {
@@ -600,4 +606,12 @@ public struct FederatedAuthIntro: Decodable, Equatable {
     public let idpUrl: String?
     public let orgType: String?
     public let accountManagementUrl: String?
+
+    public init(orgName: String?, idpName: String?, idpUrl: String?, orgType: String?, accountManagementUrl: String?) {
+        self.orgName = orgName
+        self.idpName = idpName
+        self.idpUrl = idpUrl
+        self.orgType = orgType
+        self.accountManagementUrl = accountManagementUrl
+    }
 }

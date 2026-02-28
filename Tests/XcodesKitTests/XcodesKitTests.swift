@@ -1400,6 +1400,213 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(capturedError as? Client.Error, Client.Error.notAuthenticated)
     }
 
+    // MARK: - Federated Authentication Tests
+
+    func test_LoginIfNeeded_FederatedAccount_SkipsPasswordPrompt() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        var passwordPrompted = false
+        XcodesKit.Current.shell.readSecureLine = { _, _ in
+            passwordPrompted = true
+            return "password"
+        }
+
+        var openedURL: URL?
+        XcodesKit.Current.shell.openURL = { url in
+            openedURL = url
+        }
+
+        XcodesKit.Current.shell.waitForKeypress = { _ in }
+
+        // Simulate pasting the callback URL
+        XcodesKit.Current.shell.readLongLine = { _ in
+            return "https://idmsa.apple.com/IDMSWebAuth/federate/oidc/callback?widgetKey=test-widget-key&token=test-token&relayState=test-relay-state"
+        }
+
+        // Session validation should fail (not logged in)
+        XcodesKit.Current.network.validateSession = { Promise(error: AppleSessionService.Error.missingUsernameOrPassword) }
+
+        // Federation check returns federated
+        XcodesKit.Current.network.checkIsFederated = { _ in
+            Promise.value(AppleAPI.FederationResponse(
+                federated: true,
+                federatedIdpRequest: AppleAPI.FederatedIdpRequest(
+                    idPUrl: "https://login.microsoftonline.com/test-tenant/oauth2/authorize",
+                    requestParams: ["login_hint": "test@company.com"],
+                    httpMethod: "GET"
+                ),
+                federatedAuthIntro: AppleAPI.FederatedAuthIntro(
+                    orgName: "Test Corp",
+                    idpName: "Microsoft Entra",
+                    idpUrl: nil,
+                    orgType: nil,
+                    accountManagementUrl: nil
+                )
+            ))
+        }
+
+        XcodesKit.Current.network.validateFederatedToken = { _, _, _ in Promise() }
+
+        var customConfig = Configuration()
+        customConfig.defaultUsername = "test@company.com"
+        let customService = AppleSessionService(configuration: customConfig)
+
+        let expectation = self.expectation(description: "Login completes")
+
+        customService.loginIfNeeded()
+            .tap { result in
+                guard case .fulfilled = result else {
+                    XCTFail("loginIfNeeded rejected: \(result)")
+                    return
+                }
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+
+        XCTAssertFalse(passwordPrompted, "Password should not be prompted for federated accounts")
+        XCTAssertNotNil(openedURL, "Browser should be opened for federated auth")
+        XCTAssertTrue(log.contains("federated authentication"))
+        XCTAssertTrue(log.contains("Test Corp"))
+        XCTAssertTrue(log.contains("Microsoft Entra"))
+    }
+
+    func test_LoginIfNeeded_NonFederatedAccount_PromptsPassword() {
+        var passwordPrompted = false
+        XcodesKit.Current.shell.readSecureLine = { _, _ in
+            passwordPrompted = true
+            return "password123"
+        }
+
+        var openedURL: URL?
+        XcodesKit.Current.shell.openURL = { url in
+            openedURL = url
+        }
+
+        // Session validation should fail (not logged in)
+        XcodesKit.Current.network.validateSession = { Promise(error: AppleSessionService.Error.missingUsernameOrPassword) }
+
+        // Federation check returns non-federated
+        XcodesKit.Current.network.checkIsFederated = { _ in
+            Promise.value(AppleAPI.FederationResponse(federated: false))
+        }
+
+        // Login succeeds
+        XcodesKit.Current.network.login = { _, _ in Promise() }
+
+        var customConfig = Configuration()
+        customConfig.defaultUsername = "test@example.com"
+        let customService = AppleSessionService(configuration: customConfig)
+
+        let expectation = self.expectation(description: "Login completes")
+
+        customService.loginIfNeeded()
+            .tap { result in
+                guard case .fulfilled = result else {
+                    XCTFail("loginIfNeeded rejected: \(result)")
+                    return
+                }
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+
+        XCTAssertTrue(passwordPrompted, "Password should be prompted for non-federated accounts")
+        XCTAssertNil(openedURL, "Browser should not be opened for non-federated accounts")
+    }
+
+    func test_LoginIfNeeded_FederatedAccount_InvalidCallbackURL() {
+        XcodesKit.Current.logging.log = { _ in }
+
+        XcodesKit.Current.shell.waitForKeypress = { _ in }
+        XcodesKit.Current.shell.openURL = { _ in }
+
+        // Simulate pasting an invalid URL
+        XcodesKit.Current.shell.readLongLine = { _ in
+            return "not-a-valid-url"
+        }
+
+        XcodesKit.Current.network.validateSession = { Promise(error: AppleSessionService.Error.missingUsernameOrPassword) }
+
+        XcodesKit.Current.network.checkIsFederated = { _ in
+            Promise.value(AppleAPI.FederationResponse(
+                federated: true,
+                federatedIdpRequest: AppleAPI.FederatedIdpRequest(
+                    idPUrl: "https://login.microsoftonline.com/test-tenant/oauth2/authorize",
+                    requestParams: ["login_hint": "test@company.com"],
+                    httpMethod: "GET"
+                )
+            ))
+        }
+
+        var customConfig = Configuration()
+        customConfig.defaultUsername = "test@company.com"
+        let customService = AppleSessionService(configuration: customConfig)
+
+        let expectation = self.expectation(description: "Login fails")
+
+        customService.loginIfNeeded()
+            .tap { result in
+                guard case .rejected = result else {
+                    XCTFail("loginIfNeeded should have rejected for invalid URL")
+                    return
+                }
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func test_LoginIfNeeded_FederatedAccount_MissingCallbackParams() {
+        var log = ""
+        XcodesKit.Current.logging.log = { log.append($0 + "\n") }
+
+        XcodesKit.Current.shell.waitForKeypress = { _ in }
+        XcodesKit.Current.shell.openURL = { _ in }
+
+        // URL with missing required params
+        XcodesKit.Current.shell.readLongLine = { _ in
+            return "https://idmsa.apple.com/callback?widgetKey=key-only"
+        }
+
+        XcodesKit.Current.network.validateSession = { Promise(error: AppleSessionService.Error.missingUsernameOrPassword) }
+
+        XcodesKit.Current.network.checkIsFederated = { _ in
+            Promise.value(AppleAPI.FederationResponse(
+                federated: true,
+                federatedIdpRequest: AppleAPI.FederatedIdpRequest(
+                    idPUrl: "https://login.microsoftonline.com/test-tenant/oauth2/authorize",
+                    requestParams: ["login_hint": "test@company.com"],
+                    httpMethod: "GET"
+                )
+            ))
+        }
+
+        var customConfig = Configuration()
+        customConfig.defaultUsername = "test@company.com"
+        let customService = AppleSessionService(configuration: customConfig)
+
+        let expectation = self.expectation(description: "Login fails")
+
+        customService.loginIfNeeded()
+            .tap { result in
+                guard case .rejected = result else {
+                    XCTFail("loginIfNeeded should have rejected for missing params")
+                    return
+                }
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+
+        XCTAssertTrue(log.contains("missing required parameters"))
+    }
+
     func test_XcodeList_ShouldUpdate_NotWhenCacheFileIsRecent() {
         Current.files.contentsAtPath = { _ in try! JSONEncoder().encode([Self.mockXcode]) }
         Current.files.attributesOfItemAtPath = { _ in [.modificationDate: Date(timeIntervalSinceNow: -3600*12)] }

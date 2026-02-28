@@ -751,6 +751,150 @@ final class AppleAPITests: XCTestCase {
     }
 
     
+    func test_CheckFederation_FederatedAccount() {
+        Current.network.dataTask = { convertible in
+            switch convertible.pmkRequest.url! {
+            case .itcServiceKey:
+                return fixture(for: .itcServiceKey,
+                               fileURL: Bundle.module.url(forResource: "ITCServiceKey", withExtension: "json", subdirectory: "Fixtures/Login_Federated_Succeeds")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json"])
+            case .federateCheck:
+                return fixture(for: .federateCheck,
+                               fileURL: Bundle.module.url(forResource: "FederateCheck", withExtension: "json", subdirectory: "Fixtures/Login_Federated_Succeeds")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json"])
+            default:
+                XCTFail("Unexpected request to \(convertible.pmkRequest.url!)")
+                return .init(error: PMKError.invalidCallingConvention)
+            }
+        }
+
+        let expectation = self.expectation(description: "promise fulfills")
+
+        let client = Client()
+        client.checkIsFederated(accountName: "test@company.com")
+            .tap { result in
+                guard case .fulfilled(let response) = result else {
+                    XCTFail("checkIsFederated rejected")
+                    return
+                }
+                XCTAssertTrue(response.federated)
+                XCTAssertEqual(response.federatedAuthIntro?.orgName, "Test Corp")
+                XCTAssertEqual(response.federatedAuthIntro?.idpName, "Microsoft Entra")
+                XCTAssertEqual(response.federatedIdpRequest?.idPUrl, "https://login.microsoftonline.com/test-tenant/oauth2/authorize")
+                XCTAssertEqual(response.federatedIdpRequest?.requestParams["login_hint"], "test@company.com")
+                XCTAssertNotNil(response.idpURL)
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func test_CheckFederation_NonFederatedAccount() {
+        Current.network.dataTask = { convertible in
+            switch convertible.pmkRequest.url! {
+            case .itcServiceKey:
+                return fixture(for: .itcServiceKey,
+                               fileURL: Bundle.module.url(forResource: "ITCServiceKey", withExtension: "json", subdirectory: "Fixtures/Login_Federated_Succeeds")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json"])
+            case .federateCheck:
+                return fixture(for: .federateCheck,
+                               fileURL: Bundle.module.url(forResource: "FederateCheckNonFederated", withExtension: "json", subdirectory: "Fixtures/Login_Federated_Succeeds")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json"])
+            default:
+                XCTFail("Unexpected request to \(convertible.pmkRequest.url!)")
+                return .init(error: PMKError.invalidCallingConvention)
+            }
+        }
+
+        let expectation = self.expectation(description: "promise fulfills")
+
+        let client = Client()
+        client.checkIsFederated(accountName: "test@example.com")
+            .tap { result in
+                guard case .fulfilled(let response) = result else {
+                    XCTFail("checkIsFederated rejected")
+                    return
+                }
+                XCTAssertFalse(response.federated)
+                XCTAssertNil(response.federatedIdpRequest)
+                XCTAssertNil(response.federatedAuthIntro)
+                XCTAssertNil(response.idpURL)
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func test_ValidateFederatedToken_Succeeds() {
+        Current.network.dataTask = { convertible in
+            let url = convertible.pmkRequest.url!
+            if url.absoluteString.contains("federate/validate") {
+                return fixture(for: url,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json"])
+            } else if url == .olympusSession {
+                return fixture(for: .olympusSession,
+                               fileURL: Bundle.module.url(forResource: "OlympusSession", withExtension: "json", subdirectory: "Fixtures/Login_Federated_Succeeds")!,
+                               statusCode: 200,
+                               headers: ["Content-Type": "application/json"])
+            } else {
+                XCTFail("Unexpected request to \(url)")
+                return .init(error: PMKError.invalidCallingConvention)
+            }
+        }
+
+        let expectation = self.expectation(description: "promise fulfills")
+
+        let client = Client()
+        client.validateFederatedToken(widgetKey: "test-widget-key", token: "test-token", relayState: "test-relay-state")
+            .tap { result in
+                guard case .fulfilled = result else {
+                    XCTFail("validateFederatedToken rejected")
+                    return
+                }
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func test_ValidateFederatedToken_UnexpectedStatusCode() {
+        Current.network.dataTask = { convertible in
+            let url = convertible.pmkRequest.url!
+            if url.absoluteString.contains("federate/validate") {
+                return fixture(for: url,
+                               statusCode: 401,
+                               headers: ["Content-Type": "application/json"])
+            } else {
+                XCTFail("Unexpected request to \(url)")
+                return .init(error: PMKError.invalidCallingConvention)
+            }
+        }
+
+        let expectation = self.expectation(description: "promise rejects")
+
+        let client = Client()
+        client.validateFederatedToken(widgetKey: "test-widget-key", token: "test-token", relayState: "test-relay-state")
+            .tap { result in
+                guard case .rejected(let error as AppleAPI.Client.Error) = result else {
+                    XCTFail("validateFederatedToken fulfilled, but should have rejected")
+                    return
+                }
+                XCTAssertEqual(error, AppleAPI.Client.Error.unexpectedSignInResponse(statusCode: 401, message: nil))
+                expectation.fulfill()
+            }
+            .cauterize()
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
     func testValidHashCashMint() {
         let bits: UInt = 11
         let resource = "4d74fb15eb23f465f1f6fcbf534e5877"

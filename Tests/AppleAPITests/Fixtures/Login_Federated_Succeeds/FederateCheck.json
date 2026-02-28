@@ -1,0 +1,24 @@
+{
+  "federated" : true,
+  "showFederatedIdpConfirmation" : false,
+  "federatedIdpRequest" : {
+    "idPUrl" : "https://login.microsoftonline.com/test-tenant/oauth2/authorize",
+    "requestParams" : {
+      "login_hint" : "test@company.com",
+      "scope" : "openid",
+      "response_type" : "code",
+      "redirect_uri" : "https://idmsa.apple.com/IDMSWebAuth/federate/oidc/callback",
+      "state" : "test-relay-state",
+      "nonce" : "test-nonce",
+      "client_id" : "test-client-id"
+    },
+    "httpMethod" : "GET"
+  },
+  "federatedAuthIntro" : {
+    "orgName" : "Test Corp",
+    "idpName" : "Microsoft Entra",
+    "idpUrl" : "https://login.microsoftonline.com",
+    "orgType" : "enterprise",
+    "accountManagementUrl" : "https://business.apple.com"
+  }
+}
