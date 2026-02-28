@@ -1,7 +1,6 @@
 import PromiseKit
 import Foundation
 import AppleAPI
-import Path
 
 public class AppleSessionService {
 
@@ -39,9 +38,6 @@ public class AppleSessionService {
     }
 
     func loginIfNeeded(withUsername providedUsername: String? = nil, shouldPromptForPassword: Bool = false) -> Promise<Void> {
-        // Restore any previously saved session cookies before validating
-        loadSessionCookies()
-
         return firstly { () -> Promise<Void> in
             return Current.network.validateSession()
         }
@@ -157,7 +153,11 @@ public class AppleSessionService {
 
         return Current.network.validateFederatedToken(widgetKey: widgetKey, token: token, relayState: relayState)
             .done {
-                self.saveSessionCookies()
+                // Apple's auth cookies (e.g. myacinfo) are session-only, so HTTPCookieStorage
+                // discards them when the process exits. Since federated accounts have no password
+                // in the keychain to re-authenticate silently, we replace session-only cookies
+                // with persistent copies so the session survives across runs.
+                self.persistSessionOnlyCookies()
 
                 if self.configuration.defaultUsername != username {
                     self.configuration.defaultUsername = username
@@ -166,62 +166,33 @@ public class AppleSessionService {
             }
     }
 
-    // MARK: - Session Cookie Persistence
-
-    private struct SerializableCookie: Codable {
-        let name: String
-        let value: String
-        let domain: String
-        let path: String
-        let isSecure: Bool
-        let expiresDate: Date?
-
-        init(cookie: HTTPCookie) {
-            self.name = cookie.name
-            self.value = cookie.value
-            self.domain = cookie.domain
-            self.path = cookie.path
-            self.isSecure = cookie.isSecure
-            self.expiresDate = cookie.expiresDate
-        }
-
-        var httpCookie: HTTPCookie? {
-            var properties: [HTTPCookiePropertyKey: Any] = [
-                .name: name,
-                .value: value,
-                .domain: domain,
-                .path: path,
-                .secure: isSecure ? "TRUE" : "FALSE",
-            ]
-            if let expiresDate = expiresDate {
-                properties[.expires] = expiresDate
-            }
-            return HTTPCookie(properties: properties)
-        }
-    }
-
-    private func saveSessionCookies() {
+    /// Replaces session-only Apple cookies with persistent copies by adding an expiry date.
+    /// This ensures HTTPCookieStorage keeps them across process launches.
+    private func persistSessionOnlyCookies() {
         let appleDomains = [".apple.com", ".idmsa.apple.com", "appstoreconnect.apple.com"]
-        let cookies = AppleAPI.Current.network.session.configuration.httpCookieStorage?.cookies ?? []
-        let relevantCookies = cookies.filter { cookie in
-            appleDomains.contains(where: { cookie.domain.hasSuffix($0) })
-        }
-        guard !relevantCookies.isEmpty else { return }
+        guard let cookieStorage = AppleAPI.Current.network.session.configuration.httpCookieStorage else { return }
+        let cookies = cookieStorage.cookies ?? []
+        let expiry = Date(timeIntervalSinceNow: 24 * 60 * 60) // 1 day
 
-        let serializable = relevantCookies.map(SerializableCookie.init)
-        if let data = try? JSONEncoder().encode(serializable) {
-            try? Current.files.write(data, Path.sessionCookiesFile.url)
-        }
-    }
+        for cookie in cookies where cookie.isSessionOnly {
+            guard appleDomains.contains(where: { cookie.domain.hasSuffix($0) }) else { continue }
 
-    private func loadSessionCookies() {
-        guard let data = Current.files.contents(atPath: Path.sessionCookiesFile.string) else { return }
-        guard let serialized = try? JSONDecoder().decode([SerializableCookie].self, from: data) else { return }
+            var properties: [HTTPCookiePropertyKey: Any] = [
+                .name: cookie.name,
+                .value: cookie.value,
+                .domain: cookie.domain,
+                .path: cookie.path,
+                .secure: cookie.isSecure,
+                .expires: expiry,
+            ]
+            if let version = cookie.properties?[.version] {
+                properties[.version] = version
+            }
 
-        let cookieStorage = AppleAPI.Current.network.session.configuration.httpCookieStorage
-        for cookie in serialized {
-            if let expired = cookie.expiresDate, expired < Date() { continue }
-            cookie.httpCookie.map { cookieStorage?.setCookie($0) }
+            cookieStorage.deleteCookie(cookie)
+            if let persistent = HTTPCookie(properties: properties) {
+                cookieStorage.setCookie(persistent)
+            }
         }
     }
 
@@ -237,9 +208,6 @@ public class AppleSessionService {
         .done {
             // Remove all keychain items
             try Current.keychain.remove(username)
-
-            // Remove saved session cookies
-            try? Current.files.removeItem(Path.sessionCookiesFile.url)
 
             // Set `defaultUsername` in Configuration to nil
             self.configuration.defaultUsername = nil

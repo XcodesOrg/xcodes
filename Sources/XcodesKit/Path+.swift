@@ -13,7 +13,6 @@ extension Path {
     static let xcodesCaches = environmentCaches/"com.robotsandpencils.xcodes"
     static let cacheFile = xcodesApplicationSupport/"available-xcodes.json"
     static let configurationFile = xcodesApplicationSupport/"configuration.json"
-    static let sessionCookiesFile = xcodesApplicationSupport/"session-cookies.json"
 
     @discardableResult
     func setCurrentUserAsOwner() -> Path {
