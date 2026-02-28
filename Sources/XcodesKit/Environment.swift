@@ -182,32 +182,36 @@ public struct Shell {
 
     /// Reads a line from stdin using non-canonical terminal mode, which avoids
     /// the `MAX_CANON` line buffer limit (~1024 bytes) that prevents pasting long strings.
+    /// Waits for a single keypress without requiring Return.
+    public var waitForKeypress: (String) -> Void = { prompt in
+        print(prompt, terminator: "")
+        fflush(stdout)
+        withRawTerminalMode(echo: false) {
+            var byte: UInt8 = 0
+            _ = read(fileno(stdin), &byte, 1)
+            print("")
+        }
+    }
+    public func waitForKeypress(prompt: String) {
+        waitForKeypress(prompt)
+    }
+
+    /// Reads a line from stdin using non-canonical terminal mode, which avoids
+    /// the `MAX_CANON` line buffer limit (~1024 bytes) that prevents pasting long strings.
     public var readLongLine: (String) -> String? = { prompt in
         print(prompt, terminator: "")
         fflush(stdout)
-
-        let fd = fileno(stdin)
-        var original = termios()
-        tcgetattr(fd, &original)
-
-        var raw = original
-        raw.c_lflag &= ~UInt(ICANON)  // Disable canonical mode (removes line buffer limit)
-        raw.c_lflag |= UInt(ECHO)     // Keep echo on so user sees what they paste
-        raw.c_cc.4 = 1                // VMIN: return after at least 1 byte
-        raw.c_cc.5 = 0                // VTIME: no timeout
-        tcsetattr(fd, TCSANOW, &raw)
-        defer { tcsetattr(fd, TCSANOW, &original) }
-
-        var result = Data()
-        var byte: UInt8 = 0
-        while read(fd, &byte, 1) == 1 {
-            if byte == 0x0A || byte == 0x0D { // newline or carriage return
-                break
+        return withRawTerminalMode(echo: true) {
+            var result = Data()
+            var byte: UInt8 = 0
+            let fd = fileno(stdin)
+            while read(fd, &byte, 1) == 1 {
+                if byte == 0x0A || byte == 0x0D { break }
+                result.append(byte)
             }
-            result.append(byte)
+            print("")
+            return String(data: result, encoding: .utf8)
         }
-        print("") // Move to next line after input
-        return String(data: result, encoding: .utf8)
     }
     public func readLongLine(prompt: String) -> String? {
         readLongLine(prompt)
@@ -262,6 +266,28 @@ public struct Shell {
     public func openURL(_ url: URL) {
         openURL(url)
     }
+}
+
+/// Switches the terminal to non-canonical mode, executes the closure, then restores the original settings.
+/// Non-canonical mode removes the `MAX_CANON` line buffer limit and allows reading input byte-by-byte.
+private func withRawTerminalMode<T>(echo: Bool, _ body: () -> T) -> T {
+    let fd = fileno(stdin)
+    var original = termios()
+    tcgetattr(fd, &original)
+
+    var raw = original
+    raw.c_lflag &= ~UInt(ICANON)
+    if echo {
+        raw.c_lflag |= UInt(ECHO)
+    } else {
+        raw.c_lflag &= ~UInt(ECHO)
+    }
+    raw.c_cc.4 = 1  // VMIN: return after at least 1 byte
+    raw.c_cc.5 = 0  // VTIME: no timeout
+    tcsetattr(fd, TCSANOW, &raw)
+    defer { tcsetattr(fd, TCSANOW, &original) }
+
+    return body()
 }
 
 public struct Files {

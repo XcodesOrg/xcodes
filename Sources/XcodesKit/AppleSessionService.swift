@@ -126,13 +126,12 @@ public class AppleSessionService {
         let idpName = federationResponse.federatedAuthIntro?.idpName
         let orgNameWithIdp = idpName.map { "\(orgName) (\($0))" } ?? orgName
 
-        Current.logging.log("\n- This account uses federated authentication via \(orgNameWithIdp).")
-        Current.logging.log("- Your browser will open to complete sign-in.")
-        Current.logging.log("- After signing in, you will be redirected to a blank page.")
-        Current.logging.log("- Copy the URL from your browser's address bar, then return here and paste it.")
+        Current.logging.log("\n- This account uses federated authentication via \(orgNameWithIdp)")
+        Current.logging.log("- Your browser will open to complete sign-in")
+        Current.logging.log("- After signing in, you will be redirected to a blank page")
+        Current.logging.log("- Copy the URL from your browser's address bar, then return here and paste it")
 
-        _ = Current.shell.readLine(prompt: "\nPress Return to open your browser... ")
-
+        Current.shell.waitForKeypress(prompt: "\nPress any key to open your browser...")
         Current.shell.openURL(idpURL)
 
         let callbackURLString = Current.shell.readLongLine(prompt: "\nPaste the URL here: ")

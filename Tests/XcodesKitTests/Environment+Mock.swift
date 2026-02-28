@@ -41,6 +41,7 @@ extension Shell {
         xcodeSelectSwitch: { _, _ in return Promise.value(Shell.processOutputMock) },
         isRoot: { true },
         readLine: { _ in return nil },
+        waitForKeypress: { _ in },
         readLongLine: { _ in return nil },
         readSecureLine: { _, _ in return nil },
         env: { _ in nil },
