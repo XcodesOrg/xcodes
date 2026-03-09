@@ -184,18 +184,7 @@ final class XcodesKitTests: XCTestCase {
                         Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
                         """))
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        XcodesKit.Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
+        XcodesKit.Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // User enters password
         XcodesKit.Current.shell.readSecureLine = { prompt, _ in
             XcodesKit.Current.logging.log(prompt)
@@ -277,18 +266,7 @@ final class XcodesKitTests: XCTestCase {
                         Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
                         """))
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        XcodesKit.Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
+        XcodesKit.Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // User enters password
         XcodesKit.Current.shell.readSecureLine = { prompt, _ in
             XcodesKit.Current.logging.log(prompt)
@@ -374,18 +352,7 @@ final class XcodesKitTests: XCTestCase {
                         Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
                         """))
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        XcodesKit.Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
+        XcodesKit.Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // User enters password
         XcodesKit.Current.shell.readSecureLine = { prompt, _ in
             XcodesKit.Current.logging.log(prompt)
@@ -467,18 +434,7 @@ final class XcodesKitTests: XCTestCase {
                         Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
                         """))
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        XcodesKit.Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
+        XcodesKit.Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // User enters password
         XcodesKit.Current.shell.readSecureLine = { prompt, _ in
             XcodesKit.Current.logging.log(prompt)
@@ -579,18 +535,7 @@ final class XcodesKitTests: XCTestCase {
                         Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
                         """))
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        XcodesKit.Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
+        XcodesKit.Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // User enters password
         var readSecureLineCallCount = 0
         XcodesKit.Current.shell.readSecureLine = { prompt, _ in
@@ -613,7 +558,7 @@ final class XcodesKitTests: XCTestCase {
                 expectation.fulfill()
 
                 XCTAssertEqual(passwordEnvCallCount, 2)
-                XCTAssertEqual(readSecureLineCallCount, 2)
+                XCTAssertEqual(readSecureLineCallCount, 1)
             }
             .catch {
                 XCTFail($0.localizedDescription)
@@ -691,18 +636,7 @@ final class XcodesKitTests: XCTestCase {
                         Authority=\(XcodeInstaller.XcodeCertificateAuthority[2])
                         """))
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
+        Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // User enters password
         Current.shell.readSecureLine = { prompt, _ in
             XcodesKit.Current.logging.log(prompt)
@@ -779,7 +713,7 @@ final class XcodesKitTests: XCTestCase {
         }
         // Switching succeeds
         var selectedPaths: [String] = []
-        Current.shell.xcodeSelectSwitch = { password, path in
+        Current.shell.xcodeSelectSwitch = { path in
             selectedPaths.append(path)
             return Promise.value((status: 0, out: "", err: ""))
         }
@@ -991,25 +925,9 @@ final class XcodesKitTests: XCTestCase {
                 return Promise.value((status: 0, out: "/Applications/Xcode-0.0.0.app/Contents/Developer", err: ""))
             }
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
-        // User enters password
-        Current.shell.readSecureLine = { prompt, _ in
-            XcodesKit.Current.logging.log(prompt)
-            return "password"
-        }
+        Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // It successfully switches
-        Current.shell.xcodeSelectSwitch = { _, _ in
+        Current.shell.xcodeSelectSwitch = { _ in
             Promise.value((status: 0, out: "", err: ""))
         }
 
@@ -1018,7 +936,6 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssertEqual(log, """
         xcodes requires superuser privileges to select an Xcode
-        macOS User Password: 
         Selected /Applications/Xcode-0.0.0.app/Contents/Developer
 
         """)
@@ -1072,25 +989,9 @@ final class XcodesKitTests: XCTestCase {
             XcodesKit.Current.logging.log(prompt)
             return "1"
         }
-        // Don't have superuser privileges the first time
-        var validateSudoAuthenticationCallCount = 0
-        Current.shell.validateSudoAuthentication = {
-            validateSudoAuthenticationCallCount += 1
-
-            if validateSudoAuthenticationCallCount == 1 {
-                return Promise(error: Process.PMKError.execution(process: Process(), standardOutput: nil, standardError: nil))
-            }
-            else {
-                return Promise.value(Shell.processOutputMock)
-            }
-        }
-        // User enters password
-        Current.shell.readSecureLine = { prompt, _ in
-            XcodesKit.Current.logging.log(prompt)
-            return "password"
-        }
+        Current.shell.authenticateSudoer = { Promise.value(Shell.processOutputMock) }
         // It successfully switches
-        Current.shell.xcodeSelectSwitch = { _, _ in
+        Current.shell.xcodeSelectSwitch = { _ in
             Promise.value((status: 0, out: "", err: ""))
         }
 
@@ -1103,7 +1004,6 @@ final class XcodesKitTests: XCTestCase {
         2) 2.0.1 (ABC123) (Selected)
         Enter the number of the Xcode to select: 
         xcodes requires superuser privileges to select an Xcode
-        macOS User Password: 
         Selected /Applications/Xcode-0.0.0.app/Contents/Developer
 
         """)
@@ -1157,7 +1057,7 @@ final class XcodesKitTests: XCTestCase {
             }
         }
         // It successfully switches
-        Current.shell.xcodeSelectSwitch = { _, _ in
+        Current.shell.xcodeSelectSwitch = { _ in
             Promise.value((status: 0, out: "", err: ""))
         }
 
@@ -1165,6 +1065,7 @@ final class XcodesKitTests: XCTestCase {
             .cauterize()
 
         XCTAssertEqual(log, """
+        xcodes requires superuser privileges to select an Xcode
         Selected /Applications/Xcode-2.0.1.app/Contents/Developer
 
         """)

@@ -19,7 +19,6 @@ public final class XcodeInstaller {
         case codesignVerifyFailed(output: String)
         case unexpectedCodeSigningIdentity(identifier: String, certificateAuthority: [String])
         case unsupportedFileFormat(extension: String)
-        case missingSudoerPassword
         case unavailableVersion(Version)
         case noReleaseVersionAvailable
         case noPrereleaseVersionAvailable
@@ -57,8 +56,6 @@ public final class XcodeInstaller {
                        """
             case .unsupportedFileFormat(let fileExtension):
                 return "xcodes doesn't (yet) support installing Xcode from the \(fileExtension) file format."
-            case .missingSudoerPassword:
-                return "Missing password. Please try again."
             case let .unavailableVersion(version):
                 return "Could not find version \(version.appleDescription)."
             case .noReleaseVersionAvailable:
@@ -421,23 +418,20 @@ public final class XcodeInstaller {
     }
 
     public func postInstallXcode(_ xcode: InstalledXcode) -> Promise<InstalledXcode> {
-        let passwordInput = {
-            Promise<String> { seal in
-                Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
-                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(Error.missingSudoerPassword); return }
-                seal.fulfill(password + "\n")
-            }
-        }
         return firstly { () -> Promise<InstalledXcode> in
             Current.logging.log(InstallationStep.finishing.description)
+            Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
 
-            return self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
+            return Current.shell.authenticateSudoer().asVoid().map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            self.approveLicense(for: xcode, passwordInput: passwordInput).map { xcode }
+            self.enableDeveloperMode().map { xcode }
         }
         .then { xcode -> Promise<InstalledXcode> in
-            self.installComponents(for: xcode, passwordInput: passwordInput).map { xcode }
+            self.approveLicense(for: xcode).map { xcode }
+        }
+        .then { xcode -> Promise<InstalledXcode> in
+            self.installComponents(for: xcode).map { xcode }
         }
     }
 
@@ -722,33 +716,22 @@ public final class XcodeInstaller {
         return info
     }
 
-    func enableDeveloperMode(passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
+    func enableDeveloperMode() -> Promise<Void> {
+        firstly {
+            Current.shell.devToolsSecurityEnable()
         }
-        .then { possiblePassword -> Promise<String?> in
-            return Current.shell.devToolsSecurityEnable(possiblePassword).map { _ in possiblePassword }
-        }
-        .then { possiblePassword in
-            return Current.shell.addStaffToDevelopersGroup(possiblePassword).asVoid()
+        .then { _ in
+            Current.shell.addStaffToDevelopersGroup().asVoid()
         }
     }
 
-    func approveLicense(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-        }
-        .then { possiblePassword in
-            return Current.shell.acceptXcodeLicense(xcode, possiblePassword).asVoid()
-        }
+    func approveLicense(for xcode: InstalledXcode) -> Promise<Void> {
+        Current.shell.acceptXcodeLicense(xcode).asVoid()
     }
 
-    func installComponents(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-        }
-        .then { possiblePassword -> Promise<Void> in
-            Current.shell.runFirstLaunch(xcode, possiblePassword).asVoid()
+    func installComponents(for xcode: InstalledXcode) -> Promise<Void> {
+        firstly {
+            Current.shell.runFirstLaunch(xcode).asVoid()
         }
         .then { () -> Promise<(String, String, String)> in
             return when(fulfilled:

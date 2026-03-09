@@ -92,7 +92,6 @@ xcodes will download and install the version you asked for so that it's ready to
 (5/6) Checking security assessment and code signing
 (6/6) Finishing installation
 xcodes requires superuser privileges in order to finish installation.
-macOS User Password:
 
 Xcode 11.2.0 has been installed to /Applications/Xcode-11.2.0.app
 ```
