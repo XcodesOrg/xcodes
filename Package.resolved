@@ -92,10 +92,19 @@
     {
       "identity" : "swift-srp",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/xcodesorg/swift-srp",
+      "location" : "https://github.com/xcodesOrg/swift-srp",
       "state" : {
         "branch" : "main",
         "revision" : "543aa0122a0257b992f6c7d62d18a26e3dffb8fe"
+      }
+    },
+    {
+      "identity" : "swiftcbor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/valpackett/SwiftCBOR.git",
+      "state" : {
+        "revision" : "fd929a6d8f7651ce0f63fc99397fd5762358cc29",
+        "version" : "0.6.0"
       }
     },
     {

@@ -5,6 +5,7 @@ import Rainbow
 import SRP
 import Crypto
 import CommonCrypto
+import SwiftFido2
 
 public class Client {
     private static let authTypes = ["sa", "hsa", "non-sa", "hsa2"]
@@ -236,7 +237,7 @@ public class Client {
             case .twoFactor:
                 return self.handleTwoFactor(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt, authOptions: authOptions)
             case .hardwareKey:
-                throw Error.accountUsesHardwareKey
+                return self.handleHardwareKey(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt, authOptions: authOptions)
             case .unknown:
                 Current.logging.log("Received a response from Apple that indicates this account has two-step or two-factor authentication enabled, but xcodes is unsure how to handle this response:".red)
                 String(data: data, encoding: .utf8).map { Current.logging.log($0) }
@@ -285,6 +286,100 @@ public class Client {
         }
     }
     
+    func handleHardwareKey(serviceKey: String, sessionID: String, scnt: String, authOptions: AuthOptionsResponse) -> Promise<Void> {
+        Current.logging.log("Hardware security key authentication is required for this account.\n")
+
+        guard let fsaChallenge = authOptions.fsaChallenge else {
+            return Promise(error: Error.accountUsesHardwareKey)
+        }
+
+        // Build the assertion request
+        let origin = "https://idmsa.apple.com"
+        let clientDataJSON = """
+        {"type":"webauthn.get","challenge":"\(fsaChallenge.challenge)","origin":"\(origin)","crossOrigin":false}
+        """
+        let clientDataJSONBytes = Data(clientDataJSON.utf8)
+        let clientDataHash = Data(CryptoKit.SHA256.hash(data: clientDataJSONBytes))
+
+        let credentialIds = fsaChallenge.allowedCredentials
+            .split(separator: ",")
+            .compactMap { Data(base64Encoded: base64urlToBase64(String($0))) }
+            .map { CredentialDescriptor(id: $0) }
+
+        let request = AssertionRequest(
+            rpId: "apple.com",
+            clientDataHash: clientDataHash,
+            allowCredentials: credentialIds
+        )
+
+        // Discover and open FIDO device
+        Current.logging.log("Looking for your security key...")
+
+        return Promise { seal in
+            Task {
+                do {
+                    let client = FidoClient()
+
+                    let device: FidoDevice
+                    do {
+                        device = try await client.waitForDevice(timeoutSeconds: 30)
+                    } catch {
+                        Current.logging.log("No security key detected. Please plug in your key and try again.".red)
+                        seal.reject(Error.accountUsesHardwareKey)
+                        return
+                    }
+                    Current.logging.log("Found \(device.name)")
+
+                    Current.logging.log("Touch your security key...")
+                    let assertion = try await client.getAssertion(device, request: request)
+
+                    // Build the response Apple expects
+                    let challengeResponse = SecurityKeyResponse(
+                        challenge: fsaChallenge.challenge,
+                        clientData: clientDataJSONBytes.base64EncodedString(),
+                        signatureData: assertion.signature.base64EncodedString(),
+                        authenticatorData: assertion.authData.base64EncodedString(),
+                        userHandle: assertion.userHandle.flatMap { String(data: $0, encoding: .utf8) } ?? "",
+                        credentialID: assertion.credentialId.base64EncodedString(),
+                        rpId: "apple.com"
+                    )
+
+                    let responseData = try JSONEncoder().encode(challengeResponse)
+
+                    Current.logging.log("Security key response received, submitting to Apple...")
+
+                    // Submit to Apple
+                    let submitRequest = URLRequest.submitSecurityKeyAssertion(
+                        serviceKey: serviceKey,
+                        sessionID: sessionID,
+                        scnt: scnt,
+                        response: responseData
+                    )
+
+                    Current.network.dataTask(with: submitRequest)
+                        .then { (data, response) -> Promise<Void> in
+                            self.updateSession(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt)
+                        }
+                        .done { seal.fulfill(()) }
+                        .catch { seal.reject($0) }
+
+                } catch {
+                    seal.reject(error)
+                }
+            }
+        }
+    }
+
+    private func base64urlToBase64(_ input: String) -> String {
+        var base64 = input
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while base64.count % 4 != 0 {
+            base64.append("=")
+        }
+        return base64
+    }
+
     func updateSession(serviceKey: String, sessionID: String, scnt: String) -> Promise<Void> {
         return Current.network.dataTask(with: URLRequest.trust(serviceKey: serviceKey, sessionID: sessionID, scnt: scnt))
             .then { (data, response) -> Promise<Void> in
@@ -410,6 +505,16 @@ public class Client {
         }
         return derivationStatus == kCCSuccess ? derivedKeyData : nil
     }
+}
+
+struct SecurityKeyResponse: Encodable {
+    let challenge: String
+    let clientData: String
+    let signatureData: String
+    let authenticatorData: String
+    let userHandle: String
+    let credentialID: String
+    let rpId: String
 }
 
 public extension Promise where T == (data: Data, response: URLResponse) {

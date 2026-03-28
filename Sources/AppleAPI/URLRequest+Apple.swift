@@ -8,6 +8,7 @@ extension URL {
     static let requestSecurityCode = URL(string: "https://idmsa.apple.com/appleauth/auth/verify/phone")!
     static func submitSecurityCode(_ code: SecurityCode) -> URL { URL(string: "https://idmsa.apple.com/appleauth/auth/verify/\(code.urlPathComponent)/securitycode")! }
     static let trust = URL(string: "https://idmsa.apple.com/appleauth/auth/2sv/trust")!
+    static let securityKeyAuth = URL(string: "https://idmsa.apple.com/appleauth/auth/verify/security/key")!
     static let olympusSession = URL(string: "https://appstoreconnect.apple.com/olympus/v1/session")!
     
     static let srpInit = URL(string: "https://idmsa.apple.com/appleauth/auth/signin/init")!
@@ -106,6 +107,19 @@ extension URLRequest {
         case .sms(let code, let phoneNumberId):
             request.httpBody = try JSONEncoder().encode(SMSSecurityCodeRequest(securityCode: .init(code: code), phoneNumber: .init(id: phoneNumberId)))
         }
+        return request
+    }
+
+    static func submitSecurityKeyAssertion(serviceKey: String, sessionID: String, scnt: String, response: Data) -> URLRequest {
+        var request = URLRequest(url: .securityKeyAuth)
+        request.allHTTPHeaderFields = request.allHTTPHeaderFields ?? [:]
+        request.allHTTPHeaderFields?["X-Apple-ID-Session-Id"] = sessionID
+        request.allHTTPHeaderFields?["X-Apple-Widget-Key"] = serviceKey
+        request.allHTTPHeaderFields?["scnt"] = scnt
+        request.allHTTPHeaderFields?["Accept"] = "application/json"
+        request.allHTTPHeaderFields?["Content-Type"] = "application/json"
+        request.httpMethod = "POST"
+        request.httpBody = response
         return request
     }
 
