@@ -49,16 +49,18 @@ public struct Xcode: Codable, Equatable {
     public let url: URL
     public let filename: String
     public let releaseDate: Date?
+    public let architectures: [String]?
 
     public var downloadPath: String {
         return url.path
     }
-    
-    public init(version: Version, url: URL, filename: String, releaseDate: Date?) {
+
+    public init(version: Version, url: URL, filename: String, releaseDate: Date?, architectures: [String]? = nil) {
         self.version =  version
         self.url = url
         self.filename = filename
         self.releaseDate = releaseDate
+        self.architectures = architectures
     }
 }
 

@@ -43,6 +43,19 @@ public struct Shell {
     public var touchInstallCheck: (String, String, String) -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin/"touch", "\($0)com.apple.dt.Xcode.InstallCheckCache_\($1)_\($2)") }
     public var installedRuntimes: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.join("xcrun"), "simctl", "runtime", "list", "-j") }
 
+    /// Returns the current host architecture: "arm64" for Apple Silicon, "x86_64" for Intel
+    public var currentHostArchitecture: () -> String = {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/uname")
+        task.arguments = ["-m"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        try? task.run()
+        task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "x86_64"
+    }
+
     public var validateSudoAuthentication: () -> Promise<ProcessOutput> = { Process.run(Path.root.usr.bin.sudo, "-nv") }
     public var authenticateSudoerIfNecessary: (@escaping () -> Promise<String>) -> Promise<String?> = { passwordInput in
         firstly { () -> Promise<String?> in
