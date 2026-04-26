@@ -305,7 +305,8 @@ public final class XcodeInstaller {
             }
         }
         .then { () -> Promise<Xcode> in
-            guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
+            let hostArch = Current.shell.currentHostArchitecture()
+            guard let xcode = self.xcodeList.availableXcodes.firstCompatible(withVersion: version, hostArchitecture: hostArch) else {
                 throw Error.unavailableVersion(version)
             }
 

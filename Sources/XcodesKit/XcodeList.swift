@@ -136,7 +136,35 @@ extension XcodeList {
 
 extension XcodeList {
     // MARK: - XcodeReleases
-    
+
+    // Local type that captures architectures from data.json (XCModel.Link doesn't have architectures field)
+    private struct XcodeReleaseEntry: Codable {
+        let name: String
+        let version: VersionInfo
+        let date: DateInfo
+        let links: Links
+
+        struct VersionInfo: Codable {
+            let number: String?
+            let build: String?
+        }
+
+        struct DateInfo: Codable {
+            let year: Int
+            let month: Int
+            let day: Int
+        }
+
+        struct Links: Codable {
+            let download: DownloadLink?
+        }
+
+        struct DownloadLink: Codable {
+            let url: URL
+            let architectures: [String]?
+        }
+    }
+
     private func xcodeReleases() -> Promise<[Xcode]> {
         return firstly { () -> Promise<(data: Data, response: URLResponse)> in
             Current.network.dataTask(with: URLRequest(url: URL(string: "https://xcodereleases.com/data.json")!))
@@ -144,23 +172,39 @@ extension XcodeList {
         .map { (data, response) in
             let decoder = JSONDecoder()
             let xcReleasesXcodes = try decoder.decode([XCModel.Xcode].self, from: data)
+            let entries = try decoder.decode([XcodeReleaseEntry].self, from: data)
+
+            // Build a map of version -> architectures from entries
+            var architectureMap: [String: [String]?] = [:]
+            for entry in entries {
+                let versionKey = "\(entry.version.number ?? "")-\(entry.version.build ?? "")"
+                if architectureMap[versionKey] == nil {
+                    architectureMap[versionKey] = entry.links.download?.architectures
+                }
+            }
+
             let xcodes = xcReleasesXcodes.compactMap { xcReleasesXcode -> Xcode? in
                 guard
                     let downloadURL = xcReleasesXcode.links?.download?.url,
                     let version = Version(xcReleasesXcode: xcReleasesXcode)
                 else { return nil }
-                
+
                 let releaseDate = Calendar(identifier: .gregorian).date(from: DateComponents(
                     year: xcReleasesXcode.date.year,
                     month: xcReleasesXcode.date.month,
                     day: xcReleasesXcode.date.day
                 ))
-                
+
+                // Get architectures from the entry map
+                let versionKey = "\(xcReleasesXcode.version.number ?? "")-\(xcReleasesXcode.version.build ?? "")"
+                let architectures = architectureMap[versionKey] ?? nil
+
                 return Xcode(
                     version: version,
                     url: downloadURL,
                     filename: String(downloadURL.path.suffix(fromLast: "/")),
-                    releaseDate: releaseDate
+                    releaseDate: releaseDate,
+                    architectures: architectures
                 )
             }
             return xcodes

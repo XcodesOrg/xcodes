@@ -133,7 +133,7 @@ final class ModelsFirstWithVersionTests: XCTestCase {
             nil
         )
     }
-    
+
     func test_XcodeVersionEqualWithoutAllIdentifiers() {
         XCTAssertTrue(Version("12.0.0-beta")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12")!))
         XCTAssertTrue(Version("12.0.0-beta")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12.0")!))
@@ -141,5 +141,41 @@ final class ModelsFirstWithVersionTests: XCTestCase {
         XCTAssertTrue(Version("12.0.0-beta+qwerty")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12")!))
         XCTAssertTrue(Version("12.0.0-beta+qwerty")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12.0")!))
         XCTAssertTrue(Version("12.0.0-beta+qwerty")!.isEqualWithoutAllIdentifiers(to: Version(xcodeVersion: "12.0.0")!))
+    }
+
+    func test_firstCompatibleXcode_prefersUniversal() {
+        // Test data with Universal, arm64-only, and x86_64-only builds
+        let universalXcode = Xcode(version: Version("26.2.0")!, url: URL(string: "https://example.com/Universal.xip")!, filename: "Universal.xip", releaseDate: nil, architectures: ["arm64", "x86_64"])
+        let arm64Xcode = Xcode(version: Version("26.2.0")!, url: URL(string: "https://example.com/arm64.xip")!, filename: "arm64.xip", releaseDate: nil, architectures: ["arm64"])
+        let x86Xcode = Xcode(version: Version("26.2.0")!, url: URL(string: "https://example.com/x86.xip")!, filename: "x86.xip", releaseDate: nil, architectures: ["x86_64"])
+
+        // On arm64 host, should prefer Universal over arm64-only
+        let arm64Host = [universalXcode, arm64Xcode, x86Xcode]
+        XCTAssertEqual(arm64Host.firstCompatible(withVersion: Version("26.2.0")!, hostArchitecture: "arm64")?.filename, "Universal.xip")
+
+        // On x86_64 host, should prefer Universal over x86_64-only
+        let x86Host = [arm64Xcode, universalXcode, x86Xcode]  // different order
+        XCTAssertEqual(x86Host.firstCompatible(withVersion: Version("26.2.0")!, hostArchitecture: "x86_64")?.filename, "Universal.xip")
+    }
+
+    func test_firstCompatibleXcode_fallsBackToMatchingArch() {
+        let arm64Xcode = Xcode(version: Version("26.2.0")!, url: URL(string: "https://example.com/arm64.xip")!, filename: "arm64.xip", releaseDate: nil, architectures: ["arm64"])
+        let x86Xcode = Xcode(version: Version("26.2.0")!, url: URL(string: "https://example.com/x86.xip")!, filename: "x86.xip", releaseDate: nil, architectures: ["x86_64"])
+
+        // On arm64 host without Universal, should get arm64
+        let arm64Only = [x86Xcode, arm64Xcode]
+        XCTAssertEqual(arm64Only.firstCompatible(withVersion: Version("26.2.0")!, hostArchitecture: "arm64")?.filename, "arm64.xip")
+
+        // On x86_64 host without Universal, should get x86_64
+        XCTAssertEqual(arm64Only.firstCompatible(withVersion: Version("26.2.0")!, hostArchitecture: "x86_64")?.filename, "x86.xip")
+    }
+
+    func test_firstCompatibleXcode_noArchitecturesFallsBackToFirst() {
+        let noArchXcode = Xcode(version: Version("26.2.0")!, url: URL(string: "https://example.com/noarch.xip")!, filename: "noarch.xip", releaseDate: nil, architectures: nil)
+        let arm64Xcode = Xcode(version: Version("26.2.0")!, url: URL(string: "https://example.com/arm64.xip")!, filename: "arm64.xip", releaseDate: nil, architectures: ["arm64"])
+
+        // When entry has no architectures, falls back to first match
+        let mixed = [arm64Xcode, noArchXcode]
+        XCTAssertEqual(mixed.firstCompatible(withVersion: Version("26.2.0")!, hostArchitecture: "x86_64")?.filename, "arm64.xip")
     }
 }

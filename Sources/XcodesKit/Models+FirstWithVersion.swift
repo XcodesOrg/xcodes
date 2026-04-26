@@ -31,6 +31,45 @@ public extension Array where Element == Xcode {
     func first(withVersion version: Version) -> Xcode? {
         findXcode(version: version, in: self, versionKeyPath: \.version)
     }
+
+    /// Returns the best compatible Xcode for the given version and host architecture.
+    ///
+    /// Selection priority:
+    /// 1. Universal build (contains both arm64 and x86_64)
+    /// 2. Architecture-specific build matching host (arm64 for Apple Silicon, x86_64 for Intel)
+    /// 3. First match (fallback)
+    func firstCompatible(withVersion version: Version, hostArchitecture: String) -> Xcode? {
+        // First try to find using the standard version matching
+        let matches = findAllXcodes(version: version, in: self, versionKeyPath: \.version)
+        guard !matches.isEmpty else { return nil }
+
+        // Priority 1: Universal build (contains both architectures)
+        if let universal = matches.first(where: { ($0.architectures ?? []).contains("arm64") && $0.architectures!.contains("x86_64") }) {
+            return universal
+        }
+
+        // Priority 2: Architecture-specific build matching host
+        if let matching = matches.first(where: { ($0.architectures ?? []).contains(hostArchitecture) }) {
+            return matching
+        }
+
+        // Priority 3: Fall back to first match
+        return matches.first
+    }
+
+    /// Returns all Xcodes with the same version (helper for architecture-aware selection)
+    private func findAllXcodes<XcodeType>(version: Version, in xcodes: [XcodeType], versionKeyPath: KeyPath<XcodeType, Version>) -> [XcodeType] {
+        // Look for equivalent matches
+        let equivalentMatches = xcodes.filter { $0[keyPath: versionKeyPath].isEquivalent(to: version) }
+        if !equivalentMatches.isEmpty {
+            return equivalentMatches
+        }
+        // If version without prerelease/build identifiers, find matches without all identifiers
+        if version.prereleaseIdentifiers.isEmpty && version.buildMetadataIdentifiers.isEmpty {
+            return xcodes.filter { $0[keyPath: versionKeyPath].isEqualWithoutAllIdentifiers(to: version) }
+        }
+        return []
+    }
 }
 
 public extension Array where Element == InstalledXcode {
