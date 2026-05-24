@@ -1,36 +1,35 @@
-// swift-tools-version:5.6
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
     name: "xcodes",
     platforms: [
-       .macOS(.v10_15)
+       .macOS(.v13),
+       .iOS(.v17)
     ],
     products: [
         .executable(name: "xcodes", targets: ["xcodes"]),
-        .library(name: "XcodesKit", targets: ["XcodesKit"]),
-        .library(name: "AppleAPI", targets: ["AppleAPI"]),
+        .library(name: "XcodesCLIKit", targets: ["XcodesCLIKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.1.4")),
-        .package(url: "https://github.com/mxcl/Path.swift.git", .upToNextMinor(from: "0.16.0")),
+        .package(url: "https://github.com/mxcl/Path.swift.git", from: "1.0.0"),
         .package(url: "https://github.com/mxcl/Version.git", .upToNextMinor(from: "1.0.3")),
-        .package(url: "https://github.com/mxcl/PromiseKit.git", .upToNextMinor(from: "6.22.1")),
-        .package(url: "https://github.com/PromiseKit/Foundation.git", .upToNextMinor(from: "3.4.0")),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", .upToNextMinor(from: "2.0.0")),
         .package(url: "https://github.com/mxcl/LegibleError.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0")),
         .package(url: "https://github.com/xcodereleases/data", revision: "fcf527b187817f67c05223676341f3ab69d4214d"),
         .package(url: "https://github.com/onevcat/Rainbow.git", .upToNextMinor(from: "3.2.0")),
-        .package(url: "https://github.com/jpsim/Yams", .upToNextMinor(from: "5.0.1")),
-        .package(url: "https://github.com/xcodesOrg/swift-srp", branch: "main")
+        .package(path: "../XcodesLoginKit"),
+        .package(path: "../XcodesApp/Xcodes/XcodesKit")
     ],
     targets: [
         .executableTarget(
             name: "xcodes",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                "XcodesKit"
+                "XcodesCLIKit",
+                .product(name: "XcodesKit", package: "XcodesKit")
             ]),
         .testTarget(
             name: "xcodesTests",
@@ -38,46 +37,30 @@ let package = Package(
                 "xcodes"
             ]),
         .target(
-            name: "XcodesKit",
+            name: "XcodesCLIKit",
             dependencies: [
-                "AppleAPI", 
                 "KeychainAccess",
                 "LegibleError",
                 .product(name: "Path", package: "Path.swift"), 
-                "PromiseKit",
-                .product(name: "PMKFoundation", package: "Foundation"),
                 "SwiftSoup",
                 "Unxip",
                 "Version",
                 .product(name: "XCModel", package: "data"),
-                "Rainbow",
-                "Yams"
-            ]),
+                "XcodesLoginKit",
+                .product(name: "XcodesKit", package: "XcodesKit"),
+                "Rainbow"
+            ],
+            path: "Sources/XcodesKit"),
         .testTarget(
             name: "XcodesKitTests",
             dependencies: [
-                "XcodesKit",
+                "XcodesCLIKit",
+                .product(name: "XcodesKit", package: "XcodesKit"),
                 "Version"
             ],
             resources: [
                 .copy("Fixtures"),
             ]),
         .target(name: "Unxip"),
-        .target(
-            name: "AppleAPI",
-            dependencies: [
-                "PromiseKit",
-                .product(name: "PMKFoundation", package: "Foundation"),
-                "Rainbow",
-                .product(name: "SRP", package: "swift-srp")
-            ]),
-        .testTarget(
-            name: "AppleAPITests",
-            dependencies: [
-                "AppleAPI"
-            ],
-            resources: [
-                .copy("Fixtures"),
-            ]),
     ]
 )

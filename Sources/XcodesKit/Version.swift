@@ -1,3 +1,5 @@
-import Version
+@preconcurrency import Version
 
-public let version = Version("1.6.2")!
+public var version: Version {
+    Version("1.6.2")!
+}

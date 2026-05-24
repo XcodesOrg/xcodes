@@ -1,6 +1,7 @@
 import XCTest
 import Version
-@testable import XcodesKit
+import XcodesKit
+@testable import XcodesCLIKit
 
 class VersionXcodeTests: XCTestCase {
     func test_InitXcodeVersion() {

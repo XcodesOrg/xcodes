@@ -1,7 +1,8 @@
 import Foundation
 import Path
+import XcodesKit
 
-public struct Configuration: Codable {
+public struct Configuration: Codable, Sendable {
     public var defaultUsername: String?
 
     public init() {
@@ -9,13 +10,27 @@ public struct Configuration: Codable {
     }
 
     public mutating func load() throws {
-        guard let data = Current.files.contents(atPath: Path.configurationFile.string) else { return }
-        self = try JSONDecoder().decode(Configuration.self, from: data)
+        guard let configuration = try configurationStore.load(from: Path.configurationFile) else { return }
+        self = configuration
     }
 
     public func save() throws {
-        let data = try JSONEncoder().encode(self)
-        try Current.files.createDirectory(at: Path.configurationFile.url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        Current.files.createFile(atPath: Path.configurationFile.string, contents: data)
+        try configurationStore.save(self, to: Path.configurationFile)
+    }
+
+    private var configurationStore: CodableFileStore<Configuration> {
+        CodableFileStore(
+            contentsAtPath: { path in Current.files.contents(atPath: path) },
+            createDirectory: { url, createIntermediates, attributes in
+                try Current.files.createDirectory(
+                    at: url,
+                    withIntermediateDirectories: createIntermediates,
+                    attributes: attributes
+                )
+            },
+            createFile: { path, data, attributes in
+                Current.files.createFile(atPath: path, contents: data, attributes: attributes)
+            }
+        )
     }
 }

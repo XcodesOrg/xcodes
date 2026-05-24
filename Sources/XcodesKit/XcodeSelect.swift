@@ -1,98 +1,80 @@
 import Foundation
-import PromiseKit
 import Path
 import Version
 import Rainbow
+import XcodesKit
 
-public func selectXcode(shouldPrint: Bool, pathOrVersion: String, directory: Path, fallbackToInteractive: Bool = true) -> Promise<Void> {
-    firstly { () -> Promise<ProcessOutput> in
-        Current.shell.xcodeSelectPrintPath()
+public func selectXcodeAsync(shouldPrint: Bool, pathOrVersion: String, directory: Path, fallbackToInteractive: Bool = true) async throws {
+    let output = try await Current.shell.xcodeSelectPrintPath()
+
+    if shouldPrint {
+        if output.out.isEmpty == false {
+            Current.logging.log(output.out)
+        } else {
+            Current.logging.log("No selected Xcode")
+        }
+        Current.shell.exit(0)
+        return
     }
-    .then { output -> Promise<Void> in
-        if shouldPrint {
-            if output.out.isEmpty == false {
-                Current.logging.log(output.out)
-                Current.shell.exit(0)
-                return Promise.value(())
-            }
-            else {
-                Current.logging.log("No selected Xcode")
-                Current.shell.exit(0)
-                return Promise.value(())
-            }
-        }
 
-        let versionToSelect = pathOrVersion.isEmpty ? Version.fromXcodeVersionFile() : Version(xcodeVersion: pathOrVersion)
-        let installedXcodes = Current.files.installedXcodes(directory)
-        if let version = versionToSelect,
-           let installedXcode = installedXcodes.first(withVersion: version) {
-            let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
-            if installedXcode.version == selectedInstalledXcodeVersion {
-                Current.logging.log("Xcode \(version) is already selected".green)
-                Current.shell.exit(0)
-                return Promise.value(())
-            }
+    let installedXcodes = Current.files.installedXcodes(directory)
+    let selectionService = XcodeSelectionService(versionFile: XcodeVersionFileService(
+        fileExists: { path in Current.files.fileExists(atPath: path) },
+        contentsAtPath: { path in Current.files.contents(atPath: path) }
+    ))
 
-            return selectXcodeAtPath(installedXcode.path.string)
-                .done { output in
-                    Current.logging.log("Selected \(output.out)".green)
-                    Current.shell.exit(0)
-                }
-        }
-        else {
-            let pathToSelect = pathOrVersion.trimmingCharacters(in: .whitespacesAndNewlines)
-            let currentPath = output.out.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            if pathToSelect == currentPath {
-                Current.logging.log("Xcode at path \(pathOrVersion) is already selected".green)
-                Current.shell.exit(0)
-                return Promise.value(())
-            }
-
-            let selectPromise = selectXcodeAtPath(pathToSelect)
-                .done { output in
-                    Current.logging.log("Selected \(output.out)".green)
-                    Current.shell.exit(0)
-                }
-            if fallbackToInteractive {
-                return selectPromise
-                    .recover { _ in
-                        selectXcodeInteractively(currentPath: output.out, directory: directory)
-                            .done { output in
-                                Current.logging.log("Selected \(output.out)".green)
-                                Current.shell.exit(0)
-                            }
-                    }
-            } else {
-                return selectPromise
-            }
+    switch selectionService.request(
+        pathOrVersion: pathOrVersion,
+        installedXcodes: installedXcodes,
+        selectedXcodePath: output.out
+    ) {
+    case let .alreadySelectedVersion(version):
+        Current.logging.log("Xcode \(version) is already selected".green)
+        Current.shell.exit(0)
+        return
+    case let .selectInstalledXcode(installedXcode):
+        let selectedOutput = try await selectXcodeAtPathAsync(installedXcode.path.string)
+        Current.logging.log("Selected \(selectedOutput.out)".green)
+        Current.shell.exit(0)
+        return
+    case .alreadySelectedPath:
+        Current.logging.log("Xcode at path \(pathOrVersion) is already selected".green)
+        Current.shell.exit(0)
+        return
+    case let .selectPath(pathToSelect):
+        do {
+            let selectedOutput = try await selectXcodeAtPathAsync(pathToSelect)
+            Current.logging.log("Selected \(selectedOutput.out)".green)
+            Current.shell.exit(0)
+        } catch {
+            guard fallbackToInteractive else { throw error }
+            let selectedOutput = try await selectXcodeInteractivelyAsync(currentPath: output.out, directory: directory)
+            Current.logging.log("Selected \(selectedOutput.out)".green)
+            Current.shell.exit(0)
         }
     }
 }
 
-public func selectXcodeInteractively(currentPath: String, directory: Path, shouldRetry: Bool) -> Promise<ProcessOutput> {
+public func selectXcodeInteractivelyAsync(currentPath: String, directory: Path, shouldRetry: Bool) async throws -> ProcessOutput {
     if shouldRetry {
-        func selectWithRetry(currentPath: String) -> Promise<ProcessOutput> {
-            return firstly {
-                selectXcodeInteractively(currentPath: currentPath, directory: directory)
-            }
-            .recover { error throws -> Promise<ProcessOutput> in
-                guard case XcodeSelectError.invalidIndex = error else { throw error }
+        while true {
+            do {
+                return try await selectXcodeInteractivelyAsync(currentPath: currentPath, directory: directory)
+            } catch let error as XcodeSelectError {
+                guard case .invalidIndex = error else { throw error }
                 Current.logging.log("\(error.legibleLocalizedDescription)\n".red)
-                return selectWithRetry(currentPath: currentPath)
             }
         }
-
-        return selectWithRetry(currentPath: currentPath)
-    }
-    else {
-        return firstly {
-            selectXcodeInteractively(currentPath: currentPath, directory: directory)
-        }
+    } else {
+        return try await selectXcodeInteractivelyAsync(currentPath: currentPath, directory: directory)
     }
 }
 
-public func chooseFromInstalledXcodesInteractively(currentPath: String, directory: Path) -> Promise<InstalledXcode> {
+public func chooseFromInstalledXcodesInteractivelyAsync(currentPath: String, directory: Path) async throws -> InstalledXcode {
+    try chooseFromInstalledXcodesInteractivelySync(currentPath: currentPath, directory: directory)
+}
+
+private func chooseFromInstalledXcodesInteractivelySync(currentPath: String, directory: Path) throws -> InstalledXcode {
     let sortedInstalledXcodes = Current.files.installedXcodes(directory).sorted { $0.version < $1.version }
 
     Current.logging.log("Available Xcode versions:")
@@ -108,46 +90,40 @@ public func chooseFromInstalledXcodesInteractively(currentPath: String, director
         }
 
     let possibleSelectionNumberString = Current.shell.readLine(prompt: "Enter the number of the Xcode to select: ")
-    guard
-        let selectionNumberString = possibleSelectionNumberString,
-        let selectionNumber = Int(selectionNumberString),
-        sortedInstalledXcodes.indices.contains(selectionNumber - 1)
-    else {
-        let error = XcodeSelectError.invalidIndex(min: 1, max: sortedInstalledXcodes.count, given: possibleSelectionNumberString)
-        return Promise(error: error)
+    do {
+        return try XcodeSelectionService().installedXcode(
+            fromSelection: possibleSelectionNumberString,
+            installedXcodes: sortedInstalledXcodes
+        )
+    } catch let error as XcodeSelectionError {
+        switch error {
+        case let .invalidIndex(min, max, given):
+            throw XcodeSelectError.invalidIndex(min: min, max: max, given: given)
+        }
     }
-
-    return Promise.value(sortedInstalledXcodes[selectionNumber - 1])
 }
 
-public func selectXcodeInteractively(currentPath: String, directory: Path) -> Promise<ProcessOutput> {
-    return chooseFromInstalledXcodesInteractively(currentPath: currentPath, directory: directory)
-        .map(\.path.string)
-        .then(selectXcodeAtPath)
+public func selectXcodeInteractivelyAsync(currentPath: String, directory: Path) async throws -> ProcessOutput {
+    let selectedXcode = try await chooseFromInstalledXcodesInteractivelyAsync(currentPath: currentPath, directory: directory)
+    return try await selectXcodeAtPathAsync(selectedXcode.path.string)
 }
 
-public func selectXcodeAtPath(_ pathString: String) -> Promise<ProcessOutput> {
-    firstly { () -> Promise<String?> in
-        guard Current.files.fileExists(atPath: pathString) else {
-            throw XcodeSelectError.invalidPath(pathString)
-        }
+public func selectXcodeAtPathAsync(_ pathString: String) async throws -> ProcessOutput {
+    guard Current.files.fileExists(atPath: pathString) else {
+        throw XcodeSelectError.invalidPath(pathString)
+    }
 
-        let passwordInput = {
-            Promise<String> { seal in
-                Current.logging.log("xcodes requires superuser privileges to select an Xcode")
-                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(XcodeInstaller.Error.missingSudoerPassword); return }
-                seal.fulfill(password + "\n")
-            }
+    let passwordInput: @Sendable () async throws -> String = {
+        Current.logging.log("xcodes requires superuser privileges to select an Xcode")
+        guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else {
+            throw XcodeInstaller.Error.missingSudoerPassword
         }
+        return password + "\n"
+    }
 
-        return Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-    }
-    .then { possiblePassword in
-        Current.shell.xcodeSelectSwitch(password: possiblePassword, path: pathString)
-    }
-    .then { _ in
-        Current.shell.xcodeSelectPrintPath()
-    }
+    let possiblePassword = try await Current.shell.authenticateSudoerIfNecessaryAsync(passwordInput: passwordInput)
+    _ = try await Current.shell.xcodeSelectSwitch(possiblePassword, pathString)
+    return try await Current.shell.xcodeSelectPrintPath()
 }
 
 public enum XcodeSelectError: LocalizedError {

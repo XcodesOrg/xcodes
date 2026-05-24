@@ -1,60 +1,27 @@
 import Foundation
-import AppleAPI
 import Path
+import XcodesLoginKit
 
-public class FastlaneSessionManager {
-
-    public enum Constants {
-        public static let fastlaneSessionEnvVarName = "FASTLANE_SESSION"
-        public static let fastlaneSpaceshipDir = Path.environmentHome.url
-                                                    .appendingPathComponent(".fastlane")
-                                                    .appendingPathComponent("spaceship")
-    }
+public final class FastlaneSessionManager: Sendable {
+    public typealias Constants = XcodesLoginKit.FastlaneSessionLoader.Constants
 
     public init() {}
 
+    private let loginKitManager = XcodesLoginKit.FastlaneSessionLoader()
+
     public func setupFastlaneAuth(fastlaneUser: String) {
-        // Use ephemeral session so that cookies don't conflict with normal usage
-        AppleAPI.Current.network.session = URLSession(configuration: .ephemeral)
-        switch fastlaneUser {
-        case Constants.fastlaneSessionEnvVarName:
-            importFastlaneCookiesFromEnv()
-        default:
-            importFastlaneCookiesFromFile(fastlaneUser: fastlaneUser)
-        }
-    }
-
-    private func importFastlaneCookiesFromEnv() {
-        guard let cookieString = Current.shell.env(Constants.fastlaneSessionEnvVarName) else {
-            Current.logging.log("\(Constants.fastlaneSessionEnvVarName) not set".red)
-            return
-        }
         do {
-            let cookies = try Current.fastlaneCookieParser.parse(cookieString: cookieString)
-            cookies.forEach(AppleAPI.Current.network.session.configuration.httpCookieStorage!.setCookie)
+            Current.network.session = try loginKitManager.session(
+                fastlaneUser: fastlaneUser,
+                environmentValue: Current.shell.env
+            )
+        } catch XcodesLoginKit.FastlaneSessionLoader.Error.missingEnvironmentVariable(let variableName) {
+            Current.logging.log("\(variableName) not set".red)
         } catch {
-            Current.logging.log("Failed to parse cookies from \(Constants.fastlaneSessionEnvVarName)".red)
-            return
-        }
-    }
-
-    private func importFastlaneCookiesFromFile(fastlaneUser: String) {
-        let cookieFilePath = Constants
-                                .fastlaneSpaceshipDir
-                                .appendingPathComponent(fastlaneUser)
-                                .appendingPathComponent("cookie")
-        guard
-            let cookieString = try? String(contentsOf: cookieFilePath)
-        else {
-            Current.logging.log("Could not read cookies from \(cookieFilePath)".red)
-            return
-        }
-        do {
-            let cookies = try Current.fastlaneCookieParser.parse(cookieString: cookieString)
-            cookies.forEach(AppleAPI.Current.network.session.configuration.httpCookieStorage!.setCookie)
-        } catch {
-            Current.logging.log("Failed to parse cookies from \(cookieFilePath)".red)
-            return
+            let source = fastlaneUser == Constants.fastlaneSessionEnvVarName
+                ? Constants.fastlaneSessionEnvVarName
+                : XcodesLoginKit.FastlaneSessionLoader.cookieFileURL(fastlaneUser: fastlaneUser).path
+            Current.logging.log("Failed to parse cookies from \(source)".red)
         }
     }
 }

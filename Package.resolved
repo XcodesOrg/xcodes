@@ -1,12 +1,22 @@
 {
+  "originHash" : "d5f06ff4dc275a59467f579767ee5db0fef2947a7df458b7911fd3809d83f96d",
   "pins" : [
+    {
+      "identity" : "asynchttpnetworkservice",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/XcodesOrg/AsyncHTTPNetworkService",
+      "state" : {
+        "branch" : "main",
+        "revision" : "12e225af8b5dc25afcfabfcf582a165b0581ab19"
+      }
+    },
     {
       "identity" : "big-num",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adam-fowler/big-num",
       "state" : {
-        "revision" : "5c5511ad06aeb2b97d0868f7394e14a624bfb1c7",
-        "version" : "2.0.2"
+        "revision" : "9059dcab8dd001b8143bc512b4477d079e97957f",
+        "version" : "2.0.3"
       }
     },
     {
@@ -15,15 +25,6 @@
       "location" : "https://github.com/xcodereleases/data",
       "state" : {
         "revision" : "fcf527b187817f67c05223676341f3ab69d4214d"
-      }
-    },
-    {
-      "identity" : "foundation",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/PromiseKit/Foundation.git",
-      "state" : {
-        "revision" : "985f17fa69ee0e5b7eb3ff9be87ffc4e05fc0927",
-        "version" : "3.4.0"
       }
     },
     {
@@ -45,21 +46,21 @@
       }
     },
     {
+      "identity" : "libfido2swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kinoroy/LibFido2Swift",
+      "state" : {
+        "revision" : "b87a93300c5b35307c9f26ae490963196bd927f1",
+        "version" : "0.1.5"
+      }
+    },
+    {
       "identity" : "path.swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mxcl/Path.swift.git",
       "state" : {
-        "revision" : "dac007e907a4f4c565cfdc55a9ce148a761a11d5",
-        "version" : "0.16.3"
-      }
-    },
-    {
-      "identity" : "promisekit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mxcl/PromiseKit.git",
-      "state" : {
-        "revision" : "8a98e31a47854d3180882c8068cc4d9381bf382d",
-        "version" : "6.22.1"
+        "revision" : "74ec90bbe50a3376e399286fed48b60db9b91bb1",
+        "version" : "1.6.0"
       }
     },
     {
@@ -121,10 +122,10 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpsim/Yams",
       "state" : {
-        "revision" : "01835dc202670b5bb90d07f3eae41867e9ed29f6",
-        "version" : "5.0.1"
+        "revision" : "0d9ee7ea8c4ebd4a489ad7a73d5c6cad55d6fed3",
+        "version" : "5.0.6"
       }
     }
   ],
-  "version" : 2
+  "version" : 3
 }
