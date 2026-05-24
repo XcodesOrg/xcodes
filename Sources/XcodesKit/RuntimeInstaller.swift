@@ -16,7 +16,7 @@ public final class RuntimeInstaller: Sendable {
         self.sessionService = sessionService
     }
 
-    public func printAvailableRuntimes(includeBetas: Bool) async throws {
+    public func printAvailableRuntimes(includeBetas: Bool, architectures: [Architecture] = []) async throws {
         let presentationService = RuntimeListPresentationService()
         let downloadableRuntimeList = try await runtimeList.updateDownloadableRuntimeList()
         let installedRuntimes = try await runtimeList.installedRuntimes()
@@ -25,7 +25,8 @@ public final class RuntimeInstaller: Sendable {
             downloadableRuntimes: downloadableRuntimeList.runtimes,
             installedRuntimes: installedRuntimes,
             includeBetas: includeBetas,
-            sdkToSeedMappings: downloadableRuntimeList.sdkToSeedMappings
+            sdkToSeedMappings: downloadableRuntimeList.sdkToSeedMappings,
+            architectures: architectures
         ) {
             Current.logging.log("-- \(platform.shortName) --")
             runtimes.forEach { Current.logging.log(presentationService.line(for: $0)) }

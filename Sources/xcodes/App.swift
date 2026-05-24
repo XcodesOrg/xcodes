@@ -55,6 +55,8 @@ struct GlobalColorOption: ParsableArguments {
     var color: Bool = true
 }
 
+extension Architecture: @retroactive ExpressibleByArgument {}
+
 @main
 struct Xcodes: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -361,6 +363,9 @@ struct Xcodes: AsyncParsableCommand {
             abstract: "List all versions of Xcode that are available to install"
         )
 
+        @Option(help: "Only list Xcodes that support the specified architecture: arm64 or x86_64. Can be used multiple times.")
+        var architecture: [Architecture] = []
+
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
 
@@ -378,10 +383,10 @@ struct Xcodes: AsyncParsableCommand {
 
             do {
                 if services.xcodeList.shouldUpdateBeforeListingVersions {
-                    try await services.xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory)
+                    try await services.xcodeInstaller.updateAndPrint(dataSource: globalDataSource.dataSource, directory: directory, architectures: architecture)
                 }
                 else {
-                    try await services.xcodeInstaller.printAvailableXcodes(services.xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory))
+                    try await services.xcodeInstaller.printAvailableXcodes(services.xcodeList.availableXcodes, installed: Current.files.installedXcodes(directory), architectures: architecture)
                 }
                 List.exit()
             } catch {
@@ -399,9 +404,12 @@ struct Xcodes: AsyncParsableCommand {
         @Flag(help: "Include beta runtimes available to install")
         var includeBetas: Bool = false
 
+        @Option(help: "Only list runtimes that support the specified architecture: arm64 or x86_64. Can be used multiple times.")
+        var architecture: [Architecture] = []
+
         func run() async throws {
             let services = Xcodes.makeServices()
-            try await services.runtimeInstaller.printAvailableRuntimes(includeBetas: includeBetas)
+            try await services.runtimeInstaller.printAvailableRuntimes(includeBetas: includeBetas, architectures: architecture)
         }
 
         struct Install: AsyncParsableCommand {

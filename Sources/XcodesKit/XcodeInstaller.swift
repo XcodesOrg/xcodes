@@ -491,13 +491,13 @@ public final class XcodeInstaller: Sendable {
         return try await xcodeList.updateAvailableXcodes(dataSource: dataSource)
     }
 
-    public func updateAndPrint(dataSource: DataSource, directory: Path) async throws {
+    public func updateAndPrint(dataSource: DataSource, directory: Path, architectures: [Architecture] = []) async throws {
         let xcodes = try await update(dataSource: dataSource)
-        try await printAvailableXcodes(xcodes, installed: Current.files.installedXcodes(directory), dataSource: dataSource)
+        try await printAvailableXcodes(xcodes, installed: Current.files.installedXcodes(directory), dataSource: dataSource, architectures: architectures)
         Current.shell.exit(0)
     }
 
-    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode], dataSource: DataSource = .xcodeReleases) async throws {
+    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode], dataSource: DataSource = .xcodeReleases, architectures: [Architecture] = []) async throws {
         let output = try await Current.shell.xcodeSelectPrintPath()
 
         XcodeListPresentationService()
@@ -505,7 +505,8 @@ public final class XcodeInstaller: Sendable {
                 availableXcodes: xcodes,
                 installedXcodes: installedXcodes,
                 selectedXcodePath: output.out,
-                dataSource: dataSource
+                dataSource: dataSource,
+                architectures: architectures
             )
             .forEach { row in
                 var output = row.versionDescription
