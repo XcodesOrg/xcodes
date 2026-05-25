@@ -18,10 +18,14 @@ final class RuntimeTests: XCTestCase {
     }
 
     func mockDownloadables() {
+        let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
+        let downloadsData = try! Data(contentsOf: url)
+        mockDownloadables(data: downloadsData)
+    }
+
+    func mockDownloadables(data downloadsData: Data) {
         XcodesCLIKit.Current.network.loadData = { urlRequest in
             if urlRequest.url! == .downloadableRuntimes {
-                let url = Bundle.module.url(forResource: "DownloadableRuntimes", withExtension: "plist", subdirectory: "Fixtures")!
-                let downloadsData = try! Data(contentsOf: url)
                 return (data: downloadsData, response: HTTPURLResponse(url: urlRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
             }
             if urlRequest.url?.absoluteString.hasPrefix("https://developerservices2.apple.com/services/download") == true {
@@ -161,6 +165,20 @@ final class RuntimeTests: XCTestCase {
         XCTAssertEqual(resultError, .unavailableRuntime(identifier))
     }
 
+    func test_downloadRuntimeWithNoSourceSuggestsInstall() async throws {
+        mockDownloadables()
+        let identifier = "iOS 18.0-beta1"
+        var resultError: RuntimeInstaller.Error? = nil
+
+        do {
+            try await runtimeInstaller.downloadRuntime(identifier: identifier, to: .xcodesCaches, with: .urlSession)
+        } catch {
+            resultError = error as? RuntimeInstaller.Error
+        }
+
+        XCTAssertEqual(resultError, .missingRuntimeSource(identifier))
+    }
+
     func test_rootNeededIfPackage() async throws {
         mockDownloadables()
         XcodesCLIKit.Current.shell.isRoot = { false }
@@ -229,6 +247,91 @@ final class RuntimeTests: XCTestCase {
         XCTAssertEqual(xcodeDownloadURL.value, URL(string: runtime.source!)!)
     }
 
+    func test_downloadRuntimePrefersMachineDefaultArchitectureWhenIdentifiersMatch() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.files.fileExistsAtPath = { _ in false }
+        Current.shell.machineArchitecture = { "arm64" }
+        Current.shell.isatty = { false }
+        mockDownloadables(data: Self.duplicateArchitectureRuntimePlistData())
+        let xcodeDownloadURL = LockedBox<URL?>(nil)
+        Current.network.downloadTask = { url, destination, _ in
+            xcodeDownloadURL.set(url.url)
+            return (
+                Progress(),
+                Task {
+                    (destination, HTTPURLResponse(url: url.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+                }
+            )
+        }
+
+        try await runtimeInstaller.downloadRuntime(identifier: "iOS 16.0", to: .xcodesCaches, with: .urlSession)
+
+        XCTAssertEqual(xcodeDownloadURL.value, URL(string: "https://example.com/arm64.dmg")!)
+        XCTAssertTrue(log.value.contains("Downloading Runtime iOS 16.0 - Apple Silicon (arm64)"))
+    }
+
+    func test_downloadRuntimeDoesNotPrintDefaultArchitectureWhenArchitectureIsSpecified() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.files.fileExistsAtPath = { _ in false }
+        Current.shell.machineArchitecture = { "arm64" }
+        Current.shell.isatty = { false }
+        mockDownloadables(data: Self.duplicateArchitectureRuntimePlistData())
+        Current.network.downloadTask = { url, destination, _ in
+            return (
+                Progress(),
+                Task {
+                    (destination, HTTPURLResponse(url: url.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+                }
+            )
+        }
+
+        try await runtimeInstaller.downloadRuntime(identifier: "iOS 16.0", to: .xcodesCaches, with: .urlSession, architectures: [.variant(.appleSilicon)])
+
+        XCTAssertTrue(log.value.contains("Downloading Runtime iOS 16.0"))
+        XCTAssertFalse(log.value.contains("Apple Silicon (arm64)"))
+    }
+
+    func test_downloadAndInstallRuntimeTreatsDuplicateXcodebuildRuntimeAsAlreadyInstalled() async throws {
+        let log = LockedBox("")
+        let attempts = LockedBox(0)
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.shell.isatty = { false }
+        Current.files.contentsAtPath = { path in
+            guard path == "/Library/Developer/CoreSimulator/images/images.plist" else { return nil }
+            return Self.installedRuntimeImagesPlistData()
+        }
+        mockDownloadables(data: Self.cryptexRuntimePlistData())
+        runtimeInstaller = RuntimeInstaller(
+            runtimeList: runtimeList,
+            sessionService: AppleSessionService(configuration: Configuration()),
+            xcodebuildRuntimeInstall: { _, _, _ in
+                attempts.increment()
+                throw ProcessExecutionError(
+                    process: Process(),
+                    terminationStatus: 70,
+                    standardOutput: """
+                    Finding content...
+                    Downloading iOS 16.0 Simulator (20A360) (arm64): Error: Error Domain=SimDiskImageErrorDomain Code=5 "Duplicate of B9DF5553-BDD3-49DF-B82B-96CCA8CB8F70"
+                    """,
+                    standardError: ""
+                )
+            },
+            selectedXcodeVersion: { Version(major: 26, minor: 0, patch: 0) }
+        )
+
+        try await runtimeInstaller.downloadAndInstallRuntime(
+            identifier: "iOS 16.0",
+            to: .xcodesCaches,
+            with: .urlSession,
+            shouldDelete: true
+        )
+
+        XCTAssertEqual(attempts.value, 1)
+        XCTAssertTrue(log.value.contains("Runtime iOS 16.0 - Apple Silicon (arm64) is already installed"))
+    }
+
     func test_installStepsForPackage() async throws {
         mockDownloadables()
         let expectedSteps = [
@@ -295,6 +398,176 @@ final class RuntimeTests: XCTestCase {
         }
         try await runtimeInstaller.downloadAndInstallRuntime(identifier: "iOS 16.0", to: .xcodesCaches, with: .urlSession, shouldDelete: false)
         XCTAssertFalse(removed.value)
+    }
+}
+
+private extension RuntimeTests {
+    static func cryptexRuntimePlistData() -> Data {
+        Data("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>sdkToSimulatorMappings</key>
+            <array/>
+            <key>sdkToSeedMappings</key>
+            <array/>
+            <key>refreshInterval</key>
+            <integer>3600</integer>
+            <key>downloadables</key>
+            <array>
+                <dict>
+                    <key>category</key>
+                    <string>simulator</string>
+                    <key>simulatorVersion</key>
+                    <dict>
+                        <key>buildUpdate</key>
+                        <string>20A360</string>
+                        <key>version</key>
+                        <string>16.0</string>
+                    </dict>
+                    <key>architectures</key>
+                    <array>
+                        <string>arm64</string>
+                    </array>
+                    <key>dictionaryVersion</key>
+                    <integer>1</integer>
+                    <key>contentType</key>
+                    <string>cryptexDiskImage</string>
+                    <key>platform</key>
+                    <string>com.apple.platform.iphoneos</string>
+                    <key>identifier</key>
+                    <string>com.apple.dmg.iPhoneSimulatorSDK16_0_arm64</string>
+                    <key>version</key>
+                    <string>16.0</string>
+                    <key>fileSize</key>
+                    <integer>42</integer>
+                    <key>name</key>
+                    <string>iOS 16.0 Simulator Runtime</string>
+                </dict>
+            </array>
+            <key>version</key>
+            <string>2</string>
+        </dict>
+        </plist>
+        """.utf8)
+    }
+
+    static func installedRuntimeImagesPlistData() -> Data {
+        Data("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>images</key>
+            <array>
+                <dict>
+                    <key>uuid</key>
+                    <string>B9DF5553-BDD3-49DF-B82B-96CCA8CB8F70</string>
+                    <key>path</key>
+                    <dict>
+                        <key>relative</key>
+                        <string>file:///Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 16.simruntime</string>
+                    </dict>
+                    <key>runtimeInfo</key>
+                    <dict>
+                        <key>build</key>
+                        <string>20A360</string>
+                        <key>supportedArchitectures</key>
+                        <array>
+                            <string>arm64</string>
+                        </array>
+                    </dict>
+                </dict>
+            </array>
+        </dict>
+        </plist>
+        """.utf8)
+    }
+
+    static func duplicateArchitectureRuntimePlistData() -> Data {
+        Data("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>sdkToSimulatorMappings</key>
+            <array/>
+            <key>sdkToSeedMappings</key>
+            <array/>
+            <key>refreshInterval</key>
+            <integer>3600</integer>
+            <key>downloadables</key>
+            <array>
+                <dict>
+                    <key>category</key>
+                    <string>simulator</string>
+                    <key>simulatorVersion</key>
+                    <dict>
+                        <key>buildUpdate</key>
+                        <string>20A360</string>
+                        <key>version</key>
+                        <string>16.0</string>
+                    </dict>
+                    <key>source</key>
+                    <string>https://example.com/universal.dmg</string>
+                    <key>architectures</key>
+                    <array>
+                        <string>arm64</string>
+                        <string>x86_64</string>
+                    </array>
+                    <key>dictionaryVersion</key>
+                    <integer>1</integer>
+                    <key>contentType</key>
+                    <string>diskImage</string>
+                    <key>platform</key>
+                    <string>com.apple.platform.iphoneos</string>
+                    <key>identifier</key>
+                    <string>com.apple.CoreSimulator.SimRuntime.iOS-16-0</string>
+                    <key>version</key>
+                    <string>16.0</string>
+                    <key>fileSize</key>
+                    <integer>42</integer>
+                    <key>name</key>
+                    <string>iOS 16.0</string>
+                </dict>
+                <dict>
+                    <key>category</key>
+                    <string>simulator</string>
+                    <key>simulatorVersion</key>
+                    <dict>
+                        <key>buildUpdate</key>
+                        <string>20A360</string>
+                        <key>version</key>
+                        <string>16.0</string>
+                    </dict>
+                    <key>source</key>
+                    <string>https://example.com/arm64.dmg</string>
+                    <key>architectures</key>
+                    <array>
+                        <string>arm64</string>
+                    </array>
+                    <key>dictionaryVersion</key>
+                    <integer>1</integer>
+                    <key>contentType</key>
+                    <string>diskImage</string>
+                    <key>platform</key>
+                    <string>com.apple.platform.iphoneos</string>
+                    <key>identifier</key>
+                    <string>com.apple.CoreSimulator.SimRuntime.iOS-16-0-arm64</string>
+                    <key>version</key>
+                    <string>16.0</string>
+                    <key>fileSize</key>
+                    <integer>42</integer>
+                    <key>name</key>
+                    <string>iOS 16.0</string>
+                </dict>
+            </array>
+            <key>version</key>
+            <string>2</string>
+        </dict>
+        </plist>
+        """.utf8)
     }
 }
 

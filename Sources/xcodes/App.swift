@@ -440,6 +440,9 @@ struct Xcodes: AsyncParsableCommand {
                     completion: .directory)
             var directory: String?
 
+            @Option(help: "Install the runtime matching the specified architecture: arm64, x86_64, appleSilicon, or universal. Can be used multiple times.")
+            var architecture: [ArchitectureFilter] = []
+
             @Flag(help: "Do not delete the runtime archive after the installation is finished.")
             var keepArchive = false
 
@@ -454,7 +457,7 @@ struct Xcodes: AsyncParsableCommand {
                 let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
                 let services = Xcodes.makeServices()
 
-                try await services.runtimeInstaller.downloadAndInstallRuntime(identifier: version, to: destination, with: downloader, shouldDelete: !keepArchive)
+                try await services.runtimeInstaller.downloadAndInstallRuntime(identifier: version, to: destination, with: downloader, shouldDelete: !keepArchive, architectures: architecture)
                 Current.logging.log("Finished")
             }
         }
@@ -478,6 +481,9 @@ struct Xcodes: AsyncParsableCommand {
                     completion: .directory)
             var directory: String?
 
+            @Option(help: "Download the runtime matching the specified architecture: arm64, x86_64, appleSilicon, or universal. Can be used multiple times.")
+            var architecture: [ArchitectureFilter] = []
+
             @OptionGroup
             var globalColor: GlobalColorOption
 
@@ -489,7 +495,7 @@ struct Xcodes: AsyncParsableCommand {
                 let destination = getDirectory(possibleDirectory: directory, default: .environmentDownloads)
                 let services = Xcodes.makeServices()
 
-                try await services.runtimeInstaller.downloadRuntime(identifier: version, to: destination, with: downloader)
+                try await services.runtimeInstaller.downloadRuntime(identifier: version, to: destination, with: downloader, architectures: architecture)
                 Current.logging.log("Finished")
             }
         }

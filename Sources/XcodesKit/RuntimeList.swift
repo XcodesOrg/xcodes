@@ -21,6 +21,7 @@ public final class RuntimeList: Sendable {
                 let (data, response) = try await Current.network.data(for: request)
                 return (data, response)
             },
+            contentsAtPath: { path in Current.files.contents(atPath: path) },
             installedRuntimesOutput: Current.shell.installedRuntimes,
             installRuntimeImageOutput: Current.shell.installRuntimeImage,
             mountDMGOutput: Current.shell.mountDmg,

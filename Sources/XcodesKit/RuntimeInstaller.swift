@@ -5,16 +5,33 @@ import Rainbow
 import XcodesKit
 
 public final class RuntimeInstaller: Sendable {
+    public typealias XcodebuildRuntimeInstall = @Sendable (DownloadableRuntime, String?, @escaping RuntimeXcodebuildInstallService.ProgressChanged) async throws -> Void
+    public typealias SelectedXcodeVersion = @Sendable () async throws -> Version?
 
     public let sessionService: AppleSessionService
     public let runtimeList: RuntimeList
+    private let xcodebuildRuntimeInstall: XcodebuildRuntimeInstall
+    private let selectedXcodeVersion: SelectedXcodeVersion
     private var runtimeService: RuntimeService {
         runtimeList.runtimeService
     }
 
-    public init(runtimeList: RuntimeList, sessionService: AppleSessionService) {
+    public init(
+        runtimeList: RuntimeList,
+        sessionService: AppleSessionService,
+        xcodebuildRuntimeInstall: @escaping XcodebuildRuntimeInstall = { runtime, architecture, progressChanged in
+            try await RuntimeXcodebuildInstallService().downloadAndInstall(
+                runtime: runtime,
+                architecture: architecture,
+                progressChanged: progressChanged
+            )
+        },
+        selectedXcodeVersion: SelectedXcodeVersion? = nil
+    ) {
         self.runtimeList = runtimeList
         self.sessionService = sessionService
+        self.xcodebuildRuntimeInstall = xcodebuildRuntimeInstall
+        self.selectedXcodeVersion = selectedXcodeVersion ?? RuntimeInstaller.selectedXcodeVersionFromXcodebuild
     }
 
     public func printAvailableRuntimes(includeBetas: Bool, architectures: [ArchitectureFilter] = []) async throws {
@@ -61,17 +78,22 @@ public final class RuntimeInstaller: Sendable {
         return string
     }
 
-    public func downloadRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader) async throws {
-        let matchedRuntime = try await getMatchingRuntime(identifier: identifier)
+    public func downloadRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, architectures: [ArchitectureFilter] = []) async throws {
+        let matchedRuntime = try await getMatchingRuntime(identifier: identifier, architectures: architectures)
+        guard matchedRuntime.url != nil else {
+            throw Error.missingRuntimeSource(matchedRuntime.visibleIdentifier)
+        }
+        let runtimeName = downloadName(for: matchedRuntime, architectures: architectures)
 
-        _ = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader)
+        _ = try await downloadOrUseExistingArchive(runtime: matchedRuntime, to: destinationDirectory, downloader: downloader, runtimeName: runtimeName)
     }
 
 
-    public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool) async throws {
-        let matchedRuntime = try await getMatchingRuntime(identifier: identifier)
+    public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool, architectures: [ArchitectureFilter] = []) async throws {
+        let matchedRuntime = try await getMatchingRuntime(identifier: identifier, architectures: architectures)
 
         let method = try await installMethod(for: matchedRuntime)
+        let runtimeName = downloadName(for: matchedRuntime, architectures: architectures)
 
         switch method {
         case .archive:
@@ -79,10 +101,11 @@ public final class RuntimeInstaller: Sendable {
                 matchedRuntime,
                 to: destinationDirectory,
                 with: downloader,
-                deleteArchive: shouldDelete
+                deleteArchive: shouldDelete,
+                runtimeName: runtimeName
             )
         case let .xcodebuild(architecture):
-            try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime, architecture: architecture)
+            try await downloadAndInstallUsingXcodeBuild(runtime: matchedRuntime, architecture: architecture, runtimeName: runtimeName)
         }
     }
 
@@ -90,18 +113,19 @@ public final class RuntimeInstaller: Sendable {
         _ runtime: DownloadableRuntime,
         to destinationDirectory: Path,
         with downloader: Downloader,
-        deleteArchive: Bool
+        deleteArchive: Bool,
+        runtimeName: String
     ) async throws {
         switch runtime.contentType {
         case .package:
             guard Current.shell.isRoot() else {
                 throw Error.rootNeeded
             }
-            let dmgUrl = try await downloadOrUseExistingArchive(runtime: runtime, to: destinationDirectory, downloader: downloader)
+            let dmgUrl = try await downloadOrUseExistingArchive(runtime: runtime, to: destinationDirectory, downloader: downloader, runtimeName: runtimeName)
             try await installFromPackage(dmgUrl: dmgUrl, runtime: runtime)
             deleteArchiveIfNeeded(dmgUrl, shouldDelete: deleteArchive)
         case .diskImage:
-            let dmgUrl = try await downloadOrUseExistingArchive(runtime: runtime, to: destinationDirectory, downloader: downloader)
+            let dmgUrl = try await downloadOrUseExistingArchive(runtime: runtime, to: destinationDirectory, downloader: downloader, runtimeName: runtimeName)
             try await runtimeArchiveInstallService.install(
                 runtime: runtime,
                 archiveURL: dmgUrl,
@@ -122,12 +146,45 @@ public final class RuntimeInstaller: Sendable {
         }
     }
 
-    private func getMatchingRuntime(identifier: String) async throws -> DownloadableRuntime {
+    private func getMatchingRuntime(identifier: String, architectures: [ArchitectureFilter] = []) async throws -> DownloadableRuntime {
         let downloadables = try await runtimeList.downloadableRuntimes()
-        guard let runtime = downloadables.first(where: { $0.visibleIdentifier == identifier || $0.simulatorVersion.buildUpdate == identifier }) else {
+        let matchingRuntimes = downloadables.filter {
+            $0.visibleIdentifier == identifier || $0.simulatorVersion.buildUpdate == identifier
+        }
+        guard let runtime = preferredRuntime(from: matchingRuntimes, architectures: architectures) else {
             throw Error.unavailableRuntime(identifier)
         }
         return runtime
+    }
+
+    private func preferredRuntime(from runtimes: [DownloadableRuntime], architectures: [ArchitectureFilter] = []) -> DownloadableRuntime? {
+        guard runtimes.count > 1 else { return runtimes.first }
+
+        let machineArchitecture = Current.shell.machineArchitecture()
+        let defaultFilters = architectures.isEmpty
+            ? [ArchitectureFilter].defaultForMachine(machineHardwareName: machineArchitecture)
+            : architectures
+        return runtimes.first { runtime in
+            guard let architectures = runtime.architectures else { return false }
+            return defaultFilters.contains { $0.matches(architectures) }
+        } ?? runtimes.matchingArchitectureFilters(defaultFilters).first ?? runtimes.first
+    }
+
+    private func downloadName(for runtime: DownloadableRuntime, architectures: [ArchitectureFilter]) -> String {
+        guard architectures.isEmpty, let runtimeArchitectures = runtime.architectures, runtimeArchitectures.isEmpty == false else {
+            return runtime.visibleIdentifier
+        }
+        return "\(runtime.visibleIdentifier) - \(architectureDescription(runtimeArchitectures))"
+    }
+
+    private func architectureDescription(_ architectures: [Architecture]) -> String {
+        if architectures.isUniversal {
+            return "\(ArchitectureVariant.universal.displayString) (\(architectures.map(\.rawValue).joined(separator: ", ")))"
+        }
+        if architectures.isAppleSilicon {
+            return "\(ArchitectureVariant.appleSilicon.displayString) (\(Architecture.arm64.rawValue))"
+        }
+        return architectures.map { "\($0.displayString) (\($0.rawValue))" }.joined(separator: ", ")
     }
 
     private var runtimeArchiveInstallService: RuntimeArchiveInstallService {
@@ -175,12 +232,13 @@ public final class RuntimeInstaller: Sendable {
         )
     }
 
-    public func downloadOrUseExistingArchive(runtime: DownloadableRuntime, to destinationDirectory: Path, downloader: Downloader) async throws -> URL {
+    public func downloadOrUseExistingArchive(runtime: DownloadableRuntime, to destinationDirectory: Path, downloader: Downloader, runtimeName: String? = nil) async throws -> URL {
+        let runtimeName = runtimeName ?? runtime.visibleIdentifier
         if Current.shell.isatty() {
             // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
             Current.logging.log("")
         } else {
-            Current.logging.log("Downloading Runtime \(runtime.visibleIdentifier)")
+            Current.logging.log("Downloading Runtime \(runtimeName)")
         }
 
         let observation = ProgressObservation()
@@ -193,7 +251,7 @@ public final class RuntimeInstaller: Sendable {
                 guard Current.shell.isatty() else { return }
                 // These escape codes move up a line and then clear to the end
                 let progressString = NumberFormatter.localizedString(from: NSNumber(value: progress.fractionCompleted), number: .percent)
-                Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(progressString)")
+                Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtimeName): \(progressString)")
             }
         }
         observation.invalidate()
@@ -241,15 +299,24 @@ public final class RuntimeInstaller: Sendable {
     /// Downloads and installs the runtime using xcodebuild, requires Xcode 16.1+ to download a runtime using a given directory
     /// - Parameters:
     ///   - runtime: The runtime to download and install to identify the platform and version numbers
-    private func downloadAndInstallUsingXcodeBuild(runtime: DownloadableRuntime, architecture: String?) async throws {
-        try await RuntimeXcodebuildInstallService().downloadAndInstall(
-            runtime: runtime,
-            architecture: architecture
-        ) { progress in
-            let formatter = NumberFormatter(numberStyle: .percent)
-            guard Current.shell.isatty() else { return }
-            // These escape codes move up a line and then clear to the end
-            Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtime.visibleIdentifier): \(formatter.string(from: progress.fractionCompleted)!)")
+    private func downloadAndInstallUsingXcodeBuild(runtime: DownloadableRuntime, architecture: String?, runtimeName: String) async throws {
+        if Current.shell.isatty() {
+            // Reserve the line that the progress renderer rewrites.
+            Current.logging.log("")
+        }
+
+        do {
+            try await xcodebuildRuntimeInstall(runtime, architecture) { progress in
+                let formatter = NumberFormatter(numberStyle: .percent)
+                guard Current.shell.isatty() else { return }
+                // These escape codes move up a line and then clear to the end
+                Current.logging.log("\u{1B}[1A\u{1B}[KDownloading Runtime \(runtimeName): \(formatter.string(from: progress.fractionCompleted)!)")
+            }
+        } catch let error {
+            guard try await duplicateRuntimeIsAlreadyInstalled(error, runtime: runtime) else {
+                throw error
+            }
+            Current.logging.log("Runtime \(runtimeName) is already installed")
         }
     }
 
@@ -258,13 +325,33 @@ public final class RuntimeInstaller: Sendable {
             return try RuntimeInstallPolicy().installMethod(for: runtime, selectedXcodeVersion: nil)
         }
 
-        let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild")
-        let versionString = try await Process.runAsync(xcodeBuildPath, "-version")
-        guard let version = RuntimeInstallPolicy().selectedXcodeVersion(fromXcodebuildVersionOutput: versionString.out) else {
+        guard let version = try await selectedXcodeVersion() else {
             throw Error.noXcodeSelectedFound
         }
 
         return try RuntimeInstallPolicy().installMethod(for: runtime, selectedXcodeVersion: version)
+    }
+
+    private func duplicateRuntimeIsAlreadyInstalled(_ error: Swift.Error, runtime: DownloadableRuntime) async throws -> Bool {
+        guard isDuplicateRuntimeInstallError(error) else { return false }
+
+        let installedRuntimes = try await runtimeService.localInstalledRuntimes()
+        return RuntimeInstallationLookupService().coreSimulatorImage(
+            for: runtime,
+            in: installedRuntimes
+        ) != nil
+    }
+
+    private func isDuplicateRuntimeInstallError(_ error: Swift.Error) -> Bool {
+        guard let error = error as? ProcessExecutionError else { return false }
+        let output = error.standardOutput + "\n" + error.standardError
+        return output.contains("SimDiskImageErrorDomain") && output.contains("Duplicate of ")
+    }
+
+    private static func selectedXcodeVersionFromXcodebuild() async throws -> Version? {
+        let xcodeBuildPath = Path.root.usr.bin.join("xcodebuild")
+        let versionString = try await Process.runAsync(xcodeBuildPath, "-version")
+        return RuntimeInstallPolicy().selectedXcodeVersion(fromXcodebuildVersionOutput: versionString.out)
     }
 
 }
