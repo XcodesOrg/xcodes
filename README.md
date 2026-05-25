@@ -101,6 +101,18 @@ If you have [aria2](https://aria2.github.io) installed (it's available in Homebr
 
 Xcode will be installed to /Applications by default, but you can provide the path to a different directory with the `--directory` option or the `XCODES_DIRECTORY` environment variable. All of the xcodes commands support this option, like `select` and `uninstall`, so you can manage Xcode versions that aren't in /Applications. xcodes supports having all of your Xcode versions installed in _one_ directory, wherever that may be.
 
+### Architectures
+
+The `list` and `runtimes` commands show architecture availability when Apple provides it. Universal downloads are labeled `[Universal]`, Apple Silicon-only downloads are labeled `[Apple Silicon]`, and Intel-only downloads are labeled `[Intel]`.
+
+You can filter either list by architecture or variant with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`. These filters are exact: `arm64` and `appleSilicon` show Apple Silicon-only downloads, `x86_64` shows Intel-only downloads, and `universal` shows downloads that support both architectures. The option can be used multiple times.
+
+```sh
+xcodes list --architecture arm64
+xcodes list --architecture universal
+xcodes runtimes --architecture arm64 --architecture universal --include-betas
+```
+
 ### Install Runtimes : 
 
 Run this command line to display the available runtimes 

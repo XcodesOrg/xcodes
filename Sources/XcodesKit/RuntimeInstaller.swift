@@ -1,6 +1,7 @@
 import Foundation
 @preconcurrency import Version
 @preconcurrency import Path
+import Rainbow
 import XcodesKit
 
 public final class RuntimeInstaller: Sendable {
@@ -16,7 +17,7 @@ public final class RuntimeInstaller: Sendable {
         self.sessionService = sessionService
     }
 
-    public func printAvailableRuntimes(includeBetas: Bool, architectures: [Architecture] = []) async throws {
+    public func printAvailableRuntimes(includeBetas: Bool, architectures: [ArchitectureFilter] = []) async throws {
         let presentationService = RuntimeListPresentationService()
         let downloadableRuntimeList = try await runtimeList.updateDownloadableRuntimeList()
         let installedRuntimes = try await runtimeList.installedRuntimes()
@@ -29,9 +30,28 @@ public final class RuntimeInstaller: Sendable {
             architectures: architectures
         ) {
             Current.logging.log("-- \(platform.shortName) --")
-            runtimes.forEach { Current.logging.log(presentationService.line(for: $0)) }
+            runtimes.forEach { Current.logging.log(line(for: $0)) }
         }
         Current.logging.log("\nNote: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)")
+        if !includeBetas && architectures.isEmpty {
+            Current.logging.log("\nOptions: Include beta runtimes with `--include-betas`, or filter by architecture with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.")
+        }
+    }
+
+    private func line(for row: RuntimeListPresentationService.RuntimeRow) -> String {
+        var string = row.visibleIdentifier
+        if row.hasDuplicateVersion {
+            string += " (\(row.build))"
+        }
+        if let kind = row.kind {
+            switch kind {
+            case .bundled:
+                string += " (\("Bundled with selected Xcode".green))"
+            case .legacyDownload, .diskImage, .cryptexDiskImage, .patchableCryptexDiskImage:
+                string += " (\("Installed".blue))"
+            }
+        }
+        return string
     }
 
     public func downloadRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader) async throws {

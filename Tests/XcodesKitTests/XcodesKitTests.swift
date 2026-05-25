@@ -1005,6 +1005,33 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta+11M336W"))
     }
 
+    func test_PrintAvailableXcodes_WithoutArchitectureFilter_PrintsOptions() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.shell.xcodeSelectPrintPath = { (status: 0, out: "", err: "") }
+
+        try await xcodeInstaller.printAvailableXcodes([Self.mockXcode], installed: [])
+
+        XCTAssertTrue(log.value.contains("Options: Filter by architecture with"))
+    }
+
+    func test_PrintAvailableXcodes_WithArchitectureFilter_DoesNotPrintOptions() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.shell.xcodeSelectPrintPath = { (status: 0, out: "", err: "") }
+        let universalXcode = Xcode(
+            version: Version("15.0.0")!,
+            url: URL(string: "https://apple.com/xcode.xip")!,
+            filename: "mock.xip",
+            releaseDate: nil,
+            architectures: [.arm64, .x86_64]
+        )
+
+        try await xcodeInstaller.printAvailableXcodes([universalXcode], installed: [], architectures: [.variant(.universal)])
+
+        XCTAssertFalse(log.value.contains("Options:"))
+    }
+
     func test_SelectPrint() async throws {
         let log = LockedBox("")
         XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }

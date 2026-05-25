@@ -491,13 +491,13 @@ public final class XcodeInstaller: Sendable {
         return try await xcodeList.updateAvailableXcodes(dataSource: dataSource)
     }
 
-    public func updateAndPrint(dataSource: DataSource, directory: Path, architectures: [Architecture] = []) async throws {
+    public func updateAndPrint(dataSource: DataSource, directory: Path, architectures: [ArchitectureFilter] = []) async throws {
         let xcodes = try await update(dataSource: dataSource)
         try await printAvailableXcodes(xcodes, installed: Current.files.installedXcodes(directory), dataSource: dataSource, architectures: architectures)
         Current.shell.exit(0)
     }
 
-    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode], dataSource: DataSource = .xcodeReleases, architectures: [Architecture] = []) async throws {
+    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode], dataSource: DataSource = .xcodeReleases, architectures: [ArchitectureFilter] = []) async throws {
         let output = try await Current.shell.xcodeSelectPrintPath()
 
         XcodeListPresentationService()
@@ -517,6 +517,10 @@ public final class XcodeInstaller: Sendable {
                 }
                 Current.logging.log(output)
             }
+
+        if architectures.isEmpty {
+            Current.logging.log("\nOptions: Filter by architecture with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.")
+        }
     }
 
     public func printInstalledXcodes(directory: Path) async throws {

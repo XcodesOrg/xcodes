@@ -1,7 +1,7 @@
 import XCTest
 import Version
 import Path
-import Rainbow
+@preconcurrency import Rainbow
 @testable import XcodesCLIKit
 
 final class RuntimeTests: XCTestCase {
@@ -109,6 +109,44 @@ final class RuntimeTests: XCTestCase {
         try await runtimeInstaller.printAvailableRuntimes(includeBetas: false)
         let outputUrl = Bundle.module.url(forResource: "LogOutput-Runtime_NoBetas", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log.value, try String(contentsOf: outputUrl))
+    }
+
+    func test_printAvailableRuntimes_WithArchitectureFilter_DoesNotPrintOptions() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        mockDownloadables()
+        Current.shell.installedRuntimes = {
+            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
+            return (0, try! String(contentsOf: url), "")
+        }
+
+        try await runtimeInstaller.printAvailableRuntimes(includeBetas: false, architectures: [.variant(.universal)])
+
+        XCTAssertFalse(log.value.contains("Options:"))
+    }
+
+    func test_printAvailableRuntimes_ColorsInstalledStatus() async throws {
+        let originalOutputTarget = Rainbow.outputTarget
+        let originalEnabled = Rainbow.enabled
+        Rainbow.outputTarget = .console
+        Rainbow.enabled = true
+        defer {
+            Rainbow.outputTarget = originalOutputTarget
+            Rainbow.enabled = originalEnabled
+        }
+
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        mockDownloadables()
+        Current.shell.installedRuntimes = {
+            let url = Bundle.module.url(forResource: "ShellOutput-InstalledRuntimes", withExtension: "json", subdirectory: "Fixtures")!
+            return (0, try! String(contentsOf: url), "")
+        }
+
+        try await runtimeInstaller.printAvailableRuntimes(includeBetas: false)
+
+        XCTAssertTrue(log.value.contains("(\("Installed".blue))"))
+        XCTAssertTrue(log.value.contains("(\("Bundled with selected Xcode".green))"))
     }
 
     func test_wrongIdentifier() async throws {

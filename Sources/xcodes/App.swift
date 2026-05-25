@@ -55,7 +55,11 @@ struct GlobalColorOption: ParsableArguments {
     var color: Bool = true
 }
 
-extension Architecture: @retroactive ExpressibleByArgument {}
+extension ArchitectureFilter: @retroactive ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(argument)
+    }
+}
 
 @main
 struct Xcodes: AsyncParsableCommand {
@@ -363,8 +367,8 @@ struct Xcodes: AsyncParsableCommand {
             abstract: "List all versions of Xcode that are available to install"
         )
 
-        @Option(help: "Only list Xcodes that support the specified architecture: arm64 or x86_64. Can be used multiple times.")
-        var architecture: [Architecture] = []
+        @Option(help: "Only list Xcodes matching the specified architecture: arm64, x86_64, appleSilicon, or universal. Can be used multiple times.")
+        var architecture: [ArchitectureFilter] = []
 
         @OptionGroup
         var globalDirectory: GlobalDirectoryOption
@@ -404,10 +408,15 @@ struct Xcodes: AsyncParsableCommand {
         @Flag(help: "Include beta runtimes available to install")
         var includeBetas: Bool = false
 
-        @Option(help: "Only list runtimes that support the specified architecture: arm64 or x86_64. Can be used multiple times.")
-        var architecture: [Architecture] = []
+        @Option(help: "Only list runtimes matching the specified architecture: arm64, x86_64, appleSilicon, or universal. Can be used multiple times.")
+        var architecture: [ArchitectureFilter] = []
+
+        @OptionGroup
+        var globalColor: GlobalColorOption
 
         func run() async throws {
+            configureRainbow(enabled: globalColor.color)
+
             let services = Xcodes.makeServices()
             try await services.runtimeInstaller.printAvailableRuntimes(includeBetas: includeBetas, architectures: architecture)
         }
