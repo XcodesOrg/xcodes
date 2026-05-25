@@ -22,7 +22,7 @@ jobs:
         }
 
         checkout_dependency XcodesOrg/XcodesLoginKit ../XcodesLoginKit
-        checkout_dependency RobotsAndPencils/XcodesApp ../XcodesApp
+        checkout_dependency XcodesOrg/XcodesKit ../XcodesKit
     - name: Run tests
       env:
         DEVELOPER_DIR: /Applications/Xcode_16.4.app

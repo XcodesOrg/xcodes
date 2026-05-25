@@ -21,7 +21,7 @@ let package = Package(
         .package(url: "https://github.com/xcodereleases/data", revision: "fcf527b187817f67c05223676341f3ab69d4214d"),
         .package(url: "https://github.com/onevcat/Rainbow.git", .upToNextMinor(from: "3.2.0")),
         .package(path: "../XcodesLoginKit"),
-        .package(path: "../XcodesApp/Xcodes/XcodesKit")
+        .package(path: "../XcodesKit")
     ],
     targets: [
         .executableTarget(
