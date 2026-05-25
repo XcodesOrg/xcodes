@@ -97,6 +97,7 @@ public struct Shell: Sendable {
 
     public var xcodeSelectSwitch = Shell.shared.xcodeSelectSwitch
     public var isRoot: @Sendable () -> Bool = { NSUserName() == "root" }
+    public var machineArchitecture: @Sendable () -> String? = { HostHardware.currentMachineHardwareName() }
 
     /// Returns the path of an executable within the directories in the PATH environment variable.
     public var findExecutable: @Sendable (_ executableName: String) -> Path? = { executableName in

@@ -21,20 +21,27 @@ public final class RuntimeInstaller: Sendable {
         let presentationService = RuntimeListPresentationService()
         let downloadableRuntimeList = try await runtimeList.updateDownloadableRuntimeList()
         let installedRuntimes = try await runtimeList.installedRuntimes()
+        let machineArchitecture = Current.shell.machineArchitecture()
+        let effectiveArchitectures = architectures.isEmpty
+            ? [ArchitectureFilter].defaultForMachine(machineHardwareName: machineArchitecture)
+            : architectures
 
         for (platform, runtimes) in presentationService.rows(
             downloadableRuntimes: downloadableRuntimeList.runtimes,
             installedRuntimes: installedRuntimes,
             includeBetas: includeBetas,
             sdkToSeedMappings: downloadableRuntimeList.sdkToSeedMappings,
-            architectures: architectures
+            architectures: effectiveArchitectures
         ) {
             Current.logging.log("-- \(platform.shortName) --")
             runtimes.forEach { Current.logging.log(line(for: $0)) }
         }
         Current.logging.log("\nNote: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)")
-        if !includeBetas && architectures.isEmpty {
-            Current.logging.log("\nOptions: Include beta runtimes with `--include-betas`, or filter by architecture with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.")
+        if architectures.isEmpty {
+            let defaultVariant = ArchitectureVariant.defaultForMachine(machineHardwareName: machineArchitecture)
+            let machineDescription = machineArchitecture ?? "unknown"
+            let betaOption = includeBetas ? "Switch architecture" : "Include beta runtimes with `--include-betas`, or switch architecture"
+            Current.logging.log("\nShowing runtimes for this Mac by default: \(defaultVariant.displayString) (\(machineDescription)). \(betaOption) with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.")
         }
     }
 

@@ -1005,14 +1005,15 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(xcodes[0].version, Version("11.0.0-beta+11M336W"))
     }
 
-    func test_PrintAvailableXcodes_WithoutArchitectureFilter_PrintsOptions() async throws {
+    func test_PrintAvailableXcodes_WithoutArchitectureFilter_PrintsMachineDefault() async throws {
         let log = LockedBox("")
         XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
         Current.shell.xcodeSelectPrintPath = { (status: 0, out: "", err: "") }
 
         try await xcodeInstaller.printAvailableXcodes([Self.mockXcode], installed: [])
 
-        XCTAssertTrue(log.value.contains("Options: Filter by architecture with"))
+        XCTAssertTrue(log.value.contains("Showing Xcodes for this Mac by default: Apple Silicon (arm64)"))
+        XCTAssertTrue(log.value.contains("Switch with `--architecture arm64`"))
     }
 
     func test_PrintAvailableXcodes_WithArchitectureFilter_DoesNotPrintOptions() async throws {

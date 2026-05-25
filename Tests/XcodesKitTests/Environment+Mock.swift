@@ -48,6 +48,7 @@ extension Shell {
             xcodeSelectPrintPath: { Shell.processOutputMock },
             xcodeSelectSwitch: { _, _ in Shell.processOutputMock },
             isRoot: { true },
+            machineArchitecture: { "arm64" },
             readLine: { _ in return nil },
             readSecureLine: { _, _ in return nil },
             env: { _ in nil },

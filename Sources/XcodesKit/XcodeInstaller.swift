@@ -499,6 +499,10 @@ public final class XcodeInstaller: Sendable {
 
     public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode], dataSource: DataSource = .xcodeReleases, architectures: [ArchitectureFilter] = []) async throws {
         let output = try await Current.shell.xcodeSelectPrintPath()
+        let machineArchitecture = Current.shell.machineArchitecture()
+        let effectiveArchitectures = architectures.isEmpty
+            ? [ArchitectureFilter].defaultForMachine(machineHardwareName: machineArchitecture)
+            : architectures
 
         XcodeListPresentationService()
             .availableRows(
@@ -506,7 +510,7 @@ public final class XcodeInstaller: Sendable {
                 installedXcodes: installedXcodes,
                 selectedXcodePath: output.out,
                 dataSource: dataSource,
-                architectures: architectures
+                architectures: effectiveArchitectures
             )
             .forEach { row in
                 var output = row.versionDescription
@@ -519,7 +523,9 @@ public final class XcodeInstaller: Sendable {
             }
 
         if architectures.isEmpty {
-            Current.logging.log("\nOptions: Filter by architecture with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.")
+            let defaultVariant = ArchitectureVariant.defaultForMachine(machineHardwareName: machineArchitecture)
+            let machineDescription = machineArchitecture ?? "unknown"
+            Current.logging.log("\nShowing Xcodes for this Mac by default: \(defaultVariant.displayString) (\(machineDescription)). Switch with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.")
         }
     }
 

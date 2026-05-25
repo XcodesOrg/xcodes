@@ -37,9 +37,7 @@ watchOS 7.4
 watchOS 8.0
 watchOS 8.3
 watchOS 8.5 (Bundled with selected Xcode)
-watchOS 9.0-beta4 (Installed)
-watchOS 9.0 (20R362)
-watchOS 9.0 (UnknownBuildNumber) (Installed)
+watchOS 9.0
 watchOS 9.1
 watchOS 9.4
 watchOS 10.0-beta1
@@ -67,3 +65,5 @@ tvOS 17.0-beta2
 visionOS 1.0-beta1
 
 Note: Bundled runtimes are indicated for the currently selected Xcode, more bundled runtimes may exist in other Xcode(s)
+
+Showing runtimes for this Mac by default: Apple Silicon (arm64). Switch architecture with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.
