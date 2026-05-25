@@ -130,6 +130,25 @@ public struct Shell: Sendable {
         readLine(prompt)
     }
 
+    public var readLongLine: @Sendable (String) -> String? = { prompt in
+        print(prompt, terminator: "")
+        fflush(stdout)
+        return withRawTerminalMode(echo: true) {
+            var result = Data()
+            var byte: UInt8 = 0
+            let fd = fileno(stdin)
+            while read(fd, &byte, 1) == 1 {
+                if byte == 0x0A || byte == 0x0D { break }
+                result.append(byte)
+            }
+            print("")
+            return String(data: result, encoding: .utf8)
+        }
+    }
+    public func readLongLine(prompt: String) -> String? {
+        readLongLine(prompt)
+    }
+
     public var readSecureLine: @Sendable (String, Int) -> String? = { prompt, maximumLength in
         let buffer = UnsafeMutablePointer<Int8>.allocate(capacity: maximumLength)
         buffer.initialize(repeating: 0, count: maximumLength)
@@ -172,6 +191,26 @@ public struct Shell: Sendable {
     public var exit: @Sendable (Int32) -> Void = { Darwin.exit($0) }
 
     public var isatty: @Sendable () -> Bool = { Foundation.isatty(fileno(stdout)) != 0 }
+}
+
+private func withRawTerminalMode<T>(echo: Bool, _ body: () -> T) -> T {
+    let fd = fileno(stdin)
+    var original = termios()
+    tcgetattr(fd, &original)
+
+    var raw = original
+    raw.c_lflag &= ~UInt(ICANON)
+    if echo {
+        raw.c_lflag |= UInt(ECHO)
+    } else {
+        raw.c_lflag &= ~UInt(ECHO)
+    }
+    raw.c_cc.4 = 1
+    raw.c_cc.5 = 0
+    tcsetattr(fd, TCSANOW, &raw)
+    defer { tcsetattr(fd, TCSANOW, &original) }
+
+    return body()
 }
 
 public struct Files: Sendable {
@@ -259,6 +298,12 @@ public struct Network: Sendable {
             login = { accountName, password in
                 _ = try await loginClient.srpLogin(accountName: accountName, password: password)
             }
+            checkIsFederated = { accountName in
+                try await loginClient.checkIsFederated(accountName: accountName)
+            }
+            validateFederatedCallbackURL = { callbackURLString in
+                _ = try await loginClient.validateFederatedCallbackURLString(callbackURLString)
+            }
             signoutAction = { loginClient.signout() }
         }
     }
@@ -287,6 +332,18 @@ public struct Network: Sendable {
         try await login(accountName, password)
     }
 
+    public var checkIsFederated: @Sendable (String) async throws -> FederationResponse
+
+    public func checkIsFederatedAsync(accountName: String) async throws -> FederationResponse {
+        try await checkIsFederated(accountName)
+    }
+
+    public var validateFederatedCallbackURL: @Sendable (String) async throws -> Void
+
+    public func validateFederatedCallbackURLAsync(_ callbackURLString: String) async throws {
+        try await validateFederatedCallbackURL(callbackURLString)
+    }
+
     public var signoutAction: @Sendable () -> Void
 
     public func signout() async {
@@ -299,6 +356,8 @@ public struct Network: Sendable {
         downloadTask: (@Sendable (URLRequest, URL, Data?) -> (Progress, Task<(saveLocation: URL, response: URLResponse), Error>))? = nil,
         validateSession: (@Sendable () async throws -> Void)? = nil,
         login: (@Sendable (String, String) async throws -> Void)? = nil,
+        checkIsFederated: (@Sendable (String) async throws -> FederationResponse)? = nil,
+        validateFederatedCallbackURL: (@Sendable (String) async throws -> Void)? = nil,
         signoutAction: (@Sendable () -> Void)? = nil
     ) {
         let loginClient: XcodesLoginKit.Client
@@ -313,6 +372,12 @@ public struct Network: Sendable {
         self.validateSession = validateSession ?? { _ = try await loginClient.validateSession() }
         self.login = login ?? { accountName, password in
             _ = try await loginClient.srpLogin(accountName: accountName, password: password)
+        }
+        self.checkIsFederated = checkIsFederated ?? { accountName in
+            try await loginClient.checkIsFederated(accountName: accountName)
+        }
+        self.validateFederatedCallbackURL = validateFederatedCallbackURL ?? { callbackURLString in
+            _ = try await loginClient.validateFederatedCallbackURLString(callbackURLString)
         }
         self.signoutAction = signoutAction ?? { loginClient.signout() }
     }

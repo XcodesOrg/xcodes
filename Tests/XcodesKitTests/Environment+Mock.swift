@@ -1,6 +1,7 @@
 @testable import XcodesCLIKit
 import Foundation
 import XcodesKit
+import XcodesLoginKit
 
 func syncXcodesKitMocks() {
     configureXcodesKitFileContents { XcodesCLIKit.Current.files.contents(atPath: $0) }
@@ -50,6 +51,7 @@ extension Shell {
             isRoot: { true },
             machineArchitecture: { "arm64" },
             readLine: { _ in return nil },
+            readLongLine: { _ in return nil },
             readSecureLine: { _, _ in return nil },
             env: { _ in nil },
             exit: { _ in },
@@ -106,7 +108,9 @@ extension Network {
                 )
             },
             validateSession: {},
-            login: { _, _ in }
+            login: { _, _ in },
+            checkIsFederated: { _ in FederationResponse(federated: false) },
+            validateFederatedCallbackURL: { _ in }
         )
     }
 }
