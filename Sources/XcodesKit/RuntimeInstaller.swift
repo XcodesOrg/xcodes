@@ -430,7 +430,7 @@ private extension Progress {
     func updateFromXcodebuild(text: String) {
         self.totalUnitCount = 100
         self.completedUnitCount = 0
-        self.localizedAdditionalDescription = "" // to not show the addtional
+        self.localizedAdditionalDescription = "" // to not show the additional
 
         do {
 

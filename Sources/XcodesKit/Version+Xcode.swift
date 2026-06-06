@@ -58,7 +58,7 @@ public extension Version {
         self = Version(major: major, minor: minor, patch: patch, prereleaseIdentifiers: prereleaseIdentifiers, buildMetadataIdentifiers: [buildMetadataIdentifier].compactMap { $0 })
     }
 
-    /// Attempt to instatiate a `Version` using the `.xcode-version` file in the provided directory
+    /// Attempt to instantiate a `Version` using the `.xcode-version` file in the provided directory
     static func fromXcodeVersionFile(inDirectory: Path = Path.cwd) -> Version? {
         let xcodeVersionFilePath = inDirectory.join(".xcode-version")
         guard

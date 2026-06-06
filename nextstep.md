@@ -4,7 +4,7 @@ As Xcodes continues to grow beyond a small little utility used by Apple Develope
 
 Starting April 21, 2023, all Xcodes repos are now contained under the `XcodesOrg` organization.  https://github.com/XcodesOrg 
 
-This change will have no effect on the tools at all, but allows the utilites to grow to the next level. I'm (Matt Kiazyk) still the owner and current sole maintainer, and have no plans to stop. 
+This change will have no effect on the tools at all, but allows the utilities to grow to the next level. I'm (Matt Kiazyk) still the owner and current sole maintainer, and have no plans to stop. 
 
 Xcodes would not be where it is without contributors over the years. It would also not be where it is without each and every one of you sharing the tool. 
 
