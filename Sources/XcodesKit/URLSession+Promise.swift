@@ -5,7 +5,7 @@ import PMKFoundation
 extension URLSession {
     /**
      - Parameter convertible: A URL or URLRequest.
-     - Parameter saveLocation: A URL to move the downloaded file to after it completes. Apple deletes the temporary file immediately after the underyling completion handler returns.
+     - Parameter saveLocation: A URL to move the downloaded file to after it completes. Apple deletes the temporary file immediately after the underlying completion handler returns.
      - Parameter resumeData: Data describing the state of a previously cancelled or failed download task. See the Discussion section for `downloadTask(withResumeData:completionHandler:)` https://developer.apple.com/documentation/foundation/urlsession/1411598-downloadtask#
 
      - Returns: Tuple containing a Progress object for the task and a promise containing the save location and response.
