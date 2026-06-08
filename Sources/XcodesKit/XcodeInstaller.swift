@@ -1,19 +1,19 @@
 import Foundation
-import PromiseKit
-import Path
-import AppleAPI
-import Version
+@preconcurrency import Path
+@preconcurrency import Version
 import LegibleError
 import Rainbow
 import Unxip
+import XcodesKit
 
 /// Downloads and installs Xcodes
-public final class XcodeInstaller {
-    static let XcodeTeamIdentifier = "59GAB85EFG"
-    static let XcodeCertificateAuthority = ["Software Signing", "Apple Code Signing Certification Authority", "Apple Root CA"]
+public final class XcodeInstaller: Sendable {
+    static let XcodeTeamIdentifier = XcodesKit.XcodeSignatureVerifier.expectedTeamIdentifier
+    static let XcodeCertificateAuthority = XcodesKit.XcodeSignatureVerifier.expectedCertificateAuthority
 
     public enum Error: LocalizedError, Equatable {
         case damagedXIP(url: URL)
+        case notEnoughFreeSpaceToExpandArchive(url: URL)
         case failedToMoveXcodeToDestination(Path)
         case failedSecurityAssessment(xcode: InstalledXcode, output: String)
         case codesignVerifyFailed(output: String)
@@ -32,6 +32,8 @@ public final class XcodeInstaller {
             switch self {
             case .damagedXIP(let url):
                 return "The archive \"\(url.lastPathComponent)\" is damaged and can't be expanded."
+            case .notEnoughFreeSpaceToExpandArchive(let url):
+                return "The archive \"\(url.lastPathComponent)\" couldn't be expanded because the selected volume doesn't have enough free space."
             case .failedToMoveXcodeToDestination(let destination):
                 return "Failed to move Xcode to the \(destination.string) directory."
             case .failedSecurityAssessment(let xcode, let output):
@@ -150,462 +152,447 @@ public final class XcodeInstaller {
         }
     }
 
-    private var sessionService: AppleSessionService
-    private var xcodeList: XcodeList
+    private let sessionService: AppleSessionService
+    private let xcodeList: XcodeList
+    private let currentOSVersion: @Sendable () -> OperatingSystemVersion
 
-    public init(xcodeList: XcodeList, sessionService: AppleSessionService) {
+    public init(
+        xcodeList: XcodeList,
+        sessionService: AppleSessionService,
+        currentOSVersion: @escaping @Sendable () -> OperatingSystemVersion = { ProcessInfo.processInfo.operatingSystemVersion }
+    ) {
         self.xcodeList = xcodeList
         self.sessionService = sessionService
+        self.currentOSVersion = currentOSVersion
     }
 
-    public enum InstallationType {
+    public enum InstallationType: Sendable {
         case version(String)
         case path(String, Path)
         case latest
         case latestPrerelease
+
+        var shouldRetryAfterDamagedArchive: Bool {
+            switch self {
+            case .path:
+                return false
+            case .version, .latest, .latestPrerelease:
+                return true
+            }
+        }
     }
 
-    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
-        return firstly { () -> Promise<InstalledXcode> in
-            return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: 0, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-        }
-        .map { xcode in
-            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
-            return xcode
+    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) async throws -> InstalledXcode {
+        let xcode = try await xcodeInstallRetryService.install(
+            shouldRetryAfterDamagedArchive: installationType.shouldRetryAfterDamagedArchive,
+            attempt: { _ in
+                let (xcode, url) = try await getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
+                return try await installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+            },
+            onRetryDamagedArchive: { error, _ in
+                Current.logging.log(error.legibleLocalizedDescription.red)
+                Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
+            }
+        )
+        Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
+        return xcode
+    }
+
+    private var xcodeInstallRetryService: XcodeInstallRetryService {
+        XcodeInstallRetryService(
+            damagedArchiveURL: { error in
+                guard case XcodeInstaller.Error.damagedXIP(let url) = error else { return nil }
+                return url
+            },
+            removeDamagedArchive: { url in
+                try Current.files.removeItem(at: url)
+            }
+        )
+    }
+
+    public func download(_ installation: InstallationType, dataSource: DataSource, downloader: Downloader, destinationDirectory: Path) async throws {
+        let (xcode, url) = try await getXcodeArchive(installation, dataSource: dataSource, downloader: downloader, destination: destinationDirectory, willInstall: false)
+        let destination = destinationDirectory.url.appendingPathComponent(url.lastPathComponent)
+        try Current.files.moveItem(at: url, to: destination)
+        Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been downloaded to \(destination.path)".green)
+        Current.shell.exit(0)
+    }
+
+    private func getXcodeArchive(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, willInstall: Bool) async throws -> (Xcode, URL) {
+        let resolutionService = XcodeInstallResolutionService(versionFile: XcodeVersionFileService(
+            fileExists: { path in Current.files.fileExists(atPath: path) },
+            contentsAtPath: { path in Current.files.contents(atPath: path) }
+        ))
+
+        switch installationType {
+        case .latest:
+            Current.logging.log("Updating...")
+            let availableXcodes = try await update(dataSource: dataSource)
+
+            let resolution = try mapInstallResolutionError {
+                try resolutionService.resolve(
+                    .latest,
+                    availableXcodes: availableXcodes,
+                    installedXcodes: Current.files.installedXcodes(destination),
+                    willInstall: willInstall
+                )
+            }
+            return try await archive(for: resolution, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+        case .latestPrerelease:
+            Current.logging.log("Updating...")
+            let availableXcodes = try await update(dataSource: dataSource)
+
+            let resolution = try mapInstallResolutionError {
+                try resolutionService.resolve(
+                    .latestPrerelease,
+                    availableXcodes: availableXcodes,
+                    installedXcodes: Current.files.installedXcodes(destination),
+                    willInstall: willInstall
+                )
+            }
+            return try await archive(for: resolution, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+        case .path(let versionString, let path):
+            let resolution = try mapInstallResolutionError {
+                try resolutionService.resolve(
+                    .path(versionString: versionString, path: path),
+                    availableXcodes: [],
+                    installedXcodes: [],
+                    willInstall: willInstall
+                )
+            }
+            return try await archive(for: resolution, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+        case .version(let versionString):
+            let resolution = try mapInstallResolutionError {
+                try resolutionService.resolve(
+                    .version(versionString),
+                    availableXcodes: [],
+                    installedXcodes: Current.files.installedXcodes(destination),
+                    willInstall: willInstall
+                )
+            }
+            return try await archive(for: resolution, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
         }
     }
 
-    private func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, attemptNumber: Int, experimentalUnxip: Bool, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
-        return firstly { () -> Promise<(Xcode, URL)> in
-            return self.getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
+    private func archive(for resolution: XcodeInstallResolution, dataSource: DataSource, downloader: Downloader, willInstall: Bool) async throws -> (Xcode, URL) {
+        switch resolution {
+        case let .download(version, resolvedXcode):
+            if let resolvedXcode {
+                let releaseType = resolvedXcode.version.isPrerelease ? "prerelease" : "release"
+                Current.logging.log("Latest \(releaseType) version available is \(resolvedXcode.version.appleDescription)")
+            }
+            return try await downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+        case let .localArchive(xcode, url):
+            return (xcode, url)
         }
-        .then { xcode, url -> Promise<InstalledXcode> in
-            return self.installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-        }
-        .recover { error -> Promise<InstalledXcode> in
+    }
+
+    private func mapInstallResolutionError<T>(_ body: () throws -> T) throws -> T {
+        do {
+            return try body()
+        } catch let error as XcodeInstallResolutionError {
             switch error {
-            case XcodeInstaller.Error.damagedXIP(let damagedXIPURL):
-                guard attemptNumber < 1 else { throw error }
-
-                switch installationType {
-                case .path:
-                    // If the user provided the path, don't try to recover and leave it up to them.
-                    throw error
-                default:
-                    // If the XIP was just downloaded, remove it and try to recover.
-                    return firstly { () -> Promise<InstalledXcode> in
-                        Current.logging.log(error.legibleLocalizedDescription.red)
-                        Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
-                        try Current.files.removeItem(at: damagedXIPURL)
-                        return self.install(installationType, dataSource: dataSource, downloader: downloader, destination: destination, attemptNumber: attemptNumber + 1, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
-                    }
-                }
-            default:
-                throw error
+            case let .invalidVersion(version):
+                throw Error.invalidVersion(version)
+            case .noReleaseVersionAvailable:
+                throw Error.noReleaseVersionAvailable
+            case .noPrereleaseVersionAvailable:
+                throw Error.noPrereleaseVersionAvailable
+            case let .versionAlreadyInstalled(installedXcode):
+                throw Error.versionAlreadyInstalled(installedXcode)
             }
         }
     }
 
-    public func download(_ installation: InstallationType, dataSource: DataSource, downloader: Downloader, destinationDirectory: Path) -> Promise<Void> {
-        return firstly { () -> Promise<(Xcode, URL)> in
-            return self.getXcodeArchive(installation, dataSource: dataSource, downloader: downloader, destination: destinationDirectory, willInstall: false)
+    private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) async throws -> (Xcode, URL) {
+        switch dataSource {
+        case .apple:
+            // When using the Apple data source, an authenticated session is required for both
+            // downloading the list of Xcodes as well as to actually download Xcode, so we'll
+            // establish our session right at the start.
+            try await sessionService.loginIfNeeded()
+
+        case .xcodeReleases:
+            // When using the Xcode Releases data source, we only need to establish an anonymous
+            // session once we're ready to download Xcode. Doing that requires us to know the
+            // URL we want to download though (and we may not know that yet), so we don't need
+            // to do anything session-related quite yet.
+            try await sessionService.loginIfNeeded()
         }
-        .map { (xcode, url) -> (Xcode, URL) in
-            let destination = destinationDirectory.url.appendingPathComponent(url.lastPathComponent)
-            try Current.files.moveItem(at: url, to: destination)
-            return (xcode, destination)
+
+        if xcodeList.shouldUpdateBeforeDownloading(version: version) {
+            _ = try await xcodeList.updateAvailableXcodes(dataSource: dataSource)
         }
-        .done { (xcode, url) in
-            Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been downloaded to \(url.path)".green)
-            Current.shell.exit(0)
+
+        guard let xcode = xcodeList.availableXcodes.first(withVersion: version) else {
+            throw Error.unavailableVersion(version)
         }
-    }
 
-    private func getXcodeArchive(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, willInstall: Bool) -> Promise<(Xcode, URL)> {
-        return firstly { () -> Promise<(Xcode, URL)> in
-            switch installationType {
-            case .latest:
-                Current.logging.log("Updating...")
-
-                return update(dataSource: dataSource)
-                    .then { availableXcodes -> Promise<(Xcode, URL)> in
-                        guard let latestReleaseXcode = availableXcodes.filter(\.version.isNotPrerelease).sorted(\.version).last else {
-                            throw Error.noReleaseVersionAvailable
-                        }
-
-                        Current.logging.log("Latest release version available is \(latestReleaseXcode.version.appleDescription)")
-                        
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestReleaseXcode.version) }) {
-                            throw Error.versionAlreadyInstalled(installedXcode)
-                        }
-
-                        return self.downloadXcode(version: latestReleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
-                    }
-            case .latestPrerelease:
-                Current.logging.log("Updating...")
-
-                return update(dataSource: dataSource)
-                    .then { availableXcodes -> Promise<(Xcode, URL)> in
-                        guard let latestPrereleaseXcode = availableXcodes
-                            .filter({ $0.version.isPrerelease })
-                            .filter({ $0.releaseDate != nil })
-                            .sorted(by: { $0.releaseDate! < $1.releaseDate! })
-                            .last
-                        else {
-                            throw Error.noReleaseVersionAvailable
-                        }
-                        Current.logging.log("Latest prerelease version available is \(latestPrereleaseXcode.version.appleDescription)")
-
-                        if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: latestPrereleaseXcode.version) }) {
-                            throw Error.versionAlreadyInstalled(installedXcode)
-                        }
-
-                        return self.downloadXcode(version: latestPrereleaseXcode.version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
-                    }
-            case .path(let versionString, let path):
-                guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
-                    throw Error.invalidVersion(versionString)
-                }
-                let xcode = Xcode(version: version, url: path.url, filename: String(path.string.suffix(fromLast: "/")), releaseDate: nil)
-                return Promise.value((xcode, path.url))
-            case .version(let versionString):
-                guard let version = Version(xcodeVersion: versionString) ?? Version.fromXcodeVersionFile() else {
-                    throw Error.invalidVersion(versionString)
-                }
-                if willInstall, let installedXcode = Current.files.installedXcodes(destination).first(where: { $0.version.isEquivalent(to: version) }) {
-                    throw Error.versionAlreadyInstalled(installedXcode)
-                }
-                return self.downloadXcode(version: version, dataSource: dataSource, downloader: downloader, willInstall: willInstall)
+        if willInstall {
+            let currentOSVersion = currentOSVersion()
+            switch XcodeCompatibilityService().status(for: xcode, currentOSVersion: currentOSVersion) {
+            case .supported:
+                break
+            case let .unsupported(requiredMacOSVersion, currentMacOSVersion):
+                Current.logging.log("Warning: Xcode \(xcode.version.appleDescription) requires macOS \(requiredMacOSVersion) or later. This Mac is running macOS \(currentMacOSVersion).".yellow)
             }
         }
-    }
 
-    private func downloadXcode(version: Version, dataSource: DataSource, downloader: Downloader, willInstall: Bool) -> Promise<(Xcode, URL)> {
-        return firstly { () -> Promise<Void> in
-            switch dataSource {
-            case .apple:
-                    // When using the Apple data source, an authenticated session is required for both
-                    // downloading the list of Xcodes as well as to actually download Xcode, so we'll
-                    // establish our session right at the start.
-                    return sessionService.loginIfNeeded()
+        switch dataSource {
+        case .apple:
+            /// We already established a session for the Apple data source at the beginning of
+            /// this download, so we don't need to do anything session-related at this point.
+            break
 
-            case .xcodeReleases:
-                    // When using the Xcode Releases data source, we only need to establish an anonymous
-                    // session once we're ready to download Xcode. Doing that requires us to know the
-                    // URL we want to download though (and we may not know that yet), so we don't need
-                    // to do anything session-related quite yet.
-                    return sessionService.loginIfNeeded()
-            }
+        case .xcodeReleases:
+            /// Now that we've used Xcode Releases to determine what URL we should use to
+            /// download Xcode, we can use that to establish an anonymous session with Apple.
+            // As of Nov 2022, the `validateADCSession` return 403 forbidden for Xcode versions (works with runtimes)
+            // try await sessionService.validateADCSession(path: xcode.downloadPath)
+            // -------
+            // We need the cookies from its response in order to download Xcodes though,
+            // so perform it here first just to be sure.
+            _ = try await Current.network.data(for: URLRequest.developerDownloads)
         }
-        .then { () -> Promise<Void> in
-            if self.xcodeList.shouldUpdateBeforeDownloading(version: version) {
-                return self.xcodeList.update(dataSource: dataSource).asVoid()
-            } else {
-                return Promise()
-            }
-        }
-        .then { () -> Promise<Xcode> in
-            guard let xcode = self.xcodeList.availableXcodes.first(withVersion: version) else {
-                throw Error.unavailableVersion(version)
-            }
 
-            return Promise.value(xcode)
-        }
-        .then { xcode -> Promise<Xcode> in
-            switch dataSource {
-            case .apple:
-                    /// We already established a session for the Apple data source at the beginning of
-                    /// this download, so we don't need to do anything session-related at this point.
-                    return Promise.value(xcode)
-
-            case .xcodeReleases:
-                    /// Now that we've used Xcode Releases to determine what URL we should use to
-                    /// download Xcode, we can use that to establish an anonymous session with Apple.
-                    // As of Nov 2022, the `validateADCSession` return 403 forbidden for Xcode versions (works with runtimes)
-                    // return self.sessionService.validateADCSession(path: xcode.downloadPath).map { xcode }
-                    // -------
-                    // We need the cookies from its response in order to download Xcodes though,
-                    // so perform it here first just to be sure.
-                    return Current.network.dataTask(with: URLRequest.downloads).map { _ in xcode }
-            }
-        }
-        .then { xcode -> Promise<(Xcode, URL)> in
-            if Current.shell.isatty() {
-                // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
-                Current.logging.log("")
-            } else {
-                Current.logging.log("\(InstallationStep.downloading(version: xcode.version.description, progress: nil, willInstall: willInstall))")
-            }
-            let formatter = NumberFormatter(numberStyle: .percent)
-            var observation: NSKeyValueObservation?
-
-            let promise = self.downloadOrUseExistingArchive(for: xcode, downloader: downloader, willInstall: willInstall, progressChanged: { progress in
-                observation?.invalidate()
-                observation = progress.observe(\.fractionCompleted) { progress, _ in
-                    guard Current.shell.isatty() else { return }
-
-                    // These escape codes move up a line and then clear to the end
-                    Current.logging.log("\u{1B}[1A\u{1B}[K\(InstallationStep.downloading(version: xcode.version.description, progress: formatter.string(from: progress.fractionCompleted)!, willInstall: willInstall))")
-                }
-            })
-
-            return promise
-                .get { _ in observation?.invalidate() }
-                .map { return (xcode, $0) }
-        }
-    }
-
-    public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping (Progress) -> Void) -> Promise<URL> {
-        // Check to see if the archive is in the expected path in case it was downloaded but failed to install
-        let expectedArchivePath = Path.xcodesApplicationSupport/"Xcode-\(xcode.version).\(xcode.filename.suffix(fromLast: "."))"
-        // aria2 downloads directly to the destination (instead of into /tmp first) so we need to make sure that the download isn't incomplete
-        let aria2DownloadMetadataPath = expectedArchivePath.parent/(expectedArchivePath.basename() + ".aria2")
-        var aria2DownloadIsIncomplete = false
-        if case .aria2 = downloader, aria2DownloadMetadataPath.exists {
-            aria2DownloadIsIncomplete = true
-        }
-        if Current.files.fileExistsAtPath(expectedArchivePath.string), aria2DownloadIsIncomplete == false {
-            if willInstall {
-                Current.logging.log("(1/\(InstallationStep.installStepCount)) Found existing archive that will be used for installation at \(expectedArchivePath).")
-            } else {
-                Current.logging.log("(1/\(InstallationStep.downloadStepCount)) Found existing archive at \(expectedArchivePath).")
-            }
-            return Promise.value(expectedArchivePath.url)
-        }
-        else {
-            return downloader.download(url: xcode.url, to: expectedArchivePath, progressChanged: progressChanged)
-        }
-    }
-
-    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) -> Promise<InstalledXcode> {
-        return firstly { () -> Promise<InstalledXcode> in
-            let destinationURL = destination.join("Xcode-\(xcode.version.descriptionWithoutBuildMetadata).app").url
-            switch archiveURL.pathExtension {
-            case "xip":
-                return unarchiveAndMoveXIP(at: archiveURL, to: destinationURL, experimentalUnxip: experimentalUnxip).map { xcodeURL in
-                    guard
-                        let path = Path(url: xcodeURL),
-                        Current.files.fileExists(atPath: path.string),
-                        let installedXcode = InstalledXcode(path: path)
-                    else { throw Error.failedToMoveXcodeToDestination(destination) }
-                    return installedXcode
-                }
-            case "dmg":
-                throw Error.unsupportedFileFormat(extension: "dmg")
-            default:
-                throw Error.unsupportedFileFormat(extension: archiveURL.pathExtension)
-            }
-        }
-        .then { xcode -> Promise<InstalledXcode> in
-            Current.logging.log(InstallationStep.cleaningArchive(archiveName: archiveURL.lastPathComponent, shouldDelete: emptyTrash).description)
-            if emptyTrash {
-                try Current.files.removeItem(at: archiveURL)
-            }
-            else {
-                try Current.files.trashItem(at: archiveURL)
-            }
-            Current.logging.log(InstallationStep.checkingSecurity.description)
-
-            return when(fulfilled: self.verifySecurityAssessment(of: xcode),
-                                   self.verifySigningCertificate(of: xcode.path.url))
-                .map { xcode }
-        }
-        .then { xcode -> Promise<InstalledXcode> in
-            if noSuperuser {
-                Current.logging.log(InstallationStep.finishing.description)
-                Current.logging.log("Skipping asking for superuser privileges.")
-                return Promise.value(xcode)
-            }
-            return self.postInstallXcode(xcode)
-        }
-    }
-
-    public func postInstallXcode(_ xcode: InstalledXcode) -> Promise<InstalledXcode> {
-        let passwordInput = {
-            Promise<String> { seal in
-                Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
-                guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { seal.reject(Error.missingSudoerPassword); return }
-                seal.fulfill(password + "\n")
-            }
-        }
-        return firstly { () -> Promise<InstalledXcode> in
-            Current.logging.log(InstallationStep.finishing.description)
-
-            return self.enableDeveloperMode(passwordInput: passwordInput).map { xcode }
-        }
-        .then { xcode -> Promise<InstalledXcode> in
-            self.approveLicense(for: xcode, passwordInput: passwordInput).map { xcode }
-        }
-        .then { xcode -> Promise<InstalledXcode> in
-            self.installComponents(for: xcode, passwordInput: passwordInput).map { xcode }
-        }
-    }
-
-    public func uninstallXcode(_ versionString: String, directory: Path, emptyTrash: Bool) -> Promise<Void> {
-        return firstly { () -> Promise<InstalledXcode> in
-            guard let version = Version(xcodeVersion: versionString) else {
-                Current.logging.log(Error.invalidVersion(versionString).legibleLocalizedDescription)
-                return chooseFromInstalledXcodesInteractively(currentPath: "", directory: directory)
-            }
-
-            guard let installedXcode = Current.files.installedXcodes(directory).first(withVersion: version) else {
-                Current.logging.log(Error.versionNotInstalled(version).legibleLocalizedDescription)
-                return chooseFromInstalledXcodesInteractively(currentPath: "", directory: directory)
-            }
-
-            return Promise.value(installedXcode)
-        }
-        .map { installedXcode -> (InstalledXcode, URL?) in
-            if emptyTrash {
-                try Current.files.removeItem(at: installedXcode.path.url)
-                return (installedXcode, nil)
-            }
-            return (installedXcode, try Current.files.trashItem(at: installedXcode.path.url))
-        }
-        .then { (installedXcode, trashURL) -> Promise<(InstalledXcode, URL?)> in
-            // If we just uninstalled the selected Xcode, try to select the latest installed version so things don't accidentally break
-            Current.shell.xcodeSelectPrintPath()
-                .then { output -> Promise<(InstalledXcode, URL?)> in
-                    if output.out.hasPrefix(installedXcode.path.string),
-                       let latestInstalledXcode = Current.files.installedXcodes(directory).sorted(by: { $0.version < $1.version }).last {
-                        return selectXcodeAtPath(latestInstalledXcode.path.string)
-                            .map { output in
-                                Current.logging.log("Selected \(output.out)")
-                                return (installedXcode, trashURL)
-                            }
-                    }
-                    else {
-                        return Promise.value((installedXcode, trashURL))
-                    }
-                }
-        }
-        .done { (installedXcode, trashURL) in
-            if let trashURL = trashURL {
-                Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)".green)
-            }
-            else {
-                Current.logging.log("Xcode \(installedXcode.version.appleDescription) deleted".green)
-            }
-            Current.shell.exit(0)
-        }
-    }
-
-    func update(dataSource: DataSource) -> Promise<[Xcode]> {
-        if dataSource == .apple {
-            return firstly { () -> Promise<Void> in
-                sessionService.loginIfNeeded()
-            }
-            .then { () -> Promise<[Xcode]> in
-                self.xcodeList.update(dataSource: dataSource)
-            }
+        if Current.shell.isatty() {
+            // Move to the next line so that the escape codes below can move up a line and overwrite it with download progress
+            Current.logging.log("")
         } else {
-            return self.xcodeList.update(dataSource: dataSource)
+            Current.logging.log("\(InstallationStep.downloading(version: xcode.version.description, progress: nil, willInstall: willInstall))")
         }
+        let versionDescription = xcode.version.description
+        let observation = ProgressObservation()
+        defer { observation.invalidate() }
+
+        let url = try await downloadOrUseExistingArchive(for: xcode, downloader: downloader, willInstall: willInstall) { progress in
+            observation.observe(progress) { progress in
+                guard Current.shell.isatty() else { return }
+
+                // These escape codes move up a line and then clear to the end
+                let progressString = NumberFormatter.localizedString(from: NSNumber(value: progress.fractionCompleted), number: .percent)
+                Current.logging.log("\u{1B}[1A\u{1B}[K\(InstallationStep.downloading(version: versionDescription, progress: progressString, willInstall: willInstall))")
+            }
+        }
+        return (xcode, url)
     }
 
-    public func updateAndPrint(dataSource: DataSource, directory: Path) -> Promise<Void> {
-        update(dataSource: dataSource)
-            .then { xcodes -> Promise<Void> in
-                self.printAvailableXcodes(xcodes, installed: Current.files.installedXcodes(directory))
+    public func downloadOrUseExistingArchive(for xcode: Xcode, downloader: Downloader, willInstall: Bool, progressChanged: @escaping @Sendable (Progress) -> Void) async throws -> URL {
+        let archive = XcodeArchive(xcode)
+        let archiveDownloader = XcodeArchiveDownloader(downloader)
+        let service = archiveService(downloader: downloader)
+
+        if let existingArchiveURL = service.existingArchiveURL(for: archive, downloader: archiveDownloader) {
+            if willInstall {
+                Current.logging.log("(1/\(InstallationStep.installStepCount)) Found existing archive that will be used for installation at \(Path(url: existingArchiveURL)!).")
+            } else {
+                Current.logging.log("(1/\(InstallationStep.downloadStepCount)) Found existing archive at \(Path(url: existingArchiveURL)!).")
             }
-            .done {
-                Current.shell.exit(0)
-            }
+            return existingArchiveURL
+        }
+
+        return try await service.archiveURL(for: archive, downloader: archiveDownloader, progressChanged: progressChanged)
     }
 
-    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode]) -> Promise<Void> {
-        struct ReleasedVersion {
-            let version: Version
-            let releaseDate: Date?
-        }
-
-        var allXcodeVersions = xcodes.map { ReleasedVersion(version: $0.version, releaseDate: $0.releaseDate) }
-        for installedXcode in installedXcodes {
-            // If an installed version isn't listed online, add the installed version
-            if !allXcodeVersions.contains(where: { releasedVersion in
-                releasedVersion.version.isEquivalent(to: installedXcode.version)
-            }) {
-                allXcodeVersions.append(ReleasedVersion(version: installedXcode.version, releaseDate: nil))
+    private func archiveService(downloader: Downloader) -> XcodeArchiveService {
+        XcodeArchiveService(
+            applicationSupportPath: .xcodesApplicationSupport,
+            fileExists: { Current.files.fileExistsAtPath($0.string) },
+            download: { archive, destination, _, progressChanged in
+                try await downloader.download(url: archive.downloadURL, to: destination, progressChanged: progressChanged)
             }
-            // If an installed version is the same as one that's listed online which doesn't have build metadata, replace it with the installed version with build metadata
-            else if let index = allXcodeVersions.firstIndex(where: { releasedVersion in
-                releasedVersion.version.isEquivalent(to: installedXcode.version) &&
-                releasedVersion.version.buildMetadataIdentifiers.isEmpty
-            }) {
-                allXcodeVersions[index] = ReleasedVersion(version: installedXcode.version, releaseDate: nil)
-            }
-        }
+        )
+    }
 
-        return Current.shell.xcodeSelectPrintPath()
-            .done { output in
-                let selectedInstalledXcodeVersion = installedXcodes.first { output.out.hasPrefix($0.path.string) }.map { $0.version }
-
-                allXcodeVersions
-                    .sorted { first, second -> Bool in
-                        // Sort prereleases by release date, otherwise sort by version
-                        if first.version.isPrerelease, second.version.isPrerelease, let firstDate = first.releaseDate, let secondDate = second.releaseDate {
-                            return firstDate < secondDate
+    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) async throws -> InstalledXcode {
+        let installedXcode: InstalledXcode
+        do {
+            installedXcode = try await xcodeArchiveInstallService(experimentalUnxip: experimentalUnxip, destination: destination)
+                .installArchivedXcode(
+                    xcode,
+                    at: archiveURL,
+                    cleanArchive: { archiveURL in
+                        if emptyTrash {
+                            try Current.files.removeItem(at: archiveURL)
+                        } else {
+                            try Current.files.trashItem(at: archiveURL)
                         }
-                        return first.version < second.version
                     }
-                    .forEach { releasedVersion in
-                        var output = releasedVersion.version.appleDescriptionWithBuildIdentifier
-                        if installedXcodes.contains(where: { releasedVersion.version.isEquivalent(to: $0.version) }) {
-                            if releasedVersion.version == selectedInstalledXcodeVersion {
-                                output += " (\("Installed".blue), \("Selected".green))"
-                            }
-                            else {
-                                output += " (\("Installed".blue))"
-                            }
-                        }
-                        Current.logging.log(output)
+                ) { step in
+                    switch step {
+                    case .unarchive(.unarchiving):
+                        Current.logging.log(InstallationStep.unarchiving(experimentalUnxip: experimentalUnxip).description)
+                    case let .unarchive(.moving(destination)):
+                        Current.logging.log(InstallationStep.moving(destination: destination).description)
+                    case let .cleaningArchive(archiveName):
+                        Current.logging.log(InstallationStep.cleaningArchive(archiveName: archiveName, shouldDelete: emptyTrash).description)
+                    case .checkingSecurity:
+                        Current.logging.log(InstallationStep.checkingSecurity.description)
                     }
-            }
+                }
+        } catch {
+            throw mapXcodeArchiveInstallError(error, destination: destination)
+        }
+
+        if noSuperuser {
+            Current.logging.log(InstallationStep.finishing.description)
+            Current.logging.log("Skipping asking for superuser privileges.")
+            return installedXcode
+        }
+        return try await postInstallXcode(installedXcode)
     }
 
-    public func printInstalledXcodes(directory: Path) -> Promise<Void> {
-        Current.shell.xcodeSelectPrintPath()
-            .done { pathOutput in
-                let installedXcodes = Current.files.installedXcodes(directory)
-                    .sorted { $0.version < $1.version }
-                let selectedString = "(Selected)"
-
-                let lines = installedXcodes.map { installedXcode -> String in
-                    var line = installedXcode.version.appleDescriptionWithBuildIdentifier
-
-                    if pathOutput.out.hasPrefix(installedXcode.path.string) {
-                        line += " " + selectedString
-                    }
-
-                    return line
-                }
-
-                // Add one so there's always at least one space between columns
-                let maxWidthOfFirstColumn = (lines.map(\.count).max() ?? 0) + 1
-
-                for (index, installedXcode) in installedXcodes.enumerated() {
-                    var line = lines[index]
-                    let widthOfFirstColumnInThisRow = line.count
-                    let spaceBetweenFirstAndSecondColumns = maxWidthOfFirstColumn - widthOfFirstColumnInThisRow
-
-                    line = line.replacingOccurrences(of: selectedString, with: selectedString.green)
-
-                    // If outputting to an interactive terminal, align the columns so they're easier for a human to read
-                    // Otherwise, separate columns by a tab character so it's easier for a computer to split up
-                    if Current.shell.isatty() {
-                        line += Array(repeating: " ", count: max(spaceBetweenFirstAndSecondColumns, 0))
-                        line += "\(installedXcode.path.string)"
-                    } else {
-                        line += "\t\(installedXcode.path.string)"
-                    }
-
-                    Current.logging.log(line)
-                }
-            }
+    public func postInstallXcode(_ xcode: InstalledXcode) async throws -> InstalledXcode {
+        try await postInstallXcode(xcode, passwordInput: {
+            Current.logging.log("xcodes requires superuser privileges in order to finish installation.")
+            guard let password = Current.shell.readSecureLine(prompt: "macOS User Password: ") else { throw Error.missingSudoerPassword }
+            return password + "\n"
+        })
     }
 
-    public func printXcodePath(ofVersion versionString: String, searchingIn directory: Path) -> Promise<Void> {
-        return firstly { () -> Promise<Void> in
+    public func postInstallXcode(_ xcode: InstalledXcode, passwordInput: @escaping @Sendable () async throws -> String) async throws -> InstalledXcode {
+        Current.logging.log(InstallationStep.finishing.description)
+        try await xcodePostInstallWorkflowService(passwordInput: passwordInput)
+            .performPostInstallSteps(for: xcode)
+        return xcode
+    }
+
+    public func uninstallXcode(_ versionString: String, directory: Path, emptyTrash: Bool) async throws {
+        let installedXcode: InstalledXcode
+        if let version = Version(xcodeVersion: versionString),
+           let matchingXcode = Current.files.installedXcodes(directory).first(withVersion: version) {
+            installedXcode = matchingXcode
+        } else {
+            if let version = Version(xcodeVersion: versionString) {
+                Current.logging.log(Error.versionNotInstalled(version).legibleLocalizedDescription)
+            } else {
+                Current.logging.log(Error.invalidVersion(versionString).legibleLocalizedDescription)
+            }
+            installedXcode = try await chooseFromInstalledXcodesInteractivelyAsync(currentPath: "", directory: directory)
+        }
+
+        let result = try XcodesKit.XcodeUninstallService(
+            removeItem: { url in try Current.files.removeItem(at: url) },
+            trashItem: { url in try Current.files.trashItem(at: url) }
+        ).uninstall(installedXcode, emptyTrash: emptyTrash)
+
+        if let trashURL = result.trashURL {
+            Current.logging.log("Xcode \(installedXcode.version.appleDescription) moved to Trash: \(trashURL.path)".green)
+        } else {
+            Current.logging.log("Xcode \(installedXcode.version.appleDescription) deleted".green)
+        }
+        Current.shell.exit(0)
+    }
+
+    func update(dataSource: DataSource) async throws -> [Xcode] {
+        if dataSource == .apple {
+            try await sessionService.loginIfNeeded()
+        }
+        return try await xcodeList.updateAvailableXcodes(dataSource: dataSource)
+    }
+
+    public func updateAndPrint(dataSource: DataSource, directory: Path, architectures: [ArchitectureFilter] = []) async throws {
+        let xcodes = try await update(dataSource: dataSource)
+        try await printAvailableXcodes(xcodes, installed: Current.files.installedXcodes(directory), dataSource: dataSource, architectures: architectures)
+        Current.shell.exit(0)
+    }
+
+    public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode], dataSource: DataSource = .xcodeReleases, architectures: [ArchitectureFilter] = []) async throws {
+        let output = try await Current.shell.xcodeSelectPrintPath()
+        let machineArchitecture = Current.shell.machineArchitecture()
+        let effectiveArchitectures = architectures.isEmpty
+            ? [ArchitectureFilter].defaultForMachine(machineHardwareName: machineArchitecture)
+            : architectures
+
+        XcodeListPresentationService()
+            .availableRows(
+                availableXcodes: xcodes,
+                installedXcodes: installedXcodes,
+                selectedXcodePath: output.out,
+                dataSource: dataSource,
+                architectures: effectiveArchitectures
+            )
+            .forEach { row in
+                var output = row.versionDescription
+                if row.isInstalled {
+                    output += row.isSelected
+                        ? " (\("Installed".blue), \("Selected".green))"
+                        : " (\("Installed".blue))"
+                }
+                Current.logging.log(output)
+            }
+
+        if architectures.isEmpty {
+            let defaultVariant = ArchitectureVariant.defaultForMachine(machineHardwareName: machineArchitecture)
+            let machineDescription = machineArchitecture ?? "unknown"
+            Current.logging.log("\nShowing Xcodes for this Mac by default: \(defaultVariant.displayString) (\(machineDescription)). Switch with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.")
+        }
+    }
+
+    public func printInstalledXcodes(directory: Path) async throws {
+        let pathOutput = try await Current.shell.xcodeSelectPrintPath()
+        let selectedString = "(Selected)"
+        let presentationService = XcodeListPresentationService()
+        let rows = presentationService.installedRows(
+            installedXcodes: Current.files.installedXcodes(directory),
+            selectedXcodePath: pathOutput.out
+        )
+
+        for line in presentationService.installedLines(rows: rows, interactive: Current.shell.isatty(), selectedMarker: selectedString) {
+            Current.logging.log(line.replacingOccurrences(of: selectedString, with: selectedString.green))
+        }
+    }
+
+    private func xcodeArchiveInstallService(experimentalUnxip: Bool, destination: Path) -> XcodesKit.XcodeArchiveInstallService {
+        XcodesKit.XcodeArchiveInstallService(
+            destinationDirectory: destination,
+            unarchiveService: xcodeUnarchiveService(experimentalUnxip: experimentalUnxip),
+            validationService: xcodeValidationService,
+            fileExists: { path in Current.files.fileExists(atPath: path) },
+            makeInstalledXcode: { path in
+                InstalledXcode(
+                    path: path,
+                    contentsAtPath: { path in Current.files.contents(atPath: path) },
+                    loadArchitectures: Current.shell.archs
+                )
+            }
+        )
+    }
+
+    private func mapXcodeArchiveInstallError(_ error: Swift.Error, destination: Path) -> Swift.Error {
+        switch error {
+        case let error as XcodesKit.XcodeArchiveInstallError:
+            switch error {
+            case let .failedToMoveXcodeToDestination(destination):
+                return Error.failedToMoveXcodeToDestination(destination)
+            case let .unsupportedFileFormat(fileExtension):
+                return Error.unsupportedFileFormat(extension: fileExtension)
+            }
+        case let error as XcodesKit.XcodeUnarchiveError:
+            switch error {
+            case let .damagedXIP(url):
+                return Error.damagedXIP(url: url)
+            case let .notEnoughFreeSpaceToExpandArchive(url):
+                return Error.notEnoughFreeSpaceToExpandArchive(url: url)
+            }
+        case let error as XcodesKit.XcodeValidationError:
+            switch error {
+            case let .failedSecurityAssessment(xcode, output):
+                return Error.failedSecurityAssessment(xcode: xcode, output: output)
+            case let .codesignVerifyFailed(output):
+                return Error.codesignVerifyFailed(output: output)
+            case let .unexpectedCodeSigningIdentity(identifier, certificateAuthority):
+                return Error.unexpectedCodeSigningIdentity(
+                    identifier: identifier,
+                    certificateAuthority: certificateAuthority
+                )
+            }
+        default:
+            return error
+        }
+    }
+
+    public func printXcodePath(ofVersion versionString: String, searchingIn directory: Path) async throws {
             guard let version = Version(xcodeVersion: versionString) else {
                 throw Error.invalidVersion(versionString)
             }
@@ -615,162 +602,112 @@ public final class XcodeInstaller {
                 throw Error.versionNotInstalled(version)
             }
             Current.logging.log(installedXcode.path.string)
-            return Promise.value(())
-        }
     }
 
-    func unarchiveAndMoveXIP(at source: URL, to destination: URL, experimentalUnxip: Bool) -> Promise<URL> {
-        return firstly { () -> Promise<Void> in
-            Current.logging.log(InstallationStep.unarchiving(experimentalUnxip: experimentalUnxip).description)
-
-            if experimentalUnxip, #available(macOS 11, *) {
-                return Promise { seal in
-                    Task.detached {
-                        let output = source.deletingLastPathComponent()
-                        let options = UnxipOptions(input: source, output: output)
-
-                        do {
-                            try await Unxip(options: options).run()
-                            seal.resolve(.fulfilled(()))
-                        } catch {
-                            seal.reject(error)
-                        }
-                    }
+    private func xcodeUnarchiveService(experimentalUnxip: Bool) -> XcodesKit.XcodeUnarchiveService {
+        XcodesKit.XcodeUnarchiveService(
+            unarchive: { source in
+                if experimentalUnxip, #available(macOS 11, *) {
+                    let output = source.deletingLastPathComponent()
+                    let options = UnxipOptions(input: source, output: output)
+                    try await Unxip(options: options).run()
+                } else {
+                    _ = try await Current.shell.unxip(source)
                 }
-            }
-
-            return Current.shell.unxip(source)
-                .recover { (error) throws -> Promise<ProcessOutput> in
-                    if case Process.PMKError.execution(_, _, let standardError) = error,
-                       standardError?.contains("damaged and can’t be expanded") == true {
-                        throw Error.damagedXIP(url: source)
-                    }
-                    throw error
-                }
-                .map { _ in () }
-        }
-        .map { _ -> URL in
-            Current.logging.log(InstallationStep.moving(destination: destination.path).description)
-
-            let xcodeURL = source.deletingLastPathComponent().appendingPathComponent("Xcode.app")
-            let xcodeBetaURL = source.deletingLastPathComponent().appendingPathComponent("Xcode-beta.app")
-            if Current.files.fileExists(atPath: xcodeURL.path) {
-                try Current.files.moveItem(at: xcodeURL, to: destination)
-            }
-            else if Current.files.fileExists(atPath: xcodeBetaURL.path) {
-                try Current.files.moveItem(at: xcodeBetaURL, to: destination)
-            }
-
-            return destination
-        }
+            },
+            fileExists: { path in Current.files.fileExists(atPath: path) },
+            moveItem: { source, destination in try Current.files.moveItem(at: source, to: destination) },
+            removeItem: { url in try Current.files.removeItem(at: url) }
+        )
     }
 
-    public func verifySecurityAssessment(of xcode: InstalledXcode) -> Promise<Void> {
-        return Current.shell.spctlAssess(xcode.path.url)
-            .recover { (error: Swift.Error) throws -> Promise<ProcessOutput> in
-                var output = ""
-                if case let Process.PMKError.execution(_, possibleOutput, possibleError) = error {
-                    output = [possibleOutput, possibleError].compactMap { $0 }.joined(separator: "\n")
-                }
+    public func verifySecurityAssessment(of xcode: InstalledXcode) async throws {
+        do {
+            try await xcodeValidationService.verifySecurityAssessment(of: xcode)
+        } catch let error as XcodesKit.XcodeValidationError {
+            switch error {
+            case let .failedSecurityAssessment(xcode, output):
                 throw Error.failedSecurityAssessment(xcode: xcode, output: output)
-            }
-            .asVoid()
-    }
-
-    func verifySigningCertificate(of url: URL) -> Promise<Void> {
-        return Current.shell.codesignVerify(url)
-            .recover { error -> Promise<ProcessOutput> in
-                var output = ""
-                if case let Process.PMKError.execution(_, possibleOutput, possibleError) = error {
-                    output = [possibleOutput, possibleError].compactMap { $0 }.joined(separator: "\n")
-                }
+            case let .codesignVerifyFailed(output):
                 throw Error.codesignVerifyFailed(output: output)
+            case let .unexpectedCodeSigningIdentity(identifier, certificateAuthority):
+                throw Error.unexpectedCodeSigningIdentity(
+                    identifier: identifier,
+                    certificateAuthority: certificateAuthority
+                )
             }
-            .map { output -> CertificateInfo in
-                // codesign prints to stderr
-                return self.parseCertificateInfo(output.err)
-            }
-            .done { cert in
-                guard
-                    cert.teamIdentifier == XcodeInstaller.XcodeTeamIdentifier,
-                    cert.authority == XcodeInstaller.XcodeCertificateAuthority
-                else { throw Error.unexpectedCodeSigningIdentity(identifier: cert.teamIdentifier, certificateAuthority: cert.authority) }
-            }
-    }
-
-    public struct CertificateInfo {
-        public var authority: [String]
-        public var teamIdentifier: String
-        public var bundleIdentifier: String
-    }
-
-    public func parseCertificateInfo(_ rawInfo: String) -> CertificateInfo {
-        var info = CertificateInfo(authority: [], teamIdentifier: "", bundleIdentifier: "")
-
-        for part in rawInfo.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines) {
-            if part.hasPrefix("Authority") {
-                info.authority.append(part.components(separatedBy: "=")[1])
-            }
-            if part.hasPrefix("TeamIdentifier") {
-                info.teamIdentifier = part.components(separatedBy: "=")[1]
-            }
-            if part.hasPrefix("Identifier") {
-                info.bundleIdentifier = part.components(separatedBy: "=")[1]
-            }
-        }
-
-        return info
-    }
-
-    func enableDeveloperMode(passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-        }
-        .then { possiblePassword -> Promise<String?> in
-            return Current.shell.devToolsSecurityEnable(possiblePassword).map { _ in possiblePassword }
-        }
-        .then { possiblePassword in
-            return Current.shell.addStaffToDevelopersGroup(possiblePassword).asVoid()
         }
     }
 
-    func approveLicense(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-        }
-        .then { possiblePassword in
-            return Current.shell.acceptXcodeLicense(xcode, possiblePassword).asVoid()
+    func verifySigningCertificate(of url: URL) async throws {
+        do {
+            try await xcodeValidationService.verifySigningCertificate(of: url)
+        } catch let error as XcodesKit.XcodeValidationError {
+            switch error {
+            case let .failedSecurityAssessment(xcode, output):
+                throw Error.failedSecurityAssessment(xcode: xcode, output: output)
+            case let .codesignVerifyFailed(output):
+                throw Error.codesignVerifyFailed(output: output)
+            case let .unexpectedCodeSigningIdentity(identifier, certificateAuthority):
+                throw Error.unexpectedCodeSigningIdentity(
+                    identifier: identifier,
+                    certificateAuthority: certificateAuthority
+                )
+            }
         }
     }
 
-    func installComponents(for xcode: InstalledXcode, passwordInput: @escaping () -> Promise<String>) -> Promise<Void> {
-        return firstly { () -> Promise<String?> in
-            Current.shell.authenticateSudoerIfNecessary(passwordInput: passwordInput)
-        }
-        .then { possiblePassword -> Promise<Void> in
-            Current.shell.runFirstLaunch(xcode, possiblePassword).asVoid()
-        }
-        .then { () -> Promise<(String, String, String)> in
-            return when(fulfilled:
-                Current.shell.getUserCacheDir().map { $0.out },
-                Current.shell.buildVersion().map { $0.out },
-                Current.shell.xcodeBuildVersion(xcode).map { $0.out }
-            )
-        }
-        .then { cacheDirectory, macOSBuildVersion, toolsVersion -> Promise<Void> in
-            return Current.shell.touchInstallCheck(cacheDirectory, macOSBuildVersion, toolsVersion).asVoid()
-        }
+    public func parseCertificateInfo(_ rawInfo: String) -> XcodesKit.XcodeSignature {
+        XcodesKit.XcodeSignatureVerifier().parse(rawInfo)
     }
-}
 
-private extension XcodeInstaller {
-    func persistOrCleanUpResumeData<T>(at path: Path, for result: Result<T>) {
-        switch result {
-        case .fulfilled:
-            try? Current.files.removeItem(at: path.url)
-        case .rejected(let error):
-            guard let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data else { return }
-            Current.files.createFile(atPath: path.string, contents: resumeData)
-        }
+    private var xcodeValidationService: XcodesKit.XcodeValidationService {
+        XcodesKit.XcodeValidationService(
+            assessSecurity: { url in try await Current.shell.spctlAssess(url) },
+            verifyCodesign: { url in try await Current.shell.codesignVerify(url) }
+        )
+    }
+
+    private func xcodePostInstallWorkflowService(passwordInput: @escaping @Sendable () async throws -> String) -> XcodesKit.XcodePostInstallWorkflowService {
+        return XcodesKit.XcodePostInstallWorkflowService(
+            enableDeveloperMode: { try await Self.enableDeveloperMode(passwordInput: passwordInput) },
+            approveLicense: { try await Self.approveLicense(for: $0, passwordInput: passwordInput) },
+            installComponents: { try await Self.installComponents(for: $0, passwordInput: passwordInput) }
+        )
+    }
+
+    private static func enableDeveloperMode(passwordInput: @escaping @Sendable () async throws -> String) async throws {
+        let possiblePassword = try await Current.shell.authenticateSudoerIfNecessaryAsync(passwordInput: passwordInput)
+        try await xcodePostInstallPreparationService(password: possiblePassword).enableDeveloperMode()
+    }
+
+    private static func approveLicense(for xcode: InstalledXcode, passwordInput: @escaping @Sendable () async throws -> String) async throws {
+        let possiblePassword = try await Current.shell.authenticateSudoerIfNecessaryAsync(passwordInput: passwordInput)
+        try await xcodePostInstallPreparationService(password: possiblePassword).approveLicense(for: xcode)
+    }
+
+    private static func installComponents(for xcode: InstalledXcode, passwordInput: @escaping @Sendable () async throws -> String) async throws {
+        let possiblePassword = try await Current.shell.authenticateSudoerIfNecessaryAsync(passwordInput: passwordInput)
+        try await xcodePostInstallService(password: possiblePassword).installComponents(for: xcode)
+    }
+
+    private static func xcodePostInstallService(password: String?) -> XcodesKit.XcodePostInstallService {
+        XcodesKit.XcodePostInstallService(
+            runFirstLaunch: { xcode in _ = try await Current.shell.runFirstLaunch(xcode, password) },
+            getUserCacheDirectory: { try await Current.shell.getUserCacheDir() },
+            getMacOSBuildVersion: { try await Current.shell.buildVersion() },
+            getXcodeBuildVersion: { xcode in try await Current.shell.xcodeBuildVersion(xcode) },
+            touchInstallCheck: { cacheDirectory, macOSBuildVersion, toolsVersion in
+                try await Current.shell.touchInstallCheck(cacheDirectory, macOSBuildVersion, toolsVersion)
+            }
+        )
+    }
+
+    private static func xcodePostInstallPreparationService(password: String?) -> XcodesKit.XcodePostInstallPreparationService {
+        XcodesKit.XcodePostInstallPreparationService(
+            enableDeveloperTools: { _ = try await Current.shell.devToolsSecurityEnable(password) },
+            addStaffToDevelopersGroup: { _ = try await Current.shell.addStaffToDevelopersGroup(password) },
+            acceptLicense: { xcode in _ = try await Current.shell.acceptXcodeLicense(xcode, password) }
+        )
     }
 }

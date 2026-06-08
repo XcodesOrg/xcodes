@@ -1,23 +1,18 @@
 import Path
 import Foundation
+import XcodesKit
 
 extension Path {
     // Get Home even if we are running as root
-    static let environmentHome = ProcessInfo.processInfo.environment["HOME"].flatMap(Path.init) ?? .home
+    static let environmentHome = XcodesPathResolver.cliHome()
     static let environmentApplicationSupport = environmentHome/"Library/Application Support"
     static let environmentCaches = environmentHome/"Library/Caches"
-    public static let environmentDownloads = environmentHome/"Downloads"
+    public static let environmentDownloads = XcodesPathResolver.cliDownloads(home: environmentHome)
 
-    static let oldXcodesApplicationSupport = environmentApplicationSupport/"ca.brandonevans.xcodes"
-    static let xcodesApplicationSupport = environmentApplicationSupport/"com.robotsandpencils.xcodes"
-    static let xcodesCaches = environmentCaches/"com.robotsandpencils.xcodes"
-    static let cacheFile = xcodesApplicationSupport/"available-xcodes.json"
-    static let configurationFile = xcodesApplicationSupport/"configuration.json"
-
-    @discardableResult
-    func setCurrentUserAsOwner() -> Path {
-        let user = ProcessInfo.processInfo.environment["SUDO_USER"] ?? NSUserName()
-        try? FileManager.default.setAttributes([.ownerAccountName: user], ofItemAtPath: string)
-        return self
-    }
+    static let oldXcodesApplicationSupport = XcodesPathResolver.cliOldApplicationSupport(home: environmentHome)
+    static let xcodesApplicationSupport = XcodesPathResolver.cliApplicationSupport(home: environmentHome)
+    static let xcodesCaches = XcodesPathResolver.cliCaches(home: environmentHome)
+    static let cacheFile = XcodesPathResolver.cliAvailableXcodesCacheFile(applicationSupport: xcodesApplicationSupport)
+    static let runtimeCacheFile = XcodesPathResolver.downloadableRuntimesCacheFile(in: xcodesApplicationSupport)
+    static let configurationFile = XcodesPathResolver.cliConfigurationFile(applicationSupport: xcodesApplicationSupport)
 }

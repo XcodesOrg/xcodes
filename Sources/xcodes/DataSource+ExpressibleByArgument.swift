@@ -1,4 +1,4 @@
 import ArgumentParser
-import XcodesKit
+import XcodesCLIKit
 
-extension DataSource: ExpressibleByArgument {}
+extension DataSource: @retroactive ExpressibleByArgument {}

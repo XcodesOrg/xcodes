@@ -1,6 +1,3 @@
-import Foundation
+import XcodesKit
 
-public enum DataSource: String, CaseIterable {
-    case apple
-    case xcodeReleases
-}
+public typealias DataSource = XcodesKit.DataSource

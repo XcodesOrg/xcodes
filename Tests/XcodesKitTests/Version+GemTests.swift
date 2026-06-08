@@ -1,6 +1,6 @@
 import XCTest
 import Version
-@testable import XcodesKit
+@testable import XcodesCLIKit
 
 class VersionGemTests: XCTestCase {
     func test_InitGemVersion() {

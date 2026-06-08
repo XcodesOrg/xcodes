@@ -5,7 +5,25 @@ jobs:
     runs-on: macos-15
     steps:
     - uses: actions/checkout@v4
+    - name: Checkout local package dependencies
+      run: |
+        set -euo pipefail
+
+        checkout_dependency() {
+          local repo="$1"
+          local checkout_path="$2"
+          local branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}"
+
+          if [ -n "$branch" ] && git ls-remote --exit-code --heads "https://github.com/${repo}.git" "$branch" >/dev/null; then
+            git clone --depth 1 --branch "$branch" "https://github.com/${repo}.git" "$checkout_path"
+          else
+            git clone --depth 1 "https://github.com/${repo}.git" "$checkout_path"
+          fi
+        }
+
+        checkout_dependency XcodesOrg/XcodesLoginKit ../XcodesLoginKit
+        checkout_dependency XcodesOrg/XcodesKit ../XcodesKit
     - name: Run tests
-      env: 
+      env:
         DEVELOPER_DIR: /Applications/Xcode_16.4.app
       run: swift test

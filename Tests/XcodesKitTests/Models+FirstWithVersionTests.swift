@@ -1,7 +1,8 @@
 import Path
 import XCTest
 import Version
-@testable import XcodesKit
+import XcodesKit
+@testable import XcodesCLIKit
 
 final class ModelsFirstWithVersionTests: XCTestCase {
     let xcodes = [

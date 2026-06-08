@@ -1,6 +1,6 @@
 import ArgumentParser
 import LegibleError
-import XcodesKit
+import XcodesCLIKit
 import Rainbow
 
 extension ParsableArguments {
