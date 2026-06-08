@@ -1,5 +1,5 @@
 {
-  "originHash" : "d5f06ff4dc275a59467f579767ee5db0fef2947a7df458b7911fd3809d83f96d",
+  "originHash" : "9342f3f18fb34939f00c8adb41c9b1703306efe25a36acb20d7e21ac7717a047",
   "pins" : [
     {
       "identity" : "asynchttpnetworkservice",
@@ -115,6 +115,24 @@
       "state" : {
         "revision" : "087c91fedc110f9f833b14ef4c32745dabca8913",
         "version" : "1.0.3"
+      }
+    },
+    {
+      "identity" : "xcodeskit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/XcodesOrg/XcodesKit.git",
+      "state" : {
+        "revision" : "5bff14052f7664f75a4837547804e07c3c2dfe47",
+        "version" : "1.0.3"
+      }
+    },
+    {
+      "identity" : "xcodesloginkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/XcodesOrg/XcodesLoginKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "9bece1ada36006b18b84caec62d14dc91b47ae2b"
       }
     },
     {

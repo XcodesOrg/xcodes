@@ -20,8 +20,8 @@ let package = Package(
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "3.2.0")),
         .package(url: "https://github.com/xcodereleases/data", revision: "fcf527b187817f67c05223676341f3ab69d4214d"),
         .package(url: "https://github.com/onevcat/Rainbow.git", .upToNextMinor(from: "3.2.0")),
-        .package(path: "../XcodesLoginKit"),
-        .package(path: "../XcodesKit")
+        .package(url: "https://github.com/XcodesOrg/XcodesLoginKit.git", branch: "main"),
+        .package(url: "https://github.com/XcodesOrg/XcodesKit.git", .upToNextMinor(from: "1.0.3"))
     ],
     targets: [
         .executableTarget(
