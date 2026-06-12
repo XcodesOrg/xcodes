@@ -16,8 +16,8 @@ extension RandomAccessCollection {
     }
 }
 
-extension AsyncStream.Continuation {
-    func yieldWithBackoff(_ value: Element) async {
+extension AsyncStream.Continuation where Element: Sendable {
+    func yieldWithBackoff(_ value: sending Element) async {
         let backoff: UInt64 = 1_000_000
         while case .dropped(_) = yield(value) {
             try? await Task.sleep(nanoseconds: backoff)
@@ -25,13 +25,17 @@ extension AsyncStream.Continuation {
     }
 }
 
-public struct ConcurrentStream<TaskResult: Sendable> {
+public struct ConcurrentStream<TaskResult: Sendable>: Sendable {
     let batchSize: Int
     var operations = [@Sendable () async throws -> TaskResult]()
 
     var results: AsyncStream<TaskResult> {
-        AsyncStream(bufferingPolicy: .bufferingOldest(batchSize)) { continuation in
-            Task {
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: TaskResult.self,
+            bufferingPolicy: .bufferingOldest(batchSize)
+        )
+        let task = Task {
+            do {
                 try await withThrowingTaskGroup(of: (Int, TaskResult).self) { group in
                     var queueIndex = 0
                     var dequeIndex = 0
@@ -60,8 +64,12 @@ public struct ConcurrentStream<TaskResult: Sendable> {
                     }
                     continuation.finish()
                 }
+            } catch {
+                continuation.finish()
             }
         }
+        continuation.onTermination = { _ in task.cancel() }
+        return stream
     }
 
     init(batchSize: Int = ProcessInfo.processInfo.activeProcessorCount) {
@@ -83,32 +91,18 @@ public struct ConcurrentStream<TaskResult: Sendable> {
     }
 }
 
-final class Chunk: Sendable {
-    let buffer: UnsafeBufferPointer<UInt8>
-    let owned: Bool
-
-    init(buffer: UnsafeBufferPointer<UInt8>, owned: Bool) {
-        self.buffer = buffer
-        self.owned = owned
-    }
-
-    deinit {
-        if owned {
-            buffer.deallocate()
-        }
-    }
+struct Chunk: Sendable {
+    let bytes: [UInt8]
 }
 
-struct File {
+struct File: Sendable {
     let dev: Int
     let ino: Int
     let mode: Int
     let name: String
-    var data = [UnsafeBufferPointer<UInt8>]()
-    // For keeping the data alive
-    var chunks = [Chunk]()
+    var data = [[UInt8]]()
 
-    struct Identifier: Hashable {
+    struct Identifier: Hashable, Sendable {
         let dev: Int
         let ino: Int
     }
@@ -235,7 +229,7 @@ extension option {
     }
 }
 
-public struct UnxipOptions {
+public struct UnxipOptions: Sendable {
     var input: URL
     var output: URL?
     var compress: Bool = true
@@ -247,7 +241,7 @@ public struct UnxipOptions {
 }
 
 @available(macOS 11.0, *)
-public struct Unxip {
+public struct Unxip: Sendable {
     let options: UnxipOptions
 
     public init(options: UnxipOptions) {
@@ -277,21 +271,24 @@ public struct Unxip {
         repeat {
             decompressedSize = read(UInt64.self, from: &remaining)
             let compressedSize = read(UInt64.self, from: &remaining)
-            let _remaining = remaining
+            let compressedBytes = Array(remaining[fromOffset: 0, size: Int(compressedSize)])
             let _decompressedSize = decompressedSize
 
             chunkStream.addTask {
-                let remaining = _remaining
                 let decompressedSize = _decompressedSize
 
                 if compressedSize == chunkSize {
-                    return Chunk(buffer: UnsafeBufferPointer(rebasing: remaining[fromOffset: 0, size: Int(compressedSize)]), owned: false)
+                    return Chunk(bytes: compressedBytes)
                 } else {
                     let magic = [0xfd] + "7zX".utf8
-                    precondition(remaining.prefix(magic.count).elementsEqual(magic))
-                    let buffer = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: Int(decompressedSize))
-                    precondition(compression_decode_buffer(buffer.baseAddress!, buffer.count, UnsafeBufferPointer(rebasing: remaining).baseAddress!, Int(compressedSize), nil, COMPRESSION_LZMA) == decompressedSize)
-                    return Chunk(buffer: UnsafeBufferPointer(buffer), owned: true)
+                    precondition(compressedBytes.prefix(magic.count).elementsEqual(magic))
+                    let bytes = [UInt8](unsafeUninitializedCapacity: Int(decompressedSize)) { buffer, count in
+                        count = compressedBytes.withUnsafeBufferPointer { compressedBuffer in
+                            compression_decode_buffer(buffer.baseAddress!, buffer.count, compressedBuffer.baseAddress!, compressedBuffer.count, nil, COMPRESSION_LZMA)
+                        }
+                        precondition(count == Int(decompressedSize))
+                    }
+                    return Chunk(bytes: bytes)
                 }
             }
             remaining = remaining[fromOffset: Int(compressedSize)]
@@ -300,9 +297,16 @@ public struct Unxip {
         return chunkStream
     }
 
-    func files<ChunkStream: AsyncSequence>(in chunkStream: ChunkStream) -> AsyncStream<File> where ChunkStream.Element == Chunk {
-        AsyncStream(bufferingPolicy: .bufferingOldest(ProcessInfo.processInfo.activeProcessorCount)) { continuation in
-            Task {
+    func files<ChunkStream: AsyncSequence & Sendable>(in chunkStream: ChunkStream) -> AsyncStream<File> where ChunkStream.Element == Chunk {
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: File.self,
+            bufferingPolicy: .bufferingOldest(ProcessInfo.processInfo.activeProcessorCount)
+        )
+        let task = Task {
+            defer {
+                continuation.finish()
+            }
+
                 var iterator = chunkStream.makeAsyncIterator()
                 var chunk = try! await iterator.next()!
                 var position = 0
@@ -310,11 +314,11 @@ public struct Unxip {
                 func read(size: Int) async -> [UInt8] {
                     var result = [UInt8]()
                     while result.count < size {
-                        if position >= chunk.buffer.endIndex {
+                        if position >= chunk.bytes.endIndex {
                             chunk = try! await iterator.next()!
                             position = 0
                         }
-                        result.append(chunk.buffer[chunk.buffer.startIndex + position])
+                        result.append(chunk.bytes[chunk.bytes.startIndex + position])
                         position += 1
                     }
                     return result
@@ -338,30 +342,33 @@ public struct Unxip {
                     let _ = await read(size: 11)  // mtime
                     let namesize = readOctal(from: await read(size: 6))
                     var filesize = readOctal(from: await read(size: 11))
-                    let name = String(cString: await read(size: namesize))
+                    var nameBytes = await read(size: namesize)
+                    if nameBytes.last == 0 {
+                        nameBytes.removeLast()
+                    }
+                    let name = String(decoding: nameBytes, as: UTF8.self)
                     var file = File(dev: dev, ino: ino, mode: mode, name: name)
 
                     while filesize > 0 {
-                        if position >= chunk.buffer.endIndex {
+                        if position >= chunk.bytes.endIndex {
                             chunk = try! await iterator.next()!
                             position = 0
                         }
-                        let size = min(filesize, chunk.buffer.endIndex - position)
-                        file.chunks.append(chunk)
-                        file.data.append(UnsafeBufferPointer(rebasing: chunk.buffer[fromOffset: position, size: size]))
+                        let size = min(filesize, chunk.bytes.endIndex - position)
+                        file.data.append(Array(chunk.bytes[fromOffset: position, size: size]))
                         filesize -= size
                         position += size
                     }
 
                     guard file.name != "TRAILER!!!" else {
-                        continuation.finish()
                         return
                     }
 
                     await continuation.yieldWithBackoff(file)
                 }
-            }
         }
+        continuation.onTermination = { _ in task.cancel() }
+        return stream
     }
 
     public func parseContent(_ content: UnsafeBufferPointer<UInt8>) async {
@@ -454,25 +461,21 @@ public struct Unxip {
                                 return
                             }
 
-                            // pwritev requires the vector count to be positive
-                            if file.data.count == 0 {
-                                return
-                            }
-
-                            var vector = file.data.map {
-                                iovec(iov_base: UnsafeMutableRawPointer(mutating: $0.baseAddress), iov_len: $0.count)
-                            }
-                            let total = file.data.map(\.count).reduce(0, +)
-                            var written = 0
-
-                            repeat {
-                                // TODO: handle partial writes smarter
-                                written = pwritev(fd, &vector, CInt(vector.count), 0)
-                                if written < 0 {
-                                    warn(-1, "writing chunk to")
-                                    break
+                            var offset = 0
+                            for bytes in file.data {
+                                var chunkOffset = 0
+                                while chunkOffset < bytes.count {
+                                    let written = bytes.withUnsafeBufferPointer { buffer in
+                                        pwrite(fd, buffer.baseAddress! + chunkOffset, buffer.count - chunkOffset, off_t(offset))
+                                    }
+                                    if written < 0 {
+                                        warn(-1, "writing chunk to")
+                                        return
+                                    }
+                                    chunkOffset += written
+                                    offset += written
                                 }
-                            } while written != total
+                            }
                         }
                     )
                 default:

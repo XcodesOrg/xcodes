@@ -1,18 +1,17 @@
 import ArgumentParser
 import Foundation
 import LegibleError
-import PromiseKit
-import XcodesKit
+import XcodesCLIKit
 import Rainbow
 
 extension ParsableArguments {
     static func processDownloadOrInstall(error: Error) -> Never {
         var exitCode: ExitCode = .failure
         switch error {
-        case Process.PMKError.execution(let process, let standardOutput, let standardError):
+        case let error as ProcessExecutionError:
             Current.logging.log("""
-                Failed executing: `\(process)` (\(process.terminationStatus))
-                \([standardOutput, standardError].compactMap { $0 }.joined(separator: "\n"))
+                Failed executing: `\(error.processDescription)` (\(error.terminationStatus))
+                \([error.standardOutput, error.standardError].filter { !$0.isEmpty }.joined(separator: "\n"))
                 """.red)
         case let error as XcodeInstaller.Error:
             if case .versionAlreadyInstalled = error {

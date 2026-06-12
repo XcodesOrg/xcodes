@@ -1,17 +1,27 @@
 import Path
+import XcodesKit
 
 /// Migrates any application support files from Xcodes < v0.4 if application support files from >= v0.4 don't exist
 public func migrateApplicationSupportFiles() {
-    if Current.files.fileExistsAtPath(Path.oldXcodesApplicationSupport.string) {
-        if Current.files.fileExistsAtPath(Path.xcodesApplicationSupport.string) {
-            Current.logging.log("Removing old support files...")
-            try? Current.files.removeItem(Path.oldXcodesApplicationSupport.url)
-            Current.logging.log("Done")
-        }
-        else {
-            Current.logging.log("Migrating old support files...")
-            try? Current.files.moveItem(Path.oldXcodesApplicationSupport.url, Path.xcodesApplicationSupport.url)
-            Current.logging.log("Done")
-        }
+    let migrationService = ApplicationSupportMigrationService(
+        fileExists: { path in Current.files.fileExists(atPath: path) },
+        moveItem: { source, destination in
+            try Current.files.moveItem(at: source, to: destination)
+        },
+        removeItem: { url in try Current.files.removeItem(at: url) }
+    )
+
+    switch migrationService.migrate(
+        oldSupportPath: Path.oldXcodesApplicationSupport,
+        newSupportPath: Path.xcodesApplicationSupport
+    ) {
+    case .removedOldSupportFiles:
+        Current.logging.log("Removing old support files...")
+        Current.logging.log("Done")
+    case .migratedOldSupportFiles:
+        Current.logging.log("Migrating old support files...")
+        Current.logging.log("Done")
+    case .noMigrationNeeded:
+        break
     }
 }
