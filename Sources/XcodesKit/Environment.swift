@@ -296,7 +296,8 @@ public struct Network: Sendable {
             downloadTask = { loginClient.urlSession.downloadTask(with: $0, to: $1, resumingWith: $2) }
             validateSession = { _ = try await loginClient.validateSession() }
             login = { accountName, password in
-                _ = try await loginClient.srpLogin(accountName: accountName, password: password)
+                let state = try await loginClient.srpLogin(accountName: accountName, password: password)
+                try await TwoFactorAuthentication.completeIfNeeded(state, dependencies: .liveDependencies(client: loginClient))
             }
             checkIsFederated = { accountName in
                 try await loginClient.checkIsFederated(accountName: accountName)
@@ -371,7 +372,8 @@ public struct Network: Sendable {
         self.downloadTask = downloadTask ?? { loginClient.urlSession.downloadTask(with: $0, to: $1, resumingWith: $2) }
         self.validateSession = validateSession ?? { _ = try await loginClient.validateSession() }
         self.login = login ?? { accountName, password in
-            _ = try await loginClient.srpLogin(accountName: accountName, password: password)
+            let state = try await loginClient.srpLogin(accountName: accountName, password: password)
+            try await TwoFactorAuthentication.completeIfNeeded(state, dependencies: .liveDependencies(client: loginClient))
         }
         self.checkIsFederated = checkIsFederated ?? { accountName in
             try await loginClient.checkIsFederated(accountName: accountName)
