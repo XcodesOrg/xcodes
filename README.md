@@ -208,6 +208,10 @@ git add Sources/XcodesKit/Version.swift
 git commit -m "Bump version to $VERSION"
 git tag -asm "$VERSION" "$VERSION"
 
+# Run the release automation
+./release.sh --version "$VERSION" --team-id "ABC123"
+
+# Or run the release steps manually:
 # Clean first
 make clean
 
@@ -216,18 +220,22 @@ make zip
 # Create a Homebrew bottle
 make bottle VERSION="$VERSION"
 
+# Duplicate the Homebrew bottle for all expected platform filenames
+cp "xcodes-$VERSION.mojave.bottle.tar.gz" "xcodes-$VERSION.arm64_mojave.bottle.tar.gz"
+cp "xcodes-$VERSION.mojave.bottle.tar.gz" "xcodes-$VERSION.macos.i386.bottle.tar.gz"
+cp "xcodes-$VERSION.mojave.bottle.tar.gz" "xcodes-$VERSION.macos.arm64.bottle.tar.gz"
+
 # Notarize the release build
 # This can take a while
 make notarize \
     TEAMID="ABC123"
 
-# Push the new version bump commit and tag
+# Push the new version bump commit and tag when ready
 git push --follow-tags
 
 # Edit the draft release created by Release Drafter to point at the new tag
 # Set the release title to the new version
-# Duplicate xcodes-$VERSION.mojave.tar.gz and rename to xcodes-$VERSION.arm64_mojave.tar.gz, also create `xcodes-$VERSION.macos.i386.tar.gz` and `xcodes-$VERSION.macos.arm64.tar.gz`
-# Add the xcodes.zip, xcodes-$VERSION.mojave.tar.gz, xcodes-$VERSION.arm64_mojave.tar.gz files to the release
+# Add the xcodes.zip and xcodes-$VERSION.*.bottle.tar.gz files to the release
 # Publish the release
 
 # Update the Homebrew Bottle: https://github.com/XcodesOrg/homebrew-made/blob/master/Formula/xcodes.rb
