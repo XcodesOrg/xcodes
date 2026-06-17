@@ -273,6 +273,19 @@ public struct Files: Sendable {
         try createDirectory(url, createIntermediates, attributes)
     }
 
+    public var temporalDirectory: @Sendable (URL) throws -> URL = { try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: $0, create: true) }
+
+    public func temporalDirectory(for URL: URL) throws -> URL {
+        return try temporalDirectory(URL)
+    }
+
+    public func xcodeExpansionDirectory(archiveURL: URL, xcodeURL: URL, shouldExpandInplace: Bool) -> URL {
+        if shouldExpandInplace {
+            return archiveURL.deletingLastPathComponent()
+        }
+        return (try? Current.files.temporalDirectory(for: xcodeURL)) ?? archiveURL.deletingLastPathComponent()
+    }
+
     public var contentsOfDirectory: @Sendable (URL) throws -> [URL] = { try FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil, options: []) }
 
     public var installedXcodes: @Sendable (Path) -> [InstalledXcode] = { directory in
