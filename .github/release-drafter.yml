@@ -6,7 +6,7 @@ categories:
     labels:
       - 'bugfix'
   - title: '🧰 Maintenance'
-    label:
+    labels:
       - 'chore'
       - 'documentation'
       - 'dependencies'
