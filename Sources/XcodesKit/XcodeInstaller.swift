@@ -182,12 +182,12 @@ public final class XcodeInstaller: Sendable {
         }
     }
 
-    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) async throws -> InstalledXcode {
+    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, shouldExpandXipInplace: Bool, emptyTrash: Bool, noSuperuser: Bool) async throws -> InstalledXcode {
         let xcode = try await xcodeInstallRetryService.install(
             shouldRetryAfterDamagedArchive: installationType.shouldRetryAfterDamagedArchive,
             attempt: { _ in
                 let (xcode, url) = try await getXcodeArchive(installationType, dataSource: dataSource, downloader: downloader, destination: destination, willInstall: true)
-                return try await installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                return try await installArchivedXcode(xcode, at: url, to: destination, experimentalUnxip: experimentalUnxip, shouldExpandXipInplace: shouldExpandXipInplace, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
             },
             onRetryDamagedArchive: { error, _ in
                 Current.logging.log(error.legibleLocalizedDescription.red)
@@ -404,10 +404,10 @@ public final class XcodeInstaller: Sendable {
         )
     }
 
-    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) async throws -> InstalledXcode {
+    public func installArchivedXcode(_ xcode: Xcode, at archiveURL: URL, to destination: Path, experimentalUnxip: Bool = false, shouldExpandXipInplace: Bool, emptyTrash: Bool, noSuperuser: Bool) async throws -> InstalledXcode {
         let installedXcode: InstalledXcode
         do {
-            installedXcode = try await xcodeArchiveInstallService(experimentalUnxip: experimentalUnxip, destination: destination)
+            installedXcode = try await xcodeArchiveInstallService(experimentalUnxip: experimentalUnxip, shouldExpandXipInplace: shouldExpandXipInplace, destination: destination)
                 .installArchivedXcode(
                     xcode,
                     at: archiveURL,
@@ -543,10 +543,10 @@ public final class XcodeInstaller: Sendable {
         }
     }
 
-    private func xcodeArchiveInstallService(experimentalUnxip: Bool, destination: Path) -> XcodesKit.XcodeArchiveInstallService {
+    private func xcodeArchiveInstallService(experimentalUnxip: Bool, shouldExpandXipInplace: Bool, destination: Path) -> XcodesKit.XcodeArchiveInstallService {
         XcodesKit.XcodeArchiveInstallService(
             destinationDirectory: destination,
-            unarchiveService: xcodeUnarchiveService(experimentalUnxip: experimentalUnxip),
+            unarchiveService: xcodeUnarchiveService(experimentalUnxip: experimentalUnxip, shouldExpandXipInplace: shouldExpandXipInplace, destination: destination.url),
             validationService: xcodeValidationService,
             fileExists: { path in Current.files.fileExists(atPath: path) },
             makeInstalledXcode: { path in
@@ -604,15 +604,16 @@ public final class XcodeInstaller: Sendable {
             Current.logging.log(installedXcode.path.string)
     }
 
-    private func xcodeUnarchiveService(experimentalUnxip: Bool) -> XcodesKit.XcodeUnarchiveService {
+    // TODO: Remove `shouldExpandXipInplace` in favor of an optional `destination`?
+    private func xcodeUnarchiveService(experimentalUnxip: Bool, shouldExpandXipInplace: Bool, destination: URL) -> XcodesKit.XcodeUnarchiveService {
         XcodesKit.XcodeUnarchiveService(
             unarchive: { source in
+                let xcodeExpansionDirectory = Current.files.xcodeExpansionDirectory(archiveURL: source, xcodeURL: destination, shouldExpandInplace: shouldExpandXipInplace)
                 if experimentalUnxip, #available(macOS 11, *) {
-                    let output = source.deletingLastPathComponent()
-                    let options = UnxipOptions(input: source, output: output)
+                    let options = UnxipOptions(input: source, output: xcodeExpansionDirectory)
                     try await Unxip(options: options).run()
                 } else {
-                    _ = try await Current.shell.unxip(source)
+                    _ = try await Current.shell.unxip(source, xcodeExpansionDirectory)
                 }
             },
             fileExists: { path in Current.files.fileExists(atPath: path) },
