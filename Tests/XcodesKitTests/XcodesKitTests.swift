@@ -84,6 +84,43 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(xcodeDownloadURL.value, URL(string: "https://apple.com/xcode.xip")!)
     }
 
+    func test_DownloadOrUseExistingArchive_RedownloadsAfterUnauthorizedResponse() async throws {
+        let archiveExists = LockedBox(false)
+        let downloadAttempts = LockedBox(0)
+        Current.files.fileExistsAtPath = { _ in archiveExists.value }
+        Current.files.removeItem = { _ in archiveExists.set(false) }
+        Current.network.downloadTask = { url, destination, _ in
+            archiveExists.set(true)
+
+            let attempt = downloadAttempts.increment()
+            let responseURL = attempt == 1
+                ? URL(string: "https://developer.apple.com/unauthorized/")!
+                : url.url!
+            return (
+                Progress(),
+                Task {
+                    (destination, HTTPURLResponse(url: responseURL, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+                }
+            )
+        }
+
+        let xcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
+
+        do {
+            _ = try await xcodeInstaller.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: false, progressChanged: { _ in })
+            XCTFail("Expected the unauthorized response to fail")
+        } catch let error as XcodeInstaller.Error {
+            XCTAssertEqual(error, .unauthorized)
+        }
+
+        XCTAssertFalse(archiveExists.value)
+
+        let archiveURL = try await xcodeInstaller.downloadOrUseExistingArchive(for: xcode, downloader: .urlSession, willInstall: false, progressChanged: { _ in })
+
+        XCTAssertEqual(archiveURL, Path.environmentApplicationSupport.join("com.robotsandpencils.xcodes").join("Xcode-0.0.0.xip").url)
+        XCTAssertEqual(downloadAttempts.value, 2)
+    }
+
     func test_InstallLatestPrerelease_WithoutPrereleases_ThrowsNoPrereleaseVersionAvailable() async throws {
         Current.files.contentsAtPath = { _ in nil }
         Current.network.loadData = { request in

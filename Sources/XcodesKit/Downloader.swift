@@ -41,7 +41,7 @@ public enum Downloader: Sendable {
     }
 
     private func withAria(aria2Path: Path, url: URL, to destination: Path, progressChanged: @escaping @Sendable (Progress) -> Void) async throws -> URL {
-        try await archiveDownloadStrategyService(aria2Path: aria2Path).download(
+        try await archiveDownloadStrategyService(destination: destination, aria2Path: aria2Path).download(
             url: url,
             destination: destination,
             downloader: .aria2,
@@ -51,7 +51,7 @@ public enum Downloader: Sendable {
     }
 
     private func withUrlSession(url: URL, to destination: Path, progressChanged: @escaping @Sendable (Progress) -> Void) async throws -> URL {
-        try await archiveDownloadStrategyService().download(
+        try await archiveDownloadStrategyService(destination: destination).download(
             url: url,
             destination: destination,
             downloader: .urlSession,
@@ -72,7 +72,7 @@ public enum Downloader: Sendable {
         return true
     }
 
-    private var archiveDownloadService: ArchiveDownloadService {
+    private func archiveDownloadService(destination: Path) -> ArchiveDownloadService {
         ArchiveDownloadService(
             aria2Download: Current.shell.downloadWithAria2,
             urlSessionDownload: { url, destination, resumeData in
@@ -89,17 +89,24 @@ public enum Downloader: Sendable {
             removeItem: { try Current.files.removeItem(at: $0) },
             shouldRetry: { Self.shouldRetryDownloadError($0) },
             validateResponse: { response in
-                try ArchiveDownloadService.validateDeveloperDownloadResponse(
-                    response,
-                    unauthorizedError: { XcodeInstaller.Error.unauthorized }
-                )
+                do {
+                    try ArchiveDownloadService.validateDeveloperDownloadResponse(
+                        response,
+                        unauthorizedError: { XcodeInstaller.Error.unauthorized }
+                    )
+                } catch {
+                    // URLSession moves its completed response before validation. Do not leave an
+                    // unauthorized HTML response at the archive path for a later invocation to reuse.
+                    try? Current.files.removeItem(at: destination.url)
+                    throw error
+                }
             }
         )
     }
 
-    private func archiveDownloadStrategyService(aria2Path: Path? = nil) -> ArchiveDownloadStrategyService {
+    private func archiveDownloadStrategyService(destination: Path, aria2Path: Path? = nil) -> ArchiveDownloadStrategyService {
         ArchiveDownloadStrategyService(
-            archiveDownloadService: archiveDownloadService,
+            archiveDownloadService: archiveDownloadService(destination: destination),
             aria2Path: {
                 guard let aria2Path else {
                     throw XcodesKitError("aria2 path is unavailable.")
