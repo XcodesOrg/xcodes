@@ -293,7 +293,7 @@ final class RuntimeTests: XCTestCase {
         XCTAssertFalse(log.value.contains("Apple Silicon (arm64)"))
     }
 
-    func test_downloadAndInstallRuntimeTreatsDuplicateXcodebuildRuntimeAsAlreadyInstalled() async throws {
+    func test_downloadAndInstallRuntimeSkipsAlreadyInstalledXcodebuildRuntime() async throws {
         let log = LockedBox("")
         let attempts = LockedBox(0)
         XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
@@ -328,8 +328,35 @@ final class RuntimeTests: XCTestCase {
             shouldDelete: true
         )
 
-        XCTAssertEqual(attempts.value, 1)
+        XCTAssertEqual(attempts.value, 0)
         XCTAssertTrue(log.value.contains("Runtime iOS 16.0 - Apple Silicon (arm64) is already installed"))
+    }
+
+    func test_downloadAndInstallRuntimeSkipsAlreadyInstalledDiskImage() async throws {
+        let log = LockedBox("")
+        let didInstall = LockedBox(false)
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.shell.isatty = { false }
+        Current.files.contentsAtPath = { path in
+            guard path == "/Library/Developer/CoreSimulator/images/images.plist" else { return nil }
+            return Self.installedRuntimeImagesPlistData()
+        }
+        Current.shell.installRuntimeImage = { _ in
+            didInstall.set(true)
+            return Shell.processOutputMock
+        }
+        mockDownloadables(data: Self.duplicateArchitectureRuntimePlistData())
+
+        try await runtimeInstaller.downloadAndInstallRuntime(
+            identifier: "iOS 16.0",
+            to: .xcodesCaches,
+            with: .urlSession,
+            shouldDelete: true,
+            architectures: [.variant(.appleSilicon)]
+        )
+
+        XCTAssertFalse(didInstall.value)
+        XCTAssertTrue(log.value.contains("Runtime iOS 16.0 is already installed"))
     }
 
     func test_installStepsForPackage() async throws {

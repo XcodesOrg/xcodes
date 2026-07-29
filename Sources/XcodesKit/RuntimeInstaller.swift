@@ -91,9 +91,14 @@ public final class RuntimeInstaller: Sendable {
 
     public func downloadAndInstallRuntime(identifier: String, to destinationDirectory: Path, with downloader: Downloader, shouldDelete: Bool, architectures: [ArchitectureFilter] = []) async throws {
         let matchedRuntime = try await getMatchingRuntime(identifier: identifier, architectures: architectures)
+        let runtimeName = downloadName(for: matchedRuntime, architectures: architectures)
+
+        if await runtimeIsAlreadyInstalled(matchedRuntime) {
+            Current.logging.log("Runtime \(runtimeName) is already installed")
+            return
+        }
 
         let method = try await installMethod(for: matchedRuntime)
-        let runtimeName = downloadName(for: matchedRuntime, architectures: architectures)
 
         switch method {
         case .archive:
@@ -336,6 +341,17 @@ public final class RuntimeInstaller: Sendable {
         guard isDuplicateRuntimeInstallError(error) else { return false }
 
         let installedRuntimes = try await runtimeService.localInstalledRuntimes()
+        return RuntimeInstallationLookupService().coreSimulatorImage(
+            for: runtime,
+            in: installedRuntimes
+        ) != nil
+    }
+
+    private func runtimeIsAlreadyInstalled(_ runtime: DownloadableRuntime) async -> Bool {
+        guard let installedRuntimes = try? await runtimeService.localInstalledRuntimes() else {
+            return false
+        }
+
         return RuntimeInstallationLookupService().coreSimulatorImage(
             for: runtime,
             in: installedRuntimes
