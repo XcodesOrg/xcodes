@@ -17,7 +17,7 @@ Xcodes is now part of the `XcodesOrg` - [read more here](nextstep.md)
 ### Homebrew (Preferred)
 
 ```sh
-brew install xcodesorg/made/xcodes
+brew install xcodes
 ```
 
 These are Developer ID-signed and notarized release builds and don't require Xcode to already be installed in order to use.
