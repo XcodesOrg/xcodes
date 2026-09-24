@@ -1,5 +1,5 @@
 {
-  "originHash" : "9342f3f18fb34939f00c8adb41c9b1703306efe25a36acb20d7e21ac7717a047",
+  "originHash" : "ec262a538fb7b5a8c615f4591b3605cc8c6203b3a08572c61cf0a4630bdeeb55",
   "pins" : [
     {
       "identity" : "asynchttpnetworkservice",
@@ -50,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kinoroy/LibFido2Swift",
       "state" : {
-        "revision" : "b87a93300c5b35307c9f26ae490963196bd927f1",
-        "version" : "0.1.5"
+        "revision" : "ac8596a852e2b008c5902a521cf4d9c7f0f05fba",
+        "version" : "0.1.6"
       }
     },
     {
@@ -122,8 +122,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/XcodesOrg/XcodesKit.git",
       "state" : {
-        "revision" : "5bff14052f7664f75a4837547804e07c3c2dfe47",
-        "version" : "1.0.3"
+        "revision" : "4d3c6093980978b74c3fa42fc1b90cd1c34ac911",
+        "version" : "1.1.0"
       }
     },
     {
@@ -132,7 +132,7 @@
       "location" : "https://github.com/XcodesOrg/XcodesLoginKit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "9bece1ada36006b18b84caec62d14dc91b47ae2b"
+        "revision" : "929f9aac3140caf7b64cbb5385f4f645c5f9913d"
       }
     },
     {
