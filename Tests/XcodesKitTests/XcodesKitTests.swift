@@ -115,6 +115,7 @@ final class XcodesKitTests: XCTestCase {
                 dataSource: .xcodeReleases,
                 downloader: .urlSession,
                 destination: Path.root.join("Applications"),
+                shouldExpandXipInplace: true,
                 emptyTrash: false,
                 noSuperuser: true
             )
@@ -172,6 +173,7 @@ final class XcodesKitTests: XCTestCase {
             dataSource: .xcodeReleases,
             downloader: .urlSession,
             destination: Path.root.join("Applications"),
+            shouldExpandXipInplace: true,
             emptyTrash: false,
             noSuperuser: true
         )
@@ -236,7 +238,7 @@ final class XcodesKitTests: XCTestCase {
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let installedXcode = InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!
         do {
-            _ = try await xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+            _ = try await xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
             XCTFail("Expected install to fail security assessment")
         } catch {
             XCTAssertEqual(error as? XcodeInstaller.Error, XcodeInstaller.Error.failedSecurityAssessment(xcode: installedXcode, output: ""))
@@ -248,7 +250,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         do {
-            _ = try await xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+            _ = try await xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
             XCTFail("Expected install to fail code signing verification")
         } catch {
             XCTAssertEqual(error as? XcodeInstaller.Error, XcodeInstaller.Error.codesignVerifyFailed(output: ""))
@@ -260,7 +262,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         do {
-            _ = try await xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+            _ = try await xcodeInstaller.installArchivedXcode(xcode, at: URL(fileURLWithPath: "/Xcode-0.0.0.xip"), to: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
             XCTFail("Expected install to fail signing identity check")
         } catch {
             XCTAssertEqual(error as? XcodeInstaller.Error, XcodeInstaller.Error.unexpectedCodeSigningIdentity(identifier: "", certificateAuthority: []))
@@ -287,7 +289,7 @@ final class XcodesKitTests: XCTestCase {
 
         let xcode = Xcode(version: Version("0.0.0")!, url: URL(fileURLWithPath: "/"), filename: "mock", releaseDate: nil)
         let xipURL = URL(fileURLWithPath: "/Xcode-0.0.0.xip")
-        _ = try await xcodeInstaller.installArchivedXcode(xcode, at: xipURL, to: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        _ = try await xcodeInstaller.installArchivedXcode(xcode, at: xipURL, to: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
         XCTAssertEqual(trashedItemAtURL.value, xipURL)
     }
 
@@ -368,7 +370,7 @@ final class XcodesKitTests: XCTestCase {
             return "asdf"
         }
 
-        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
         let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log.value, try String(contentsOf: url))
     }
@@ -448,7 +450,7 @@ final class XcodesKitTests: XCTestCase {
             return "asdf"
         }
 
-        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
         let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath-NoColor", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log.value, try String(contentsOf: url))
     }
@@ -531,7 +533,7 @@ final class XcodesKitTests: XCTestCase {
             return "asdf"
         }
 
-        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
         let url = Bundle.module.url(forResource: "LogOutput-FullHappyPath-NonInteractiveTerminal", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log.value, try String(contentsOf: url))
     }
@@ -611,7 +613,7 @@ final class XcodesKitTests: XCTestCase {
             return "asdf"
         }
 
-        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.home.join("Xcode"), emptyTrash: false, noSuperuser: false)
+        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.home.join("Xcode"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
         let url = Bundle.module.url(forResource: "LogOutput-AlternativeDirectory", withExtension: "txt", subdirectory: "Fixtures")!
         let expectedText = try String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
         XCTAssertEqual(log.value, expectedText)
@@ -710,7 +712,7 @@ final class XcodesKitTests: XCTestCase {
             return "test@example.com"
         }
 
-        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
         let url = Bundle.module.url(forResource: "LogOutput-IncorrectSavedPassword", withExtension: "txt", subdirectory: "Fixtures")!
         XCTAssertEqual(log.value, try String(contentsOf: url))
         XCTAssertEqual(passwordEnvCallCount.value, 2)
@@ -801,7 +803,7 @@ final class XcodesKitTests: XCTestCase {
             XcodesCLIKit.Current.logging.log(prompt)
             return "asdf"
         }
-        Current.shell.unxip = { _ in
+        Current.shell.unxip = { _, _ in
             if unxipCallCount.increment() == 1 {
                 throw ProcessExecutionError(process: Process(), standardOutput: nil, standardError: "The file \"Xcode-0.0.0.xip\" is damaged and can’t be expanded.")
             } else {
@@ -809,7 +811,7 @@ final class XcodesKitTests: XCTestCase {
             }
         }
 
-        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), emptyTrash: false, noSuperuser: false)
+        _ = try await xcodeInstaller.install(.version("0.0.0"), dataSource: .apple, downloader: .urlSession, destination: Path.root.join("Applications"), shouldExpandXipInplace: true, emptyTrash: false, noSuperuser: false)
         let url = Bundle.module.url(forResource: "LogOutput-DamagedXIP", withExtension: "txt", subdirectory: "Fixtures")!
         let expectedText = try String(contentsOf: url).replacingOccurrences(of: "/Users/brandon", with: Path.home.string)
         XCTAssertEqual(log.value, expectedText)

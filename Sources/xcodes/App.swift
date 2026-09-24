@@ -253,6 +253,9 @@ struct Xcodes: AsyncParsableCommand {
                 completion: .directory)
         var directory: String?
 
+        @Flag(help: "Expands (decompress) Xcode .xip on the same directory it's downloaded, instead of using a temporal directory.")
+        var expandXipInplace: Bool = false
+        
         @Flag(help: "Use fastlane spaceship session.")
         var useFastlaneAuth: Bool = false
 
@@ -310,7 +313,7 @@ struct Xcodes: AsyncParsableCommand {
                     _ = try await services.xcodeList.updateAvailableXcodes(dataSource: globalDataSource.dataSource)
                 }
 
-                let xcode = try await services.xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                let xcode = try await services.xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, shouldExpandXipInplace: expandXipInplace, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
                 if select {
                     try await selectXcodeAsync(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
                 }
