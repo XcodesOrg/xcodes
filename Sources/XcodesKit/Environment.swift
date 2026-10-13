@@ -94,6 +94,17 @@ public struct Shell: Sendable {
     }
 
     public var xcodeSelectPrintPath = Shell.shared.xcodeSelectPrintPath
+    /// Returns the path printed by `xcode-select -p`, or `nil` if no developer directory is selected.
+    ///
+    /// `xcode-select -p` fails when no developer directory is selected,
+    /// e.g. on a Mac that doesn't have Xcode or the Command Line Tools installed yet.
+    public func selectedXcodePath() async throws -> String? {
+        do {
+            return try await xcodeSelectPrintPath().out
+        } catch is ProcessExecutionError {
+            return nil
+        }
+    }
 
     public var xcodeSelectSwitch = Shell.shared.xcodeSelectSwitch
     public var isRoot: @Sendable () -> Bool = { NSUserName() == "root" }

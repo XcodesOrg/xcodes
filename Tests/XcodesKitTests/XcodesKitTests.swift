@@ -16,6 +16,12 @@ private func configureRainbowForTest(outputTarget: OutputTarget, enabled: Bool) 
 final class XcodesKitTests: XCTestCase {
     static let mockXcode = Xcode(version: Version("0.0.0")!, url: URL(string: "https://apple.com/xcode.xip")!, filename: "mock.xip", releaseDate: nil)
 
+    /// `xcode-select -p` exits with status 2 when no developer directory is selected,
+    /// e.g. on a Mac that doesn't have Xcode or the Command Line Tools installed yet.
+    static var noSelectedXcodeError: ProcessExecutionError {
+        ProcessExecutionError(process: Process(), terminationStatus: 2, standardOutput: nil, standardError: nil)
+    }
+
     var xcodeList: XcodeList!
     var xcodeInstaller: XcodeInstaller!
     var sessionService: AppleSessionService!
@@ -1033,6 +1039,21 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertFalse(log.value.contains("Options:"))
     }
 
+    func test_PrintAvailableXcodes_WithNoSelectedXcode_PrintsXcodes() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+        Current.shell.xcodeSelectPrintPath = { throw Self.noSelectedXcodeError }
+
+        try await xcodeInstaller.printAvailableXcodes([Self.mockXcode], installed: [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!])
+
+        XCTAssertEqual(log.value, """
+        0.0 (ABC123) (Installed)
+
+        Showing Xcodes for this Mac by default: Apple Silicon (arm64). Switch with `--architecture arm64`, `--architecture x86_64`, `--architecture appleSilicon`, or `--architecture universal`.
+
+        """)
+    }
+
     func test_SelectPrint() async throws {
         let log = LockedBox("")
         XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
@@ -1048,6 +1069,24 @@ final class XcodesKitTests: XCTestCase {
 
         XCTAssertEqual(log.value, """
         /Applications/Xcode-2.0.0.app/Contents/Developer
+
+        """)
+    }
+
+    func test_SelectPrint_WithNoSelectedXcode() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+
+        Current.files.installedXcodes = { _ in
+            [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!]
+        }
+
+        Current.shell.xcodeSelectPrintPath = { throw Self.noSelectedXcodeError }
+
+        try await selectXcodeAsync(shouldPrint: true, pathOrVersion: "", directory: Path.root.join("Applications"))
+
+        XCTAssertEqual(log.value, """
+        No selected Xcode
 
         """)
     }
@@ -1195,6 +1234,70 @@ final class XcodesKitTests: XCTestCase {
         xcodes requires superuser privileges to select an Xcode
         macOS User Password: 
         Selected /Applications/Xcode-0.0.0.app/Contents/Developer
+
+        """)
+    }
+
+    func test_SelectInteractively_WithNoSelectedXcode() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There are installed Xcodes
+        Current.files.installedXcodes = { _ in
+            [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!,
+             InstalledXcode(path: Path("/Applications/Xcode-2.0.1.app")!)!]
+        }
+        Current.files.contentsAtPath = { path in
+            if path == "/Applications/Xcode-0.0.0.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-0.0.0.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path == "/Applications/Xcode-2.0.1.app/Contents/Info.plist" {
+                let url = Bundle.module.url(forResource: "Stub-2.0.1.Info", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else if path.contains("version.plist") {
+                let url = Bundle.module.url(forResource: "Stub.version", withExtension: "plist", subdirectory: "Fixtures")!
+                return try? Data(contentsOf: url)
+            }
+            else {
+                return nil
+            }
+        }
+        Current.files.fileExistsAtPath = { path in
+            if path == "" {
+                return false
+            }
+            return true
+        }
+        // No Xcode is selected until one is switched to
+        let xcodeSelectPrintPathCallCount = LockedBox(0)
+        Current.shell.xcodeSelectPrintPath = {
+            if xcodeSelectPrintPathCallCount.increment() == 1 {
+                throw Self.noSelectedXcodeError
+            }
+            else {
+                return (status: 0, out: "/Applications/Xcode-2.0.1.app/Contents/Developer", err: "")
+            }
+        }
+        // User enters an index
+        XcodesCLIKit.Current.shell.readLine = { prompt in
+            XcodesCLIKit.Current.logging.log(prompt)
+            return "2"
+        }
+        // It successfully switches
+        Current.shell.xcodeSelectSwitch = { _, _ in
+            (status: 0, out: "", err: "")
+        }
+
+        try await selectXcodeAsync(shouldPrint: false, pathOrVersion: "", directory: Path.root.join("Applications"))
+
+        XCTAssertEqual(log.value, """
+        Available Xcode versions:
+        1) 0.0 (ABC123)
+        2) 2.0.1 (ABC123)
+        Enter the number of the Xcode to select: 
+        Selected /Applications/Xcode-2.0.1.app/Contents/Developer
 
         """)
     }
@@ -1362,6 +1465,32 @@ final class XcodesKitTests: XCTestCase {
             0.0 (ABC123)\t/Applications/Xcode-0.0.0.app
             2.0 (ABC123) (Selected)\t/Applications/Xcode-2.0.0.app
             2.0.1 Release Candidate (ABC123)\t/Applications/Xcode-2.0.1-Release.Candidate.app
+
+            """
+        )
+    }
+
+    func test_Installed_WithNoSelectedXcode() async throws {
+        let log = LockedBox("")
+        XcodesCLIKit.Current.logging.log = { log.append($0 + "\n") }
+
+        // There is an installed Xcode
+        Current.files.installedXcodes = { _ in
+            [InstalledXcode(path: Path("/Applications/Xcode-0.0.0.app")!)!]
+        }
+
+        // None is selected
+        Current.shell.xcodeSelectPrintPath = { throw Self.noSelectedXcodeError }
+
+        // Standard output is not an interactive terminal
+        Current.shell.isatty = { false }
+
+        try await xcodeInstaller.printInstalledXcodes(directory: Path.root/"Applications")
+
+        XCTAssertEqual(
+            log.value,
+            """
+            0.0 (ABC123)\t/Applications/Xcode-0.0.0.app
 
             """
         )
