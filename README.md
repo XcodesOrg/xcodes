@@ -142,12 +142,26 @@ Read [the proposal](/XCODE_VERSION.md) of `.xcode-version`.
 - `download <version>`: Download a specific version of Xcode
 - `install <version>`: Download and install a specific version of Xcode
 - `installed`: List the versions of Xcode that are installed
+- `icon`: Draw the version onto the icon of installed Xcodes, like "27.2" (see below)
 - `list`: List all versions of Xcode that are available to install
 - `select`: Change the selected Xcode
 - `uninstall`: Uninstall a specific version of Xcode
 - `update`: Update the list of available versions of Xcode
 - `version`: Print the version number of xcodes itself
 - `signout`: Clears the stored username and password
+
+### Version badges on Xcode icons
+
+To tell several installed Xcodes apart in the Dock, `xcodes icon` draws each Xcode's version onto its icon. The pill is green for releases and purple for prereleases, which also get a suffix such as "27.2b2" (beta 2) or "27.2rc" (release candidate):
+
+```sh
+xcodes icon                # every Xcode in /Applications
+xcodes icon 27.2           # just one
+xcodes icon --remove       # restore the original icons
+xcodes install --latest --badge-icon
+```
+
+The badge is a custom Finder icon stored beside the app's `Contents` folder, so Xcode's code signature isn't modified and `spctl`/`codesign --verify` still pass. `codesign --verify --strict` does report the Finder info it adds, so use `xcodes icon --remove` if you run strict checks. Dock tiles of already-running Xcodes update the next time they launch; run `killall Dock` if a pinned tile looks stale.
 
 ### Experimental Unxip - for faster unxipping
 
