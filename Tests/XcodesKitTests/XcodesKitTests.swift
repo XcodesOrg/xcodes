@@ -51,6 +51,89 @@ final class XcodesKitTests: XCTestCase {
         XCTAssertEqual(info.bundleIdentifier, "com.apple.dt.Xcode")
     }
 
+    func test_InstallDownloadedAEAUsingAria2() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let aria2 = environment["XCODES_ARCHIVE_SMOKE_ARIA2"].flatMap(Path.init) else {
+            throw XCTSkip("Set XCODES_ARCHIVE_SMOKE_ARIA2 to the aria2c executable for this smoke test.")
+        }
+        try await installFromArchiveSmokeServer(
+            format: "aea", downloader: .aria2(aria2), experimentalUnxip: true
+        )
+    }
+
+    func test_InstallDownloadedXIPUsingURLSession() async throws {
+        try await installFromArchiveSmokeServer(
+            format: "xip", downloader: .urlSession, experimentalUnxip: false
+        )
+    }
+
+    private func installFromArchiveSmokeServer(
+        format: String, downloader: Downloader, experimentalUnxip: Bool
+    ) async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let server = environment["XCODES_ARCHIVE_SMOKE_URL"].flatMap(URL.init(string:)),
+              server.scheme == "http", server.host == "127.0.0.1",
+              let home = environment["XCODES_ARCHIVE_SMOKE_HOME"].flatMap(Path.init),
+              home == Path.environmentHome, home.basename().hasPrefix("xcodes-cli-smoke.") else {
+            throw XCTSkip("Set XCODES_ARCHIVE_SMOKE_URL to the loopback fixture server and HOME and XCODES_ARCHIVE_SMOKE_HOME to a temporary xcodes-cli-smoke.* directory.")
+        }
+        let url = server.appendingPathComponent("cli/Xcode_27.3_beta.\(format)")
+        let version = try XCTUnwrap(Version("27.3.0-Beta"))
+        let destination = home/"Installed-\(format)"
+        let archive = Path.xcodesApplicationSupport/"Xcode-\(version).\(format)"
+        try FileManager.default.createDirectory(at: destination.url, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: Path.xcodesApplicationSupport.url, withIntermediateDirectories: true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: archive.string))
+
+        let metadata = Data("""
+            [{
+                "name": "Xcode",
+                "version": {"number": "27.3", "release": {"beta": 1}},
+                "date": {"year": 2026, "month": 11, "day": 3},
+                "requires": "15.0",
+                "links": {"download": {"url": "\(url.absoluteString)"}}
+            }]
+            """.utf8)
+        Current.files = Files()
+        Current.network = Network(
+            session: URLSession(configuration: .ephemeral),
+            loadData: { request in
+                let requestURL = try XCTUnwrap(request.url)
+                let data = requestURL == URLRequest.xcodeReleasesData.url ? metadata : Data()
+                return (data, try XCTUnwrap(HTTPURLResponse(url: requestURL, statusCode: 200, httpVersion: nil, headerFields: nil)))
+            },
+            validateSession: {}
+        )
+        Current.shell.spctlAssess = XcodesShell().spctlAssess
+        Current.shell.codesignVerify = XcodesShell().codesignVerify
+        if url.pathExtension == "xip" {
+            Current.shell.unxip = XcodesShell().unxip
+        } else {
+            Current.shell.unxip = { _ in throw XcodesKitError("AEA must bypass xip") }
+        }
+        Current.shell.isatty = { false }
+        let list = XcodeList()
+        // Both fixtures report the same version, so replace any cached URL from the other format.
+        _ = try await list.updateAvailableXcodes(dataSource: .xcodeReleases)
+        let installer = XcodeInstaller(xcodeList: list, sessionService: AppleSessionService(configuration: Configuration()))
+        let expectedApp = destination/"Xcode-\(version.descriptionWithoutBuildMetadata).app"
+        let expectDamagedXIP = url.pathExtension == "xip" && environment["XCODES_ARCHIVE_SMOKE_EXPECT_DAMAGED_XIP"] == "1"
+        do {
+            let installed = try await installer.install(
+                .version("27.3 Beta"), dataSource: .xcodeReleases, downloader: downloader,
+                destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: true, noSuperuser: true
+            )
+            XCTAssertFalse(expectDamagedXIP, "Expected the damaged XIP to be rejected")
+            XCTAssertEqual(installed.path, expectedApp)
+            XCTAssertEqual(installed.version.buildMetadataIdentifiers, ["27C5020n"])
+            XCTAssertFalse(FileManager.default.fileExists(atPath: archive.string))
+        } catch let error as XcodeInstaller.Error {
+            guard expectDamagedXIP, case let .damagedXIP(rejectedArchive) = error else { throw error }
+            XCTAssertEqual(rejectedArchive.path, archive.string)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: expectedApp.string))
+        }
+    }
+
     func test_DownloadOrUseExistingArchive_ReturnsExistingArchive() async throws {
         Current.files.fileExistsAtPath = { _ in return true }
         let xcodeDownloadURL = LockedBox<URL?>(nil)

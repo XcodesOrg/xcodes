@@ -168,7 +168,7 @@ struct Xcodes: AsyncParsableCommand {
             let versionString = version.joined(separator: " ")
 
             let installation: XcodeInstaller.InstallationType
-            // Deliberately not using InstallationType.path here as it doesn't make sense to download an Xcode from a .xip that's already on disk
+            // A local archive is already downloaded.
             if latest {
                 installation = .latest
             } else if latestPrerelease {
@@ -214,8 +214,8 @@ struct Xcodes: AsyncParsableCommand {
         var version: [String] = []
 
         @Option(name: .customLong("path"),
-                help: "Local path to Xcode .xip",
-                completion: .file(extensions: ["xip"]))
+                help: "Local path to an Xcode .xip or .aea archive",
+                completion: .file(extensions: ["xip", "aea"]))
         var pathString: String?
 
         @Flag(help: "Update and then install the latest release version available.")
@@ -240,13 +240,13 @@ struct Xcodes: AsyncParsableCommand {
         @ArgumentParser.Flag(name: [.customShort("p"), .customLong("print-path")], help: "Print the path of the selected Xcode")
         var print: Bool = false
 
-        @Flag(help: "Use the experimental unxip functionality. May speed up unarchiving by up to 2-3x.")
+        @Flag(help: "Use experimental unxip for .xip archives. May speed up unarchiving by up to 2-3x.")
         var experimentalUnxip: Bool = false
 
         @Flag(help: "Don't ask for superuser (root) permission. Some optional steps of the installation will be skipped.")
         var noSuperuser: Bool = false
 
-        @Flag(help: "Completely delete Xcode .xip after installation, instead of keeping it on the user's Trash.")
+        @Flag(help: "Permanently delete the Xcode archive after installation instead of moving it to the Trash.")
         var emptyTrash: Bool = false
 
         @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
