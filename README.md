@@ -73,10 +73,13 @@ xcodes install 10.2.1
 xcodes install 11 Beta 7
 xcodes install 11.2 GM seed
 xcodes install 9.0 --path ~/Archive/Xcode_9.xip
+xcodes install 27.3 Beta --path ~/Archive/Xcode_27.3_beta.aea
 xcodes install --latest-prerelease
 xcodes install --latest --directory "/Volumes/Bag Of Holding/"
 xcodes install --latest --experimental-unxip
 ```
+
+Installing an `.aea` archive requires macOS with `archiveutil extractXcodeAEA`. If Xcode Releases has an outdated link, try installing with `--data-source apple`.
 
 You'll then be prompted to enter your Apple ID username and password. You can also provide these with the `XCODES_USERNAME` and `XCODES_PASSWORD` environment variables.
 

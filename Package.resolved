@@ -1,5 +1,5 @@
 {
-  "originHash" : "ec262a538fb7b5a8c615f4591b3605cc8c6203b3a08572c61cf0a4630bdeeb55",
+  "originHash" : "68528e9f8c4ceda631635ad30a77f74ce22d8c7f6059dbd88e8799bc98ddbf08",
   "pins" : [
     {
       "identity" : "asynchttpnetworkservice",
@@ -122,8 +122,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/XcodesOrg/XcodesKit.git",
       "state" : {
-        "revision" : "4d3c6093980978b74c3fa42fc1b90cd1c34ac911",
-        "version" : "1.1.0"
+        "revision" : "37617957ae33310455bfe7cf0835d69e0a6aa3c5",
+        "version" : "1.2.0"
       }
     },
     {

@@ -87,6 +87,7 @@ public final class XcodeInstaller: Sendable {
     enum InstallationStep: CustomStringConvertible {
         case downloading(version: String, progress: String?, willInstall: Bool)
         case unarchiving(experimentalUnxip: Bool)
+        case extractingAEA
         case moving(destination: String)
         case cleaningArchive(archiveName: String, shouldDelete: Bool)
         case checkingSecurity
@@ -118,6 +119,8 @@ public final class XcodeInstaller: Sendable {
                     Unarchiving Xcode (This can take a while)
                     \(hint)
                     """
+            case .extractingAEA:
+                return "Extracting Xcode with archiveutil (This can take a while)"
             case .moving(let destination):
                 return "Moving Xcode to \(destination)"
             case .cleaningArchive(let archiveName, let shouldDelete):
@@ -135,7 +138,7 @@ public final class XcodeInstaller: Sendable {
         var stepNumber: Int {
             switch self {
             case .downloading:      return 1
-            case .unarchiving:      return 2
+            case .unarchiving, .extractingAEA: return 2
             case .moving:           return 3
             case .cleaningArchive:  return 4
             case .checkingSecurity: return 5
@@ -421,7 +424,9 @@ public final class XcodeInstaller: Sendable {
                 ) { step in
                     switch step {
                     case .unarchive(.unarchiving):
-                        Current.logging.log(InstallationStep.unarchiving(experimentalUnxip: experimentalUnxip).description)
+                        let installationStep: InstallationStep = archiveURL.pathExtension.lowercased() == "aea"
+                            ? .extractingAEA : .unarchiving(experimentalUnxip: experimentalUnxip)
+                        Current.logging.log(installationStep.description)
                     case let .unarchive(.moving(destination)):
                         Current.logging.log(InstallationStep.moving(destination: destination).description)
                     case let .cleaningArchive(archiveName):
