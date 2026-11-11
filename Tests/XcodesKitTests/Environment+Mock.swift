@@ -25,7 +25,7 @@ extension Shell {
 
     static var mock: Shell {
         Shell(
-            unxip: { _ in Shell.processOutputMock },
+            unxip: { _, _ in Shell.processOutputMock },
             mountDmg: { _ in Shell.processOutputMock },
             unmountDmg: { _ in Shell.processOutputMock },
             expandPkg: { _, _ in Shell.processOutputMock },
