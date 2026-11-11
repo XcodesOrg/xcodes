@@ -42,15 +42,58 @@ mint install XcodesOrg/xcodes
 <details>
 <summary>Build from source</summary>
 
-Building from source requires Xcode 12.0 or later, so it's not an option for setting up a computer from scratch.
+Building from source requires a Swift 6.0 or newer toolchain (Xcode 16 or later).
+The package declares macOS 13 as its minimum macOS deployment target; the selected
+Xcode version may require a newer macOS version to run. Install and select a full
+Xcode installation before building, so this is not an option for setting up a
+computer from scratch. Swift Package Manager downloads dependencies automatically.
 
 ```sh
 git clone https://github.com/XcodesOrg/xcodes
 cd xcodes
 make install
-# or, if /usr/local/ isn't in your PATH
-PREFIX=/your/install/directory make install
+# Or install into a user-owned directory
+make install prefix="$HOME/.local"
 ```
+
+The default installation location is `/usr/local/bin/xcodes`, which must be
+writable. The Makefile variable is lowercase `prefix`, not `PREFIX`; executables
+are installed into `<prefix>/bin`. Add that directory to your `PATH` if needed.
+You can also override `bindir` directly.
+
+`make` builds without installing. Both `make` and `make install` produce a
+universal arm64 and x86_64 executable using release configuration, with Swift
+optimization disabled (`-Onone`) as a historical compiler workaround and the
+build sandbox disabled. Local builds and installation do not invoke the
+Makefile's Developer ID signing or notarization steps.
+
+#### Build output path troubleshooting
+
+The Makefile expects `.build/apple/Products/Release/xcodes`. Some toolchains
+instead produce `.build/out/Products/Release/xcodes`, also accessible through
+the `.build/release` symlink. If the build succeeds but installation reports
+`No such file or directory` for the expected executable, check the build output
+and override `RELEASEBUILDDIR` with the actual executable path:
+
+```sh
+make install prefix="$HOME/.local" \
+  RELEASEBUILDDIR="$PWD/.build/out/Products/Release/xcodes"
+"$HOME/.local/bin/xcodes" version
+"$HOME/.local/bin/xcodes" --help
+```
+
+This override was verified with an installation into a temporary prefix:
+the installed executable contained both arm64 and x86_64 architectures, reported
+version `2.1.0`, and successfully displayed help. The default build succeeded,
+but installation required the path override on that toolchain. A warning about
+x86_64 being deprecated for the active macOS 27.0 deployment target did not
+prevent the universal build from completing. These were build and CLI smoke
+checks, not a test-suite run.
+
+Run `make clean` to remove `.build`, including downloaded dependency checkouts.
+To remove an installed executable, run `make uninstall` with the same `prefix`
+or `bindir` used for installation, for example `make uninstall prefix="$HOME/.local"`.
+Cleaning build artifacts does not uninstall the executable.
 
 While installing, you may get the following output:
 
@@ -59,7 +102,7 @@ swift build
 error: terminated(72): xcrun --sdk macosx --find xctest output:
 ```
 
-If that occurs, it means you need to select a version of Xcode. You can do this with `xcode-select` or by choosing a Command Line Tools option in Xcode's preferences Locations tab.
+If that occurs, select a full Xcode installation with `xcode-select` or by choosing a Command Line Tools option in Xcode's Settings > Locations tab. Use `swift --version` and `xcode-select --print-path` to check the active toolchain.
 </details>
 
 ## Usage
@@ -178,7 +221,10 @@ xcodes --generate-completion-script > ~/.oh-my-zsh/completions/_xcodes
 
 ## Development
 
-You'll need Xcode 13 in order to build and run xcodes.
+You'll need Swift 6.0 or newer (Xcode 16 or later) to build and run xcodes.
+See [Build from source](#installation) for installation prerequisites and
+Makefile troubleshooting. The `.swift-version` file still contains the historical
+value `5.3`; use the tools version declared in `Package.swift` as the requirement.
 
 <details>
 <summary>Using Xcode</summary>
@@ -200,6 +246,9 @@ You can also use the Swift command line tools once you have Xcode installed:
 </details>
 
 There's a Makefile to help build xcodes for distribution. We already do this for you in order to provide Developer ID-signed and notarized release builds via Homebrew (see [Installation](#installation)).
+The `sign`, `zip`, `bottle`, and `notarize` targets use a hardcoded maintainer
+signing identity and require the corresponding certificate and private key.
+They are not necessary for local development or installation.
 
 <details>
 <summary>Releasing a new version of xcodes</summary>
