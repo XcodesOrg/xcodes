@@ -26,6 +26,7 @@ public final class XcodeInstaller: Sendable {
         case versionAlreadyInstalled(InstalledXcode)
         case invalidVersion(String)
         case versionNotInstalled(Version)
+        case failedToUpdateIcons(count: Int)
         case unauthorized
 
         public var errorDescription: String? {
@@ -73,6 +74,8 @@ public final class XcodeInstaller: Sendable {
                 return "\(version) is not a valid version number."
             case let .versionNotInstalled(version):
                 return "\(version.appleDescription) is not installed."
+            case let .failedToUpdateIcons(count):
+                return "Failed to update the icon of \(count) Xcode\(count == 1 ? "" : "s")."
             case .unauthorized:
                 return """
                         Received 403: Unauthorized. This can happen when either:
@@ -185,7 +188,7 @@ public final class XcodeInstaller: Sendable {
         }
     }
 
-    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool) async throws -> InstalledXcode {
+    public func install(_ installationType: InstallationType, dataSource: DataSource, downloader: Downloader, destination: Path, experimentalUnxip: Bool = false, emptyTrash: Bool, noSuperuser: Bool, badgeIcon: Bool = false) async throws -> InstalledXcode {
         let xcode = try await xcodeInstallRetryService.install(
             shouldRetryAfterDamagedArchive: installationType.shouldRetryAfterDamagedArchive,
             attempt: { _ in
@@ -197,8 +200,69 @@ public final class XcodeInstaller: Sendable {
                 Current.logging.log("Removing damaged XIP and re-attempting installation.\n")
             }
         )
+        if badgeIcon {
+            // Cosmetic, so a failure here must never fail an otherwise successful installation.
+            do {
+                try applyBadge(to: xcode)
+            } catch {
+                Current.logging.log("Couldn't add the version to the icon: \(error.legibleLocalizedDescription)".yellow)
+            }
+        }
         Current.logging.log("\nXcode \(xcode.version.descriptionWithoutBuildMetadata) has been installed to \(xcode.path.string)".green)
         return xcode
+    }
+
+    /// Draws each matching Xcode's version onto its icon. A `nil` `versionString` matches every Xcode in `directory`.
+    public func addIconBadges(ofVersion versionString: String?, directory: Path) throws {
+        try updateIcons(ofVersion: versionString, directory: directory) { xcode in
+            let badge = try applyBadge(to: xcode)
+            return "Added \"\(badge.text)\" to the icon of \(xcode.path.string)"
+        }
+    }
+
+    /// Restores the stock icon of each matching Xcode. A `nil` `versionString` matches every Xcode in `directory`.
+    public func removeIconBadges(ofVersion versionString: String?, directory: Path) throws {
+        try updateIcons(ofVersion: versionString, directory: directory) { xcode in
+            try Current.icons.removeBadge(from: xcode.path)
+            return "Removed the custom icon from \(xcode.path.string)"
+        }
+    }
+
+    /// Runs `update` on each matching Xcode, logging what it returns. Every Xcode is tried even if one fails.
+    private func updateIcons(ofVersion versionString: String?, directory: Path, _ update: (InstalledXcode) throws -> String) throws {
+        var failures = 0
+        for xcode in try installedXcodes(matching: versionString, in: directory) {
+            do {
+                Current.logging.log(try update(xcode))
+            } catch {
+                failures += 1
+                Current.logging.log("\(xcode.path.string): \(error.legibleLocalizedDescription)".red)
+            }
+        }
+        if failures > 0 {
+            throw Error.failedToUpdateIcons(count: failures)
+        }
+    }
+
+    private func installedXcodes(matching versionString: String?, in directory: Path) throws -> [InstalledXcode] {
+        let installedXcodes = Current.files.installedXcodes(directory)
+        guard let versionString else {
+            return installedXcodes.sorted { $0.version < $1.version }
+        }
+        guard let version = Version(xcodeVersion: versionString) else {
+            throw Error.invalidVersion(versionString)
+        }
+        guard let installedXcode = installedXcodes.first(withVersion: version) else {
+            throw Error.versionNotInstalled(version)
+        }
+        return [installedXcode]
+    }
+
+    @discardableResult
+    private func applyBadge(to xcode: InstalledXcode) throws -> IconBadge {
+        let badge = IconBadge(version: xcode.version)
+        try Current.icons.applyBadge(badge, to: xcode.path)
+        return badge
     }
 
     private var xcodeInstallRetryService: XcodeInstallRetryService {
