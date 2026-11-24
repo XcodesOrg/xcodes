@@ -22,6 +22,11 @@ func getDirectory(possibleDirectory: String?, default: Path = Path.root.join("Ap
     return directory
 }
 
+/// Resolves the `--path` argument of `install`, treating relative paths as relative to the current directory.
+func xipPath(from pathString: String?) -> Path? {
+    pathString.map { Path($0) ?? Path.cwd/$0 }
+}
+
 struct GlobalDirectoryOption: ParsableArguments {
     @Option(help: "The directory where your Xcodes are installed. Defaults to /Applications.",
             completion: .directory)
@@ -277,7 +282,7 @@ struct Xcodes: AsyncParsableCommand {
                 installation = .latest
             } else if latestPrerelease {
                 installation = .latestPrerelease
-            } else if let pathString = pathString, let path = Path(pathString) {
+            } else if let path = xipPath(from: pathString) {
                 installation = .path(versionString, path)
             } else {
                 installation = .version(versionString)
