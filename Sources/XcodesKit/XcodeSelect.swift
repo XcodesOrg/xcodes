@@ -5,11 +5,11 @@ import Rainbow
 import XcodesKit
 
 public func selectXcodeAsync(shouldPrint: Bool, pathOrVersion: String, directory: Path, fallbackToInteractive: Bool = true) async throws {
-    let output = try await Current.shell.xcodeSelectPrintPath()
+    let selectedXcodePath = try await Current.shell.selectedXcodePath()
 
     if shouldPrint {
-        if output.out.isEmpty == false {
-            Current.logging.log(output.out)
+        if let selectedXcodePath, selectedXcodePath.isEmpty == false {
+            Current.logging.log(selectedXcodePath)
         } else {
             Current.logging.log("No selected Xcode")
         }
@@ -26,7 +26,7 @@ public func selectXcodeAsync(shouldPrint: Bool, pathOrVersion: String, directory
     switch selectionService.request(
         pathOrVersion: pathOrVersion,
         installedXcodes: installedXcodes,
-        selectedXcodePath: output.out
+        selectedXcodePath: selectedXcodePath ?? ""
     ) {
     case let .alreadySelectedVersion(version):
         Current.logging.log("Xcode \(version) is already selected".green)
@@ -37,18 +37,19 @@ public func selectXcodeAsync(shouldPrint: Bool, pathOrVersion: String, directory
         Current.logging.log("Selected \(selectedOutput.out)".green)
         Current.shell.exit(0)
         return
-    case .alreadySelectedPath:
+    case .alreadySelectedPath where selectedXcodePath != nil:
         Current.logging.log("Xcode at path \(pathOrVersion) is already selected".green)
         Current.shell.exit(0)
         return
-    case let .selectPath(pathToSelect):
+    // With no Xcode selected, an empty path comes back as `.alreadySelectedPath`, so handle it like `.selectPath`
+    case let .alreadySelectedPath(pathToSelect), let .selectPath(pathToSelect):
         do {
             let selectedOutput = try await selectXcodeAtPathAsync(pathToSelect)
             Current.logging.log("Selected \(selectedOutput.out)".green)
             Current.shell.exit(0)
         } catch {
             guard fallbackToInteractive else { throw error }
-            let selectedOutput = try await selectXcodeInteractivelyAsync(currentPath: output.out, directory: directory)
+            let selectedOutput = try await selectXcodeInteractivelyAsync(currentPath: selectedXcodePath ?? "", directory: directory)
             Current.logging.log("Selected \(selectedOutput.out)".green)
             Current.shell.exit(0)
         }

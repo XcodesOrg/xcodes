@@ -503,7 +503,7 @@ public final class XcodeInstaller: Sendable {
     }
 
     public func printAvailableXcodes(_ xcodes: [Xcode], installed installedXcodes: [InstalledXcode], dataSource: DataSource = .xcodeReleases, architectures: [ArchitectureFilter] = []) async throws {
-        let output = try await Current.shell.xcodeSelectPrintPath()
+        let selectedXcodePath = try await Current.shell.selectedXcodePath()
         let machineArchitecture = Current.shell.machineArchitecture()
         let effectiveArchitectures = architectures.isEmpty
             ? [ArchitectureFilter].defaultForMachine(machineHardwareName: machineArchitecture)
@@ -513,7 +513,7 @@ public final class XcodeInstaller: Sendable {
             .availableRows(
                 availableXcodes: xcodes,
                 installedXcodes: installedXcodes,
-                selectedXcodePath: output.out,
+                selectedXcodePath: selectedXcodePath,
                 dataSource: dataSource,
                 architectures: effectiveArchitectures
             )
@@ -535,12 +535,12 @@ public final class XcodeInstaller: Sendable {
     }
 
     public func printInstalledXcodes(directory: Path) async throws {
-        let pathOutput = try await Current.shell.xcodeSelectPrintPath()
+        let selectedXcodePath = try await Current.shell.selectedXcodePath()
         let selectedString = "(Selected)"
         let presentationService = XcodeListPresentationService()
         let rows = presentationService.installedRows(
             installedXcodes: Current.files.installedXcodes(directory),
-            selectedXcodePath: pathOutput.out
+            selectedXcodePath: selectedXcodePath
         )
 
         for line in presentationService.installedLines(rows: rows, interactive: Current.shell.isatty(), selectedMarker: selectedString) {
