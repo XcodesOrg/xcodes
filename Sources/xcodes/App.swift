@@ -66,7 +66,7 @@ struct Xcodes: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Manage the Xcodes installed on your Mac",
         shouldDisplay: true,
-        subcommands: [Download.self, Install.self, Installed.self, List.self, Runtimes.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
+        subcommands: [Download.self, Icon.self, Install.self, Installed.self, List.self, Runtimes.self, Select.self, Uninstall.self, Update.self, Version.self, Signout.self]
     )
 
     private struct Services {
@@ -193,6 +193,54 @@ struct Xcodes: AsyncParsableCommand {
         }
     }
 
+    struct Icon: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Draw the version onto the icon of installed Xcodes",
+            discussion: """
+                        Gives each Xcode a custom icon badged with its version and channel (green for release, purple for prerelease), so several Xcodes are easy to tell apart in the Dock and Finder. Run without a version to update every Xcode in the directory.
+
+                        The custom icon is stored beside the app's Contents folder, so Xcode's code signature stays valid. The only tool that notices is `codesign --verify --strict`. Use --remove to restore the original icon.
+
+                        EXAMPLES:
+                          xcodes icon                # sets icons for all installed Xcodes
+                          xcodes icon 27.2
+                          xcodes icon --remove
+                        """
+        )
+
+        @Argument(help: "The version to update. Defaults to all installed versions.",
+                  completion: .custom { _ in Current.files.installedXcodes(getDirectory(possibleDirectory: nil)).sorted { $0.version < $1.version }.map { $0.version.appleDescription } })
+        var version: [String] = []
+
+        @Flag(help: "Restore the original icon.")
+        var remove: Bool = false
+
+        @OptionGroup
+        var globalDirectory: GlobalDirectoryOption
+
+        @OptionGroup
+        var globalColor: GlobalColorOption
+
+        func run() async throws {
+            configureRainbow(enabled: globalColor.color)
+
+            let directory = getDirectory(possibleDirectory: globalDirectory.directory)
+            let services = Xcodes.makeServices()
+
+            do {
+                let versionString = version.isEmpty ? nil : version.joined(separator: " ")
+                if remove {
+                    try services.xcodeInstaller.removeIconBadges(ofVersion: versionString, directory: directory)
+                } else {
+                    try services.xcodeInstaller.addIconBadges(ofVersion: versionString, directory: directory)
+                }
+                Icon.exit()
+            } catch {
+                Icon.exit(withLegibleError: error)
+            }
+        }
+    }
+
     struct Install: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Download and install a specific version of Xcode",
@@ -248,6 +296,9 @@ struct Xcodes: AsyncParsableCommand {
 
         @Flag(help: "Permanently delete the Xcode archive after installation instead of moving it to the Trash.")
         var emptyTrash: Bool = false
+
+        @Flag(help: "Draw the version onto the installed Xcode's icon, to tell Xcodes apart in the Dock. See `xcodes icon`.")
+        var badgeIcon: Bool = false
 
         @Option(help: "The directory to install Xcode into. Defaults to /Applications.",
                 completion: .directory)
@@ -310,7 +361,7 @@ struct Xcodes: AsyncParsableCommand {
                     _ = try await services.xcodeList.updateAvailableXcodes(dataSource: globalDataSource.dataSource)
                 }
 
-                let xcode = try await services.xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser)
+                let xcode = try await services.xcodeInstaller.install(installation, dataSource: globalDataSource.dataSource, downloader: downloader, destination: destination, experimentalUnxip: experimentalUnxip, emptyTrash: emptyTrash, noSuperuser: noSuperuser, badgeIcon: badgeIcon)
                 if select {
                     try await selectXcodeAsync(shouldPrint: print, pathOrVersion: xcode.path.string, directory: destination, fallbackToInteractive: false)
                 }

@@ -18,6 +18,7 @@ public struct Environment: Sendable {
     public var network = Network()
     public var logging = Logging()
     public var keychain = Keychain()
+    public var icons = Icons()
 
     public init() {
         self.shell = Shell()
@@ -25,14 +26,16 @@ public struct Environment: Sendable {
         self.network = Network()
         self.logging = Logging()
         self.keychain = Keychain()
+        self.icons = Icons()
     }
 
-    public init(shell: Shell, files: Files, network: Network, logging: Logging, keychain: Keychain) {
+    public init(shell: Shell, files: Files, network: Network, logging: Logging, keychain: Keychain, icons: Icons) {
         self.shell = shell
         self.files = files
         self.network = network
         self.logging = logging
         self.keychain = keychain
+        self.icons = icons
     }
 }
 
@@ -406,4 +409,32 @@ public struct Keychain: Sendable {
     public func remove(_ key: String) throws -> Void {
         try remove(key)
     }
+}
+
+public struct Icons: Sendable {
+    public var applyBadge: @Sendable (IconBadge, Path) throws -> Void = { badge, path in
+        #if canImport(AppKit)
+        try badge.setCustomIcon(of: path)
+        #else
+        throw IconBadgeUnsupportedError()
+        #endif
+    }
+    public func applyBadge(_ badge: IconBadge, to path: Path) throws {
+        try applyBadge(badge, path)
+    }
+
+    public var removeBadge: @Sendable (Path) throws -> Void = { path in
+        #if canImport(AppKit)
+        try IconBadge.removeCustomIcon(of: path)
+        #else
+        throw IconBadgeUnsupportedError()
+        #endif
+    }
+    public func removeBadge(from path: Path) throws {
+        try removeBadge(path)
+    }
+}
+
+struct IconBadgeUnsupportedError: LocalizedError {
+    var errorDescription: String? { "Changing icons is only supported on macOS." }
 }

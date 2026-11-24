@@ -15,7 +15,8 @@ extension Environment {
             files: .mock,
             network: .mock,
             logging: .mock,
-            keychain: .mock
+            keychain: .mock,
+            icons: .mock
         )
     }
 }
@@ -129,6 +130,15 @@ extension Keychain {
             getString: { _ in return nil },
             set: { _, _ in },
             remove: { _ in }
+        )
+    }
+}
+
+extension Icons {
+    static var mock: Icons {
+        Icons(
+            applyBadge: { _, _ in },
+            removeBadge: { _ in }
         )
     }
 }
