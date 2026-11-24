@@ -69,11 +69,9 @@ Makefile's Developer ID signing or notarization steps.
 
 #### Build output path troubleshooting
 
-The Makefile expects `.build/apple/Products/Release/xcodes`. Some toolchains
-instead produce `.build/out/Products/Release/xcodes`, also accessible through
-the `.build/release` symlink. If the build succeeds but installation reports
-`No such file or directory` for the expected executable, check the build output
-and override `RELEASEBUILDDIR` with the actual executable path:
+The Makefile uses SwiftPM to locate the release executable. Run
+`make -s release-bin-path` to see the location. For a custom build, override
+`RELEASEBUILDDIR` with the absolute path to the executable.
 
 ```sh
 make install prefix="$HOME/.local" \
@@ -81,14 +79,6 @@ make install prefix="$HOME/.local" \
 "$HOME/.local/bin/xcodes" version
 "$HOME/.local/bin/xcodes" --help
 ```
-
-This override was verified with an installation into a temporary prefix:
-the installed executable contained both arm64 and x86_64 architectures, reported
-version `2.1.0`, and successfully displayed help. The default build succeeded,
-but installation required the path override on that toolchain. A warning about
-x86_64 being deprecated for the active macOS 27.0 deployment target did not
-prevent the universal build from completing. These were build and CLI smoke
-checks, not a test-suite run.
 
 Run `make clean` to remove `.build`, including downloaded dependency checkouts.
 To remove an installed executable, run `make uninstall` with the same `prefix`
@@ -250,50 +240,38 @@ The `sign`, `zip`, `bottle`, and `notarize` targets use a hardcoded maintainer
 signing identity and require the corresponding certificate and private key.
 They are not necessary for local development or installation.
 
-<details>
-<summary>Releasing a new version of xcodes</summary>
+### Releasing a new version of xcodes
+
+Merge the changes you intend to ship into `main` in XcodesOrg/xcodes. From this checkout on the maintainer’s Mac, replace `VERSION` with the exact stable version you want to publish.
 
 ```sh
-# Bump the version number in Version.swift, commit the change, and tag it
-vim Sources/XcodesKit/Version.swift
-git add Sources/XcodesKit/Version.swift
-git commit -m "Bump version to $VERSION"
-git tag -asm "$VERSION" "$VERSION"
-
-# Run the release automation
-./release.sh --version "$VERSION" --team-id "ABC123"
-
-# Or run the release steps manually:
-# Clean first
-make clean
-
-# Make a release build of xcodes, sign it, and zip it
-make zip
-# Create a Homebrew bottle
-make bottle VERSION="$VERSION"
-
-# Duplicate the Homebrew bottle for all expected platform filenames
-cp "xcodes-$VERSION.mojave.bottle.tar.gz" "xcodes-$VERSION.arm64_mojave.bottle.tar.gz"
-cp "xcodes-$VERSION.mojave.bottle.tar.gz" "xcodes-$VERSION.macos.i386.bottle.tar.gz"
-cp "xcodes-$VERSION.mojave.bottle.tar.gz" "xcodes-$VERSION.macos.arm64.bottle.tar.gz"
-
-# Notarize the release build
-# This can take a while
-make notarize \
-    TEAMID="ABC123"
-
-# Push the new version bump commit and tag when ready
-git push --follow-tags
-
-# Edit the draft release created by Release Drafter to point at the new tag
-# Set the release title to the new version
-# Add the xcodes.zip and xcodes-$VERSION.*.bottle.tar.gz files to the release
-# Publish the release
-
-# Update the Homebrew Bottle: https://github.com/XcodesOrg/homebrew-made/blob/master/Formula/xcodes.rb
+./Scripts/release VERSION --dry-run
+./Scripts/release VERSION
 ```
 
-</details>
+The dry run shows the GitHub source commit, the notes source, and the Homebrew bottle destination. To customize the notes, edit the Release Drafter draft before running the publish command. The command preserves the draft body and generates GitHub release notes when the draft is missing or empty.
+
+The release command builds and tests in an isolated checkout. It signs and notarizes the universal CLI, publishes the GitHub release and its assets, and updates the Homebrew formula. Success prints the GitHub release URL and Homebrew tap commit. The root [AGENTS.md](AGENTS.md) records the commands for future agents.
+
+#### One-time setup
+
+- Install and select a full Xcode installation. Install Python 3.9 or newer and the GitHub CLI.
+- Sign in with `gh auth login`. Use an account with admin push access to CLI `main` under its current branch protection and push access to `main` in XcodesOrg/homebrew-made. Set your Git name and email. The command uses your Git signing configuration for commits and annotated release tags.
+- Install the Developer ID Application certificate for team `ZU6GR6B2FY` and its private key in your Mac’s Keychain. Save your Apple ID notarization credentials in the `AC_PASSWORD` Keychain profile. Enter the app-specific password when prompted.
+
+```sh
+xcrun notarytool store-credentials AC_PASSWORD --apple-id YOUR_APPLE_ID --team-id ZU6GR6B2FY
+```
+
+#### Resuming a release
+
+If the command prints a resume instruction, use the same checkout and version. Prepared artifacts and the release state live under the checkout’s Git directory. Resume reuses verified uploads and completes an outstanding Homebrew update. If `main` advanced before the tag was pushed, resume builds from current `main`.
+
+```sh
+./Scripts/release --resume VERSION
+```
+
+If preparation stops before saving artifacts, resolve the error and rerun the original command. Use the dry run to check GitHub access and the notarization profile, and use `security find-identity -v -p codesigning` to check the Developer ID identity. If Apple reports a missing or expired agreement, have the Account Holder accept it before retrying. The legacy `release.sh` command remains available for packaging an already-versioned checkout.
 
 Notable design decisions are recorded in [DECISIONS.md](./DECISIONS.md). The Apple authentication flow is described in [Apple.paw](./Apple.paw), which will allow you to play with the API endpoints that are involved using the [Paw](https://paw.cloud) app.
 

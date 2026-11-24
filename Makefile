@@ -7,7 +7,8 @@ srcdir = Sources
 REPODIR = $(shell pwd)
 BUILDDIR = $(REPODIR)/.build
 SOURCES = $(wildcard $(srcdir)/**/*.swift)
-RELEASEBUILDDIR = $(BUILDDIR)/apple/Products/Release/xcodes
+RELEASEBUILDDIR = $(shell dir=$$($(SWIFT_RELEASE_BUILD) --show-bin-path) && printf '%s/xcodes' "$$dir")
+SWIFT_BUILD_FLAGS ?=
 .DEFAULT_GOAL = all
 
 .PHONY: all
@@ -16,15 +17,21 @@ all: xcodes
 # -Onone is a temporary workaround for FB7347879
 # "swift build" gets stuck on a certain file in this project when using release configuration
 # https://github.com/apple/swift/pull/26660
-.PHONY: xcodes
-xcodes: $(SOURCES)
-	@swift build \
+SWIFT_RELEASE_BUILD = swift build \
 		--configuration release \
 		-Xswiftc -Onone \
 		--disable-sandbox \
 		--build-path "$(BUILDDIR)" \
 		--arch arm64 \
-		--arch x86_64 \
+		--arch x86_64 $(SWIFT_BUILD_FLAGS)
+
+.PHONY: xcodes
+xcodes: $(SOURCES)
+	@$(SWIFT_RELEASE_BUILD)
+
+.PHONY: release-bin-path
+release-bin-path:
+	@path="$(RELEASEBUILDDIR)"; test -n "$$path" && printf '%s\n' "$$path"
 
 .PHONY: sign
 sign: xcodes
@@ -70,8 +77,8 @@ uninstall:
 
 .PHONY: distclean
 distclean:
-	@rm -f $(RELEASEBUILDDIR)
+	@path="$(RELEASEBUILDDIR)"; if [ -n "$$path" ]; then rm -f "$$path"; fi
 
 .PHONY: clean
 clean: distclean
-	@rm -rf $(BUILDDIR)
+	@rm -rf "$(BUILDDIR)"

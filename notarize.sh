@@ -1,19 +1,29 @@
 #!/bin/sh
-#
-# notarize.sh
-#
-# E.g. ./notarize.sh "test@example.com" "@keychain:altool" MyOrg xcodes.zip
-#
-# Adapted from https://github.com/keybase/client/blob/46f5df0aa64ff19198ba7b044bbb7cd907c0be9f/packaging/desktop/package_darwin.sh
+set -eu
 
-file="$1"
-team_id="$2"
+if [ "$#" -ne 2 ] || [ ! -f "$1" ] || [ -z "$2" ]; then
+    echo "Usage: $0 <archive.zip> <Apple Developer team ID>" >&2
+    exit 1
+fi
 
-echo "Uploading to notarization service"
+archive=$1
+team_id=$2
+result=$(mktemp)
+trap 'rm -f "$result"' EXIT
 
-result=$(xcrun notarytool submit "$file" \
-    --keychain-profile "AC_PASSWORD" \
-    --team-id "$team_id" \
-    --wait) 
+echo "Submitting $archive to Apple for notarization"
+if ! xcrun notarytool submit "$archive" --keychain-profile AC_PASSWORD --team-id "$team_id" \
+    --wait --timeout 30m --output-format json > "$result"; then
+    cat "$result" >&2
+    exit 1
+fi
 
-echo $result
+status=$(plutil -extract status raw -o - "$result")
+submission_id=$(plutil -extract id raw -o - "$result")
+if [ "$status" != Accepted ]; then
+    echo "Notarization status: $status (submission $submission_id)" >&2
+    xcrun notarytool log "$submission_id" --keychain-profile AC_PASSWORD --team-id "$team_id" >&2 || true
+    exit 1
+fi
+
+echo "Notarization accepted (submission $submission_id)"
