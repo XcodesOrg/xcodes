@@ -6,11 +6,36 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - Sources/XcodesKit/Version.swift
+
+concurrency:
+  group: release-drafter-main
+
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
   update_release_draft:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - name: Check for a release in progress
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tags=$(git ls-remote --tags --refs "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git")
+          newest_tag=$(printf '%s\n' "$tags" | cut -f2 | sed -nE 's#^refs/tags/((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$#\1#p' | sort -V | tail -n 1)
+          latest_release=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if [[ "$newest_tag" == "$latest_release" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "Waiting for the current stable CLI release before updating the draft."
+          fi
       - uses: release-drafter/release-drafter@v7
+        if: steps.release.outputs.ready == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

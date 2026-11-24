@@ -5,6 +5,8 @@ jobs:
     runs-on: macos-15
     steps:
     - uses: actions/checkout@v4
+    - name: Test release automation
+      run: python3 -B -m unittest discover -s Scripts/tests
     - name: Checkout local package dependencies
       run: |
         set -euo pipefail

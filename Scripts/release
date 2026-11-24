@@ -1,0 +1,531 @@
+#!/usr/bin/env python3
+"""Publish a stable xcodes CLI release from a maintainer's Mac."""
+
+import argparse
+import base64
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+from zipfile import ZIP_DEFLATED, ZipFile
+
+
+ROOT = Path(__file__).resolve().parent.parent
+CLI = "XcodesOrg/xcodes"
+TAP = "XcodesOrg/homebrew-made"
+VERSION_FILE = "Sources/XcodesKit/Version.swift"
+FORMULA = "Formula/xcodes.rb"
+TEAM = "ZU6GR6B2FY"
+SIGNING_IDENTITY = f"Developer ID Application: Matt Kiazyk ({TEAM})"
+VERSION = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+VERSION_LITERAL = rf'(?m)^([ \t]*Version\(")({VERSION})("\)![ \t]*)$'
+FORMULA_TAG = rf'(?m)^(  url "https://github\.com/{CLI}\.git", tag: ")({VERSION})(")$'
+BOTTLE_PLATFORMS = ("all", "mojave", "arm64_mojave", "macos.i386", "macos.arm64")
+DEPENDENCIES = ("XcodesLoginKit", "XcodesKit")
+ENV = {**os.environ, "GH_PROMPT_DISABLED": "1", "GIT_TERMINAL_PROMPT": "0"}
+
+
+class ReleaseError(Exception):
+    pass
+
+
+def run(*command, cwd=ROOT, data=None, capture=True):
+    result = subprocess.run(
+        command, cwd=cwd, input=data, stdout=subprocess.PIPE if capture else None, env=ENV,
+    )
+    if result.returncode:
+        raise ReleaseError(f"{' '.join(map(os.fspath, command[:2]))} exited with status {result.returncode}.")
+    return result.stdout
+
+
+def git(*args, **kwargs):
+    return run("git", "-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential",
+               *args, **kwargs)
+
+
+def github(repo, path="", *, method="GET", body=None, paginate=False):
+    args = ["gh", "api", "--hostname", "github.com", "--method", method, f"repos/{repo}{path}"]
+    if paginate:
+        args += ["--paginate", "--slurp"]
+    if body is not None:
+        args += ["--input", "-"]
+    data = json.dumps(body).encode() if body is not None else None
+    try:
+        output = run(*args, data=data)
+    except ReleaseError as error:
+        raise ReleaseError(f"GitHub {method} repos/{repo}{path} failed: {error}") from error
+    return json.loads(output) if output else None
+
+
+def repo_url(repo):
+    return f"https://github.com/{repo}.git"
+
+
+def remote_refs(repo, *patterns):
+    lines = git("ls-remote", "--refs", repo_url(repo), *patterns).decode().splitlines()
+    return {ref: sha for sha, ref in (line.split("\t") for line in lines)}
+
+
+def remote_file(repo, path, ref):
+    result = github(repo, f"/contents/{path}?ref={ref}")
+    return base64.b64decode(result["content"]).decode()
+
+
+def releases():
+    return [item for page in github(CLI, "/releases?per_page=100", paginate=True) for item in page]
+
+
+def version_key(version):
+    return tuple(map(int, version.split(".")))
+
+
+def one_match(pattern, text, description):
+    matches = list(re.finditer(pattern, text))
+    if len(matches) != 1:
+        raise ReleaseError(f"Expected one {description}, found {len(matches)}.")
+    return matches[0]
+
+
+def replace_one(pattern, text, replacement, description):
+    match = one_match(pattern, text, description)
+    return text[:match.start()] + replacement(match) + text[match.end():]
+
+
+def bottle_name(version, platform="all"):
+    return f"xcodes-{version}.{platform}.bottle.tar.gz"
+
+
+def download_root(version):
+    return f"https://github.com/{CLI}/releases/download/{version}"
+
+
+def rewrite_formula(text, manifest, resolved, version, checksum):
+    text = replace_one(FORMULA_TAG, text, lambda m: f"{m[1]}{version}{m[3]}", "formula source tag")
+    bottle_pattern = (
+        rf'(?m)^  bottle do\n    root_url "https://github\.com/{CLI}/releases/download/{VERSION}"\n'
+        r'(?:    sha256 cellar: :any_skip_relocation, (?:arm64_mojave|mojave|all): +"[0-9a-f]{64}"\n)+  end$'
+    )
+    bottle = (
+        f'  bottle do\n    root_url "{download_root(version)}"\n'
+        f'    sha256 cellar: :any_skip_relocation, all: "{checksum}"\n  end'
+    )
+    text = replace_one(bottle_pattern, text, lambda _: bottle, "formula bottle block")
+    pins = json.loads(resolved)["pins"]
+    for dependency in DEPENDENCIES:
+        url = f"https://github.com/XcodesOrg/{dependency}.git"
+        declaration = one_match(
+            rf"""(?m)^[ \t]*(\.package\(url: "{re.escape(url)}", [^'\n]+\)),?[ \t]*$""",
+            manifest, f"{dependency} package declaration",
+        )[1]
+        revisions = [
+            pin["state"]["revision"] for pin in pins
+            if pin["identity"] == dependency.lower() and pin["location"].lower() == url.lower()
+        ]
+        if len(revisions) != 1 or not re.fullmatch(r"[0-9a-f]{40}", revisions[0]):
+            raise ReleaseError(f"Expected one locked revision for {dependency}.")
+        resource = (
+            rf'(?m)^(  resource "{dependency}" do\n    url "{re.escape(url)}",\n'
+            r'        revision: ")[0-9a-f]{40}("\n  end)$'
+        )
+        text = replace_one(resource, text, lambda m: f"{m[1]}{revisions[0]}{m[2]}", f"{dependency} resource")
+        substitution = (
+            rf"""(?m)^([ \t]+\.gsub\(')\.package\(url: "{re.escape(url)}", [^'\n]+\)"""
+            rf"""(',\n[ \t]+'\.package\(path: "{dependency}"\)'\))$"""
+        )
+        text = replace_one(substitution, text, lambda m: f"{m[1]}{declaration}{m[2]}",
+                           f"{dependency} source substitution")
+    run("ruby", "-c", data=text.encode())
+    return text
+
+
+def drafter_candidate(all_releases):
+    drafts = [
+        item for item in all_releases
+        if item["draft"] and not item["prerelease"]
+        and item["target_commitish"] in ("main", "refs/heads/main")
+        and item["author"]["login"] == "github-actions[bot]"
+        and (not item["tag_name"] or item["tag_name"].startswith("untagged-"))
+    ]
+    if len(drafts) > 1:
+        raise ReleaseError("GitHub has multiple Release Drafter drafts for main.")
+    if drafts and drafts[0]["assets"]:
+        raise ReleaseError("The untagged Release Drafter draft already has assets.")
+    return drafts[0] if drafts else None
+
+
+def inspect_release(version):
+    refs = remote_refs(CLI, "refs/heads/main", "refs/tags/*")
+    base = refs["refs/heads/main"]
+    tags = [ref.removeprefix("refs/tags/") for ref in refs if ref.startswith("refs/tags/")]
+    stable = max((tag for tag in tags if re.fullmatch(VERSION, tag)), key=version_key)
+    latest = github(CLI, "/releases/latest")["tag_name"]
+    if stable != latest:
+        raise ReleaseError(f"The stable tag {stable} is still awaiting publication. Resume that release first.")
+    source_version = one_match(VERSION_LITERAL, remote_file(CLI, VERSION_FILE, base), "CLI version")[2]
+    if version_key(version) <= max(version_key(stable), version_key(source_version)):
+        raise ReleaseError(f"{version} must be greater than both the published version {stable} and main's version {source_version}.")
+    all_releases = releases()
+    if any(item["tag_name"] == version for item in all_releases):
+        raise ReleaseError(f"A GitHub release already uses tag {version}.")
+    tap_base = remote_refs(TAP, "refs/heads/main")["refs/heads/main"]
+    formula = remote_file(TAP, FORMULA, tap_base)
+    tap_version = one_match(FORMULA_TAG, formula, "formula source tag")[2]
+    if tap_version != latest:
+        raise ReleaseError(f"Homebrew has {tap_version} and GitHub has {latest}. Finish the previous Homebrew update first.")
+    return {"version": version, "base": base, "previous": latest}, drafter_candidate(all_releases), formula
+
+
+def print_preview(state, draft, *, dry_run):
+    version = state["version"]
+    prefix = "Dry run" if dry_run else "Preparing"
+    print(f"{prefix} {version} from {CLI} main at {state['base'][:12]}", flush=True)
+    notes = draft["html_url"] if draft and (draft["body"] or "").strip() else "GitHub-generated notes"
+    print(f"Release notes: {notes}\nHomebrew: {TAP} main ({bottle_name(version)})", flush=True)
+
+
+def preflight():
+    if sys.platform != "darwin":
+        raise ReleaseError("Run this release command on the maintainer's Mac.")
+    cli = github(CLI)["permissions"]
+    if not cli["admin"] or not cli["push"] or not github(TAP)["permissions"]["push"]:
+        raise ReleaseError(f"GitHub requires admin push access to {CLI} main and push access to {TAP} main.")
+    run("ruby", "--version")
+
+
+def build_preflight():
+    run("xcodebuild", "-version")
+    identities = run("security", "find-identity", "-v", "-p", "codesigning").decode()
+    if f'"{SIGNING_IDENTITY}"' not in identities:
+        raise ReleaseError(f"Install the certificate and private key for {SIGNING_IDENTITY}.")
+    run("xcrun", "notarytool", "history", "--keychain-profile", "AC_PASSWORD", "--team-id", TEAM)
+
+
+def clone_main(repo, destination):
+    git("clone", "--quiet", "--depth", "1", "--no-tags", "--branch", "main", repo_url(repo), destination)
+    # Keep the maintainer's repo-local identity and signing policy in the isolated checkout.
+    config = subprocess.run(
+        ["git", "config", "--null", "--get-regexp",
+         r"^(user\.(name|email|signingkey)$|gpg\.|commit\.gpgsign$|tag\.(gpgsign|forcesignannotated)$)"],
+        cwd=ROOT, stdout=subprocess.PIPE, env=ENV,
+    )
+    if config.returncode not in (0, 1):
+        raise ReleaseError("Could not read Git identity and signing settings.")
+    for entry in config.stdout.decode().split("\0"):
+        if entry:
+            key, value = entry.split("\n", 1)
+            git("config", "--local", key, value, cwd=destination)
+    return git("rev-parse", "HEAD", cwd=destination).decode().strip()
+
+
+def fingerprint(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for block in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(block)
+    return {"digest": f"sha256:{digest.hexdigest()}", "size": path.stat().st_size}
+
+
+def make_artifacts(path, source, version):
+    swift_flags = "SWIFT_BUILD_FLAGS=--disable-automatic-resolution"
+    run("make", "sign", swift_flags, cwd=source, capture=False)
+    binary = Path(run("make", "-s", "release-bin-path", swift_flags, cwd=source).decode().strip())
+    if not binary.is_file() or source not in binary.resolve().parents:
+        raise ReleaseError("Could not locate the release executable in the isolated checkout.")
+    if run(binary, "version", cwd=source).decode().strip() != version:
+        raise ReleaseError("The new executable reports the wrong version.")
+    if set(run("lipo", "-archs", binary).decode().split()) != {"x86_64", "arm64"}:
+        raise ReleaseError("The executable is missing the requested universal architectures.")
+    run("codesign", "--verify", "--strict", binary)
+    signing = subprocess.check_output(
+        ["codesign", "--display", "--verbose=4", binary], stderr=subprocess.STDOUT,
+    ).decode().splitlines()
+    if f"Authority={SIGNING_IDENTITY}" not in signing or f"TeamIdentifier={TEAM}" not in signing:
+        raise ReleaseError(f"The executable is missing the expected Developer ID signature for {TEAM}.")
+    archive = path / "xcodes.zip"
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as zipped:
+        zipped.write(binary, "xcodes")
+    bottle = path / bottle_name(version)
+    with tarfile.open(bottle, "w:gz") as tar:
+        tar.add(binary, arcname=f"xcodes/{version}/bin/xcodes")
+    for platform in BOTTLE_PLATFORMS[1:]:
+        shutil.copyfile(bottle, path / bottle_name(version, platform))
+    run("./notarize.sh", archive, TEAM, cwd=source, capture=False)
+    names = [archive.name, *(bottle_name(version, platform) for platform in BOTTLE_PLATFORMS)]
+    return {name: fingerprint(path / name) for name in names}
+
+
+def save_state(path, state):
+    temporary = path / "release.json.tmp"
+    temporary.write_text(json.dumps(state, indent=2) + "\n")
+    temporary.replace(path / "release.json")
+
+
+def prepare(path, state, formula):
+    with tempfile.TemporaryDirectory(prefix="preparing-", dir=path.parent) as temporary:
+        stage = Path(temporary) / path.name
+        stage.mkdir()
+        source = stage / "source"
+        if clone_main(CLI, source) != state["base"]:
+            raise ReleaseError("main moved while preparing the checkout. Retry the release command.")
+        if not (source / "Scripts/release").is_file():
+            raise ReleaseError("Merge the release automation into CLI main before publishing.")
+        version = state["version"]
+        version_file = source / VERSION_FILE
+        version_file.write_text(replace_one(
+            VERSION_LITERAL, version_file.read_text(), lambda m: f"{m[1]}{version}{m[3]}", "CLI version",
+        ))
+        rewrite_formula(formula, (source / "Package.swift").read_text(),
+                        (source / "Package.resolved").read_text(), version, "0" * 64)
+        git("add", "--", VERSION_FILE, cwd=source)
+        git("commit", "-m", f"Release {version}", cwd=source, capture=False)
+        git("tag", "-a", version, "-m", version, cwd=source)
+        run("swift", "test", "--disable-automatic-resolution", cwd=source, capture=False)
+        state["artifacts"] = make_artifacts(stage, source, version)
+        shutil.rmtree(source / ".build")
+        state["commit"] = git("rev-parse", "HEAD", cwd=source).decode().strip()
+        state["tag_sha"] = git("rev-parse", f"refs/tags/{version}", cwd=source).decode().strip()
+        save_state(stage, state)
+        if path.exists():
+            path.rename(Path(temporary) / "superseded")
+        stage.rename(path)
+
+
+def push_version(path, state):
+    version = state["version"]
+    tag = f"refs/tags/{version}"
+    refs = remote_refs(CLI, "refs/heads/main", tag)
+    if refs.get(tag) == state["tag_sha"]:
+        return
+    if tag in refs or refs["refs/heads/main"] != state["base"]:
+        raise ReleaseError("The release tag or CLI main changed on GitHub. Resume to reconcile the release.")
+    git("push", "--atomic", "origin", f"{state['commit']}:refs/heads/main", f"{tag}:{tag}",
+        cwd=path / "source", capture=False)
+    if remote_refs(CLI, tag).get(tag) != state["tag_sha"]:
+        raise ReleaseError("GitHub did not confirm the expected release tag.")
+
+
+def wait_for_drafter():
+    deadline = time.monotonic() + 300
+    while True:
+        runs = github(CLI, "/actions/workflows/release-drafter.yml/runs?branch=main&per_page=100")["workflow_runs"]
+        if all(run["status"] == "completed" for run in runs):
+            return
+        if time.monotonic() >= deadline:
+            raise ReleaseError("Release Drafter is still running. Resume after the workflow finishes.")
+        time.sleep(5)
+
+
+def verify_asset(asset, expected):
+    if asset["state"] != "uploaded" or any(asset.get(key) != value for key, value in expected.items()):
+        raise ReleaseError(f"GitHub asset {asset['name']} does not match the saved size and SHA-256.")
+
+
+def release_assets(release, expected):
+    assets = {}
+    for asset in release["assets"]:
+        name = asset["name"]
+        if name not in expected or name in assets:
+            raise ReleaseError(f"GitHub release has an unexpected or duplicate asset named {name}.")
+        assets[name] = asset
+    return assets
+
+
+def draft_release(path, state, all_releases):
+    version = state["version"]
+    candidate = drafter_candidate(all_releases)
+    if state.get("draft_id") is not None and (not candidate or candidate["id"] != state["draft_id"]):
+        raise ReleaseError("The saved Release Drafter draft was replaced or repurposed.")
+    body = candidate["body"] if candidate else ""
+    if not (body or "").strip():
+        body = github(CLI, "/releases/generate-notes", method="POST", body={
+            "tag_name": version, "target_commitish": state["commit"], "previous_tag_name": state["previous"],
+        })["body"]
+    if not (body or "").strip():
+        raise ReleaseError("GitHub returned empty release notes.")
+    payload = {"tag_name": version, "target_commitish": state["commit"], "name": version,
+               "body": body, "draft": True, "prerelease": False}
+    if candidate:
+        state["draft_id"] = candidate["id"]
+        save_state(path, state)
+        return github(CLI, f"/releases/{candidate['id']}", method="PATCH", body=payload)
+    return github(CLI, "/releases", method="POST", body=payload)
+
+
+def release_for_tag(all_releases, version):
+    matches = [item for item in all_releases if item["tag_name"] == version]
+    if len(matches) > 1:
+        raise ReleaseError(f"Multiple GitHub releases use {version}.")
+    return matches[0] if matches else None
+
+
+def publish(path, state):
+    version = state["version"]
+    release = release_for_tag(releases(), version)
+    if not release:
+        wait_for_drafter()
+        all_releases = releases()
+        release = release_for_tag(all_releases, version) or draft_release(path, state, all_releases)
+    if release["prerelease"] or release["tag_name"] != version or (
+        state.get("draft_id") is not None and release["id"] != state["draft_id"]
+    ) or (release["draft"] and release["name"] != version):
+        raise ReleaseError(f"GitHub returned a different release for {version}.")
+    state["draft_id"] = release["id"]
+    save_state(path, state)
+    endpoint = f"/releases/{release['id']}"
+    expected = state["artifacts"]
+    assets = release_assets(release, expected)
+    if release["draft"]:
+        for name, metadata in expected.items():
+            asset = assets.get(name)
+            if asset and asset["state"] == "starter" and asset["size"] == 0:
+                github(CLI, f"/releases/assets/{asset['id']}", method="DELETE")
+                asset = None
+            if asset:
+                verify_asset(asset, metadata)
+            else:
+                run("gh", "release", "upload", version, path / name, "--repo", f"github.com/{CLI}", capture=False)
+        release = github(CLI, endpoint)
+        if not release["draft"] or any(
+            release[key] != value for key, value in (("tag_name", version), ("name", version), ("prerelease", False))
+        ) or not (release["body"] or "").strip():
+            raise ReleaseError("The GitHub draft changed during upload.")
+        assets = release_assets(release, expected)
+    if assets.keys() != expected.keys():
+        raise ReleaseError("GitHub is missing one or more release assets.")
+    for name, asset in assets.items():
+        verify_asset(asset, expected[name])
+    ref = f"refs/tags/{version}"
+    if release["draft"]:
+        if remote_refs(CLI, ref).get(ref) != state["tag_sha"]:
+            raise ReleaseError(f"The GitHub tag for {version} changed before publication.")
+        release = github(CLI, endpoint, method="PATCH", body={
+            "draft": False, "make_latest": "true", "target_commitish": state["commit"],
+        })
+    if release["draft"] or release["prerelease"] or release["tag_name"] != version:
+        raise ReleaseError("GitHub did not publish the expected stable release.")
+    if github(CLI, "/releases/latest")["tag_name"] != version:
+        raise ReleaseError(f"GitHub does not report {version} as the latest stable release.")
+    if remote_refs(CLI, ref).get(ref) != state["tag_sha"]:
+        raise ReleaseError(f"The GitHub tag for {version} changed during publication.")
+    print(f"GitHub release: {release['html_url']}", flush=True)
+
+
+def update_tap(path, state):
+    version = state["version"]
+    name = bottle_name(version)
+    expected = state["artifacts"][name]
+    with tempfile.TemporaryDirectory(prefix="updating-tap-", dir=path.parent) as temporary:
+        temporary = Path(temporary)
+        download = temporary / name
+        run("curl", "--fail", "--silent", "--show-error", "--location", "--retry", "3", "--retry-all-errors",
+            "--max-time", "120", "--output", download, f"{download_root(version)}/{name}")
+        if fingerprint(download) != expected:
+            raise ReleaseError("The public Homebrew bottle does not match the notarized release.")
+        checkout = temporary / "tap"
+        base = clone_main(TAP, checkout)
+        formula = checkout / FORMULA
+        original = formula.read_text()
+        sources = [
+            git("show", f"{state['commit']}:{file}", cwd=path / "source").decode()
+            for file in ("Package.swift", "Package.resolved")
+        ]
+        candidate = rewrite_formula(original, *sources, version, expected["digest"].removeprefix("sha256:"))
+        tap_version = one_match(FORMULA_TAG, original, "formula source tag")[2]
+        if original == candidate:
+            commit = base
+        else:
+            if tap_version != state["previous"]:
+                raise ReleaseError(f"Homebrew has an unexpected or conflicting formula for xcodes {tap_version}.")
+            formula.write_text(candidate)
+            git("add", "--", FORMULA, cwd=checkout)
+            git("commit", "-m", f"Update xcodes to {version}", cwd=checkout, capture=False)
+            git("push", "origin", "HEAD:refs/heads/main", cwd=checkout, capture=False)
+            commit = git("rev-parse", "HEAD", cwd=checkout).decode().strip()
+        tip = remote_refs(TAP, "refs/heads/main")["refs/heads/main"]
+        if remote_file(TAP, FORMULA, tip) != candidate:
+            raise ReleaseError("Could not verify the updated formula on GitHub.")
+    print(f"Homebrew tap: https://github.com/{TAP}/commit/{commit}", flush=True)
+
+
+def finish(path, state):
+    version = state["version"]
+    for name, expected in state["artifacts"].items():
+        if fingerprint(path / name) != expected:
+            raise ReleaseError(f"The saved artifact {name} no longer matches the prepared release.")
+    push_version(path, state)
+    publish(path, state)
+    update_tap(path, state)
+    print(f"Released xcodes {version} on GitHub and Homebrew.", flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("version", metavar="VERSION", nargs="?", help="stable version to publish")
+    target.add_argument("--resume", metavar="VERSION", help="continue a release prepared in this checkout")
+    parser.add_argument("--dry-run", action="store_true", help="preview a new release using read-only checks")
+    args = parser.parse_args()
+    version = args.version or args.resume
+    if not re.fullmatch(VERSION, version):
+        parser.error("VERSION must have the form MAJOR.MINOR.PATCH, for example 2.2.1.")
+    if args.resume and args.dry_run:
+        parser.error("--dry-run applies to a new release.")
+    preflight()
+    if args.dry_run:
+        state, draft, formula = inspect_release(version)
+        sources = [remote_file(CLI, file, state["base"]) for file in ("Package.swift", "Package.resolved")]
+        rewrite_formula(formula, *sources, version, "0" * 64)
+        build_preflight()
+        print_preview(state, draft, dry_run=True)
+        return
+    git_dir = Path(git("rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
+    storage = git_dir / "xcodes-cli-releases"
+    storage.mkdir(exist_ok=True)
+    with (storage / "release.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ReleaseError("Another release is running in this checkout.") from None
+        path = storage / version
+        journal = path / "release.json"
+        if args.resume and not journal.is_file():
+            raise ReleaseError(f"No prepared release for {version} was found in this checkout.")
+        if not args.resume and journal.is_file():
+            raise ReleaseError(f"Use ./Scripts/release --resume {version} to continue the saved release.")
+        try:
+            state = json.loads(journal.read_text()) if args.resume else None
+            if state:
+                if state["version"] != version:
+                    raise ReleaseError(f"The saved release state belongs to {state['version']}, not {version}.")
+                tag = f"refs/tags/{version}"
+                refs = remote_refs(CLI, "refs/heads/main", tag)
+                if tag not in refs and refs["refs/heads/main"] != state["base"]:
+                    print("CLI main advanced before the release was pushed. Rebuilding from current main.", flush=True)
+                    state = None
+            if state is None:
+                state, draft, formula = inspect_release(version)
+                build_preflight()
+                print_preview(state, draft, dry_run=False)
+                prepare(path, state, formula)
+            finish(path, state)
+        except (ReleaseError, OSError, subprocess.SubprocessError, ValueError, KeyError, KeyboardInterrupt):
+            if journal.is_file():
+                print(f"Continue with ./Scripts/release --resume {version}", file=sys.stderr)
+            raise
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ReleaseError, OSError, subprocess.SubprocessError, ValueError, KeyError) as error:
+        sys.exit(f"Release stopped: {error}")
+    except KeyboardInterrupt:
+        sys.exit("Release interrupted.")
